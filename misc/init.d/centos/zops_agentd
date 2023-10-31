@@ -1,0 +1,74 @@
+#!/bin/bash
+# chkconfig: - 95 5
+# description: ZOps Monitoring Agent
+# processname: zops_agentd
+
+. /etc/init.d/functions
+
+RETVAL=0
+prog="zops_agentd"
+ZOPS_HOME="/usr/local/zops-server"
+ZOPS_BIN="${ZOPS_HOME}/sbin/${prog}"
+ZOPS_SOCK="${ZOPS_HOME}/data/${prog}_*.sock"
+ZBX_LOCK="${ZOPS_HOME}/data/${prog}.lock"
+
+if [ ! -x ${ZOPS_BIN} ] ; then
+        echo -n "${ZOPS_BIN} not installed! "
+        # Tell the user this has skipped
+        exit 5
+fi
+
+start() {
+        echo -n $"Starting $prog: "
+        ps -fe|grep "${prog}:" |grep -v grep
+        if [ $? -ne 0 ] 
+        then
+          rm -rf $ZOPS_LOCK
+          daemon $ZOPS_BIN -c "${ZOPS_HOME}/etc/${prog}.conf"
+          RETVAL=$?
+          # [ $RETVAL -eq 0 ] && touch $ZBX_LOCK
+          echo
+        else
+          echo -e "\033[1;31m\n\n${prog} is already running!!! \033[0m"
+        fi
+        echo
+}
+
+stop() {
+        echo -n $"stopping $prog "
+        # killall $prog
+        kill -9 $(pidof "${prog}")  >/dev/null 2>&1 
+        RETVAL=$?
+        # [ $RETVAL -eq 0 ] && rm -f $ZBX_LOCK
+        echo
+}
+
+case "$1" in
+  start)
+        start
+        ;;
+  stop)
+        stop
+        ;;
+  reload|restart)
+        stop
+        sleep 2
+        start
+        RETVAL=$?
+        ;;
+  condrestart)
+        if [ -f $ZBX_LOCK ]; then
+            stop
+            start
+        fi
+        ;;
+  status)
+        status $ZOPS_BIN
+        RETVAL=$?
+        ;;
+  *)
+        echo $"usage: $0 {condrestart|start|stop|restart|reload|status}"
+        exit 1
+esac
+
+exit $RETVAL
