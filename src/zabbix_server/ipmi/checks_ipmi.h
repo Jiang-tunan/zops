@@ -46,6 +46,9 @@ void	zbx_delete_inactive_ipmi_hosts(time_t last_check);
 
 void	zbx_perform_all_openipmi_ops(int timeout);
 
+int	get_ipmi_lanc_value(zbx_uint64_t itemid, const char *addr, unsigned short port, signed char authtype,
+		unsigned char privilege, const char *username, const char *password, char **value);
+		
 #endif	/* HAVE_OPENIPMI */
 
 #endif	/* ZABBIX_CHECKS_IPMI_H */

@@ -527,6 +527,8 @@ static int	process_services(const zbx_db_drule *drule, zbx_db_dhost *dhost, cons
 	int	i, ret;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() drule.name=[%s], drule.id=[%d], ip=[%s], dns=[%s], service.value_num=[%d]",
+											__func__, drule->name, drule->druleid, ip, dns, services->values_num);
 
 	zbx_vector_uint64_sort(dcheckids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
 
@@ -551,6 +553,8 @@ static int	process_services(const zbx_db_drule *drule, zbx_db_dhost *dhost, cons
 			dcheck = (DB_DCHECK *)dchecks->values[index];
 		}
 
+		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() service.dcheckid=[%d], service.port=[%d] service.status=[%d] service.status=[%s]",
+										__func__, service->dcheckid, service->port, service->status, service->value);
 		if (0 != (program_type & ZBX_PROGRAM_TYPE_SERVER))
 		{
 			//入库
