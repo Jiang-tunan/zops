@@ -66,6 +66,10 @@
 #include <OpenIPMI/ipmi_lan.h>
 #include <OpenIPMI/ipmi_auth.h>
 #include <OpenIPMI/ipmi_lanparm.h>
+#include <OpenIPMI/ipmi_types.h>
+#include <OpenIPMI/internal/ipmi_mc.h>
+#include <OpenIPMI/ipmi_addr.h>
+#include <OpenIPMI/internal/ipmi_sensor.h>
 
 #define RETURN_IF_CB_DATA_NULL(x, y)							\
 	if (NULL == (x))								\
@@ -1373,7 +1377,7 @@ static void	zbx_domain_up_cb(ipmi_domain_t *domain, void *cb_data)
 
 	h->domain_up = 1;
 	h->done = 1;
-	h->domain = domain;
+	// h->domain = domain;
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 }
 
@@ -1500,7 +1504,7 @@ static zbx_ipmi_host_t	*zbx_init_ipmi_host(const char *ip, int port, int authtyp
 
 	if (NULL != (h = zbx_get_ipmi_host(ip, port, authtype, privilege, username, password)))
 	{
-		if (1 == h->domain_up)
+		if (1 == h->domain_up) // 域开启标志
 			goto out;
 	}
 	else
@@ -2070,139 +2074,119 @@ int	zbx_set_ipmi_control_value(zbx_uint64_t hostid, const char *addr, unsigned s
 	return h->ret;
 }
 // lan_config 回调
-void get_lan_config_cb(ipmi_lanparm_t *lanparm,int err,ipmi_lan_config_t *config) 
+void get_lan_config_cb(ipmi_lanparm_t *lanparm,int err,ipmi_lan_config_t *config, void *cd_data) 
 {
+	char *mac_addr = (char *)cd_data;
     if (err) {
         // 打印错误信息
-        zabbix_log(LOG_LEVEL_ERR,"#ZOPS#IPMI %s() err=%d", __func__, err);
+        zabbix_log(LOG_LEVEL_ERR,"#ZOPS#IPMI %s() err=%d cddata=%s", __func__, err, mac_addr);
         return;
     }
 
     // 提取MAC地址并返回或使用它
-    unsigned char data[128];
     int len = 6;
-    int result = ipmi_lanconfig_get_mac_addr(lanparm, data, &len);
+    int result = ipmi_lanconfig_get_mac_addr(config, mac_addr, &len);
     zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() mac=%s result=%d", 
-           __func__, data, result);
+           __func__, mac_addr, result);
 }
-
-int zbx_ipmi_lanparm_alloc(zbx_ipmi_host_t *h, unsigned int channel, ipmi_lanparm_t **new_lanparm)
+ 
+int get_ipmi_lanc_value(zbx_uint64_t itemid, const char *addr_str, unsigned short port, signed char authtype,
+    unsigned char privilege, const char *username, const char *password, char **value)
 {
-   	ipmi_lanparm_t     *lanparm = NULL;
-    int                rv = 0;
-    ipmi_domain_t      *domain = h->domain;
-    int                p, len;
-    locked_list_t      *lanparml;
-    ipmi_domain_attr_t *attr;
+    zbx_ipmi_host_t *h;
+    size_t offset;
+    ipmi_lanparm_t *lanparm = NULL;
+    char *mac_addr = NULL;
+    int channel = 7;  // 通常是6或7，可能需要动态获取
+    int result;
 
-    rv = ipmi_domain_register_attribute(domain, IPMI_LANPARM_ATTR_NAME,
-					lanparm_attr_init,
-					lanparm_attr_destroy,
-					NULL,
-					&attr);
-    if (rv)
-	return rv;
-    lanparml = ipmi_domain_attr_get_data(attr);
+	ipmi_addr_t addr;
+	unsigned int addr_len;
 
-    lanparm = ipmi_mem_alloc(sizeof(*lanparm));
-    if (!lanparm) 
-	{
-		rv = ENOMEM;
-		goto out;
-    }
-    memset(lanparm, 0, sizeof(*lanparm));
+    ipmi_mc_t *mc = NULL;
+	ipmi_sensor_info_t *sen;
 
-    lanparm->refcount = 1;
-    lanparm->in_list = 1;
-    lanparm->mc = ipmi_mc_convert_to_id(mc);
-    lanparm->domain = ipmi_domain_convert_to_id(domain);
-    len = sizeof(lanparm->name);
-    p = ipmi_domain_get_name(domain, lanparm->name, len);
-    len -= p;
-    snprintf(lanparm->name+p, len, ".%d", ipmi_domain_get_unique_num(domain));
-    lanparm->os_hnd = ipmi_domain_get_os_hnd(domain);
-    lanparm->lanparm_lock = NULL;
-    lanparm->channel = channel & 0xf;
+    zabbix_log(LOG_LEVEL_DEBUG, "In %s() itemid:" ZBX_FS_UI64, __func__, itemid);
 
-    lanparm->opq = opq_alloc(lanparm->os_hnd);
-    if (!lanparm->opq) 
-	{
-		rv = ENOMEM;
-		goto out;
-    }
+    // if (NULL == os_hnd)
+    // {
+    //     *value = zbx_strdup(*value, "IPMI handler is not initialised.");
+    //     return CONFIG_ERROR;
+    // }
 
-    if (lanparm->os_hnd->create_lock) 
-	{
-		rv = lanparm->os_hnd->create_lock(lanparm->os_hnd,&lanparm->lanparm_lock);
-		if (rv)
-			goto out;
-    }
+    // h = zbx_init_ipmi_host(addr_str, port, authtype, privilege, username, password);
 
-    if (! locked_list_add(lanparml, lanparm, NULL)) 
-	{
-		rv = ENOMEM;
-		goto out;
-    }
+    // h->lastaccess = time(NULL);
 
- out:
-    if (rv) 
-	{
-		if (lanparm) 
-		{
-			if (lanparm->opq)
-			opq_destroy(lanparm->opq);
-			if (lanparm->lanparm_lock)
-			lanparm->os_hnd->destroy_lock(lanparm->os_hnd,lanparm->lanparm_lock);
-			ipmi_mem_free(lanparm);
-		}
-    } 
-	else 
-	{
-		*new_lanparm = lanparm;
-    }
-    ipmi_domain_attr_put(attr);
-    return rv;
+    // if (0 == h->domain_up)
+    // {
+    //     if (NULL != h->err)
+    //         *value = zbx_strdup(*value, h->err);
+
+    //     return h->ret;
+    // }
+
+    // zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()h.err: %s h.ret=[%d]", __func__, h->err, h->ret);
+	// mc = ipmi_sensor_get_mc(h->sensors->sensor); // 真正与目标主机连接的 mc 手动创建无效
+	// //mc = h->domian->si_mc;
+	// // ipmi_system_interface_addr_t si;
+
+    // // si.addr_type = IPMI_SYSTEM_INTERFACE_ADDR_TYPE;
+    // // si.channel = IPMI_BMC_CHANNEL;
+    // // si.lun = 0;
+    // // mc = i_ipmi_find_mc_by_addr(h->domain, (ipmi_addr_t *) &si, sizeof(si));
+    // // if ((!mc)  && (channel == 0)) {
+	// // /* If the specific connection doesn't exist and the connection
+	// //    is 0, use the BMC channel. */
+	// // si.channel = IPMI_BMC_CHANNEL;
+	// // mc = i_ipmi_find_mc_by_addr(h->domain, (ipmi_addr_t *) &si,
+	// // 			    sizeof(si));
+    // // }
+
+	// // if (mc == NULL) 
+	// // {
+	// // 	// handle error
+	// // 	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() MC is null!!!", __func__);
+	// // 	return 	FAIL; 
+	// // } 
+	// // i_ipmi_mc_use(mc);
+	// // i_ipmi_mc_force_active(mc, 1);
+	// sen = i_ipmi_mc_get_sensors(mc);
+	// int si_num = ipmi_sensors_get_count(sen);
+
+    // // 2. 分配 lanparm 结构
+	// if (result = ipmi_lanparm_alloc(mc, channel, &lanparm))
+	// {
+	// 	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()err: %d ", __func__, result);
+	// 	return result;
+	// }
+	// // int mc_channel = ipmi_mc_get_channel(mc);
+	// // int mc_addr = ipmi_mc_get_address(mc);
+	// // ipmi_mc_get_ipmi_address(mc, &addr, &addr_len);
+
+	// if (lanparm == NULL) 
+	// {
+	// 	// handle error
+	// 	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()llanparm is NULL or destroyed", __func__);
+	// 	return 	FAIL; 
+	// } 
+	// zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()mc.addr.channel: %d mc.addr.type: %d mc.addr.type: %s si_num=%d", 
+	//  							__func__, addr.channel, addr.addr_type, addr.data, si_num);
+    // // 3. 获取 LAN 配置
+	// if (result = ipmi_lan_get_config(lanparm, get_lan_config_cb, *value))
+	// {
+	// 	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()err: %d ", __func__, result);
+	// 	return result;
+	// }
+	
+	// ipmi_lan_clear_lock //释放锁
+	// ipmi_lanparm_destroy(ipmi_lanparm_t *lanparm, ipmi_lanparm_done_cb handler,cb_data); // 销毁结构体
+
+	
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI ipmi_lan_get_config : %d ", result);
+    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()Value: %s result: %d", __func__, *value, result);
+    return h->ret;
 }
 
-int	get_ipmi_lanc_value(zbx_uint64_t itemid, const char *addr, unsigned short port, signed char authtype,
-		unsigned char privilege, const char *username, const char *password, char **value)
-{
-	zbx_ipmi_host_t *h;
-	size_t 			offset;
-	ipmi_lanparm_t *lanparm = NULL;
-	ipmi_lan_config_t *config = NULL;
-    int channel = 6;  // 通常是6或7，可能需要动态获取
-	int result;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() itemid:" ZBX_FS_UI64, __func__, itemid);
-
-	if (NULL == os_hnd)
-	{
-		*value = zbx_strdup(*value, "IPMI handler is not initialised.");
-		return CONFIG_ERROR;
-	}
-
-	h = zbx_init_ipmi_host(addr, port, authtype, privilege, username, password);
-
-	h->lastaccess = time(NULL);
-
-	if (0 == h->domain_up)
-	{
-		if (NULL != h->err)
-			*value = zbx_strdup(*value, h->err);
-
-		return h->ret;
-	}
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()err: %s h.ret=[%d]", __func__, h->err, h->ret);
-	// 2. 分配lanparm结构
-    zbx_ipmi_lanparm_alloc(h, channel, &lanparm);
-
-    // 3. 获取LAN配置
-    result = ipmi_lan_get_config(lanparm, get_lan_config_cb, &config);  
-
-    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()Value: %s result: %d", __func__, value, result);
-
-	return h->ret;
-}
 
 #endif	/* HAVE_OPENIPMI */

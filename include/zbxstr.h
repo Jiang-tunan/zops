@@ -131,4 +131,16 @@ void	zbx_replace_string(char **data, size_t l, size_t *r, const char *value);
 	zbx_split(bstr, "#", tokens, &num);
 */
 int zbx_split(char *src, const char *separator, char **dest, int *num);
+
+/**
+ * 把字符串转为整型
+ * dst 被转化的字符串
+ * 返回: 如果字符串为NULL或非法字符串：0 , 正常：数字
+ 如： 
+	char *bstr = "abc";
+	int count = zbx_atoi(bstr);
+	count 值为0
+*/
+int zbx_atoi(char *dst);
+
 #endif /* ZABBIX_STR_H */

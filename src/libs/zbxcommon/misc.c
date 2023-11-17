@@ -195,6 +195,10 @@ char	*zbx_strdup2(const char *filename, int line, char *old, const char *str)
 	char	*ptr = NULL;
 
 	zbx_free(old);
+	
+	// 如果目标字符串为NULL，则返回""字符串
+	if (NULL == str)
+		return strdup("");
 
 	for (retry = 10; 0 < retry && NULL == ptr; ptr = strdup(str), retry--)
 		;

@@ -176,8 +176,9 @@ static int	discovery_single_parsing_fields(const char *value, const int dcheck_t
 
 	*dns = zbx_strdup(NULL, "");
 	
+	char *manufacturer_ = NULL;
 	int groupid_, manufacturerid_, templateid_;
-	discovery_parsing_value_model(*entphysicalmodelname, *sysdesc, dcheck_type, &groupid_, &manufacturerid_, &templateid_);
+	discovery_parsing_value_model(*entphysicalmodelname, *sysdesc, dcheck_type, &groupid_, &manufacturer_, &templateid_);
 
 	if (0 == *groupid)
 		*groupid = groupid_;

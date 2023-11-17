@@ -37,6 +37,7 @@
 #include "zbxip.h"
 #include "zbxsysinfo.h"
 #include "zbx_rtc_constants.h"
+#include "../ipmi/ipmi_discovery.h"
 
 #ifdef HAVE_LIBEVENT
 #	include <event.h>
@@ -64,6 +65,8 @@ void	DB_dcheck_free(DB_DCHECK *dcheck)
 	zbx_free(dcheck->snmpv3_privpassphrase);
 	zbx_free(dcheck->snmpv3_contextname);
 	zbx_free(dcheck->ip);
+	zbx_free(dcheck->user);
+	zbx_free(dcheck->password);
 	zbx_free(dcheck);
 }
 
@@ -132,6 +135,7 @@ static void	proxy_update_host(zbx_uint64_t druleid, const char *ip, const char *
 int	discover_service(const DB_DCHECK *dcheck, char *ip, int port, int config_timeout, char **value,
 		size_t *value_alloc)
 {
+
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s\n dcheckid:%d\n ports:%s\n key_:%s\n snmp_community:%s\n snmpv3_securityname:%s\n snmpv3_authpassphrase:%s\n snmpv3_privpassphrase:%s\n"
 	" snmpv3_contextname:%s\n type:%d\n snmpv3_securitylevel:%hhu\n snmpv3_authprotocol:%hhu\n snmpv3_privprotocol:%hhu\n houseid:%d\n druleid:%d\n"
 	" ip:%s\n port:%d timeout:%d",
@@ -142,10 +146,11 @@ int	discover_service(const DB_DCHECK *dcheck, char *ip, int port, int config_tim
 	int		ret = SUCCEED;
 	const char	*service = NULL;
 	AGENT_RESULT	result;
-  
+	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s()111111", __func__);
 	zbx_init_agent_result(&result);
 
 	**value = '\0';
+
 	switch (dcheck->type)
 	{
 		case SVC_SSH:
@@ -374,10 +379,45 @@ int	discover_service(const DB_DCHECK *dcheck, char *ip, int port, int config_tim
 				zbx_free(host.addr);
 				break;
 			case SVC_IPMI:
+			{
+				ipmitool_option_t *ioption = NULL;
+				ioption = (ipmitool_option_t *)zbx_malloc(ioption, sizeof(ipmitool_option_t));
+				ioption->option = IPMI_VALUE_OPTION_DISCOVERY;
+
+				memset(&item, 0, sizeof(DC_ITEM));
 				item.type = ITEM_TYPE_IPMI;
-				get_ipmi_value_by_ip(ip, port);
-				zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s() dc.type=%d IP=%s ret=%d",
-													 __func__, dcheck->type, ip, ret);
+				item.flags = ZBX_FLAG_DISCOVERY_RULE;
+				zbx_strscpy(item.key_orig, dcheck->key_);
+				item.key = item.key_orig;
+				// zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s() dcheck->key_=%s item.key=%s ",
+										//__func__, dcheck->key_, item.key);
+
+				// 用户配置信息 dcheck
+				zbx_strlcpy(item.host.ipmi_username, dcheck->user, sizeof(item.host.ipmi_username));
+				zbx_strlcpy(item.host.ipmi_password, dcheck->password, sizeof(item.host.ipmi_password));
+				item.host.ipmi_authtype = 2;
+				item.host.ipmi_privilege = 4;
+
+				// zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s() 3333333", __func__);
+				item.interface.useip = 1;
+				item.interface.addr = ip;
+				item.interface.port = port;
+
+				item.value_type	= ITEM_VALUE_TYPE_STR; // 未知
+				//ret = get_ipmi_value_by_ip(ip, port);
+
+				if (SUCCEED ==  ipmitool_control(&item, ioption))
+				{
+					zbx_strcpy_alloc(value, value_alloc, &value_offset, ioption->json);
+				}
+				else
+					ret = FAIL;
+				
+				zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s() dc.type=%d IP=%s ret=%d value=%s ",
+													 __func__, dcheck->type, ip, ret, *value);
+
+				zbx_free(ioption);
+			}
 				break;
 			default:
 				break;
@@ -405,9 +445,8 @@ static void	process_check(const DB_DCHECK *dcheck, int *host_status, char *ip, i
 	size_t		value_alloc = 128;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
-
 	value = (char *)zbx_malloc(value, value_alloc);
-	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s()", __func__);
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s()", __func__);
 	for (start = dcheck->ports; '\0' != *start;)
 	{
 		char	*comma, *last_port;
@@ -441,6 +480,7 @@ static void	process_check(const DB_DCHECK *dcheck, int *host_status, char *ip, i
 			service->port = port;
 			zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s() service.dcheckid=%d port=%d ",
 										__func__, service->dcheckid , service->port);
+			zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() dc.type=%d ", __func__, dcheck->type);
 			zbx_strlcpy_utf8(service->value, value, ZBX_MAX_DISCOVERED_VALUE_SIZE);
 			zbx_vector_ptr_append(services, service);
 
@@ -469,16 +509,12 @@ static void	process_checks(const zbx_db_drule *drule, int *host_status, char *ip
 	DB_ROW		row;
 	char		sql[MAX_STRING_LEN];
 	size_t		offset = 0;
-
-	long btime = time(NULL);
-
+	
 	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset,
-			"select dc.dcheckid,dc.type,dc.key_,dc.snmp_community,dc.snmpv3_securityname,dc.snmpv3_securitylevel,"
-				"dc.snmpv3_authpassphrase,dc.snmpv3_privpassphrase,dc.snmpv3_authprotocol,dc.snmpv3_privprotocol,"
-				"dc.ports,dc.snmpv3_contextname,dr.houseid,dc.druleid"
-			" from dchecks dc join drules dr on dc.druleid=dr.druleid"
-			" where dc.druleid=" ZBX_FS_UI64,
-			drule->druleid);
+			"SELECT dc.dcheckid, dc.type, dc.key_, cdt.PORT, cdt.USER, cdt.PASSWORD, cdt.snmpv3_securitylevel, " \
+			"cdt.snmpv3_authpassphrase, cdt.snmpv3_privpassphrase, cdt.snmpv3_authprotocol, cdt.snmpv3_privprotocol, dr.houseid, dc.druleid " \
+			"FROM dchecks dc LEFT JOIN drules dr ON dc.druleid = dr.druleid LEFT JOIN credentials cdt ON dc.credentialid = cdt.id " \
+			" WHERE dc.druleid=" ZBX_FS_UI64, drule->druleid); 
 	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s()", __func__);
 	if (0 != drule->unique_dcheckid)
 	{
@@ -489,36 +525,35 @@ static void	process_checks(const zbx_db_drule *drule, int *host_status, char *ip
 	zbx_snprintf(sql + offset, sizeof(sql) - offset, " order by dcheckid");
 
 	result = zbx_db_select("%s", sql);
-
 	while (NULL != (row = zbx_db_fetch(result)))
 	{
 		DB_DCHECK	*dcheck;
 		dcheck = (DB_DCHECK *)zbx_malloc(NULL, sizeof(DB_DCHECK));
 		memset(dcheck, 0, sizeof(DB_DCHECK)); //必须对dcheck初始化，否则会crash
-
 		ZBX_STR2UINT64(dcheck->dcheckid, row[0]);
-		dcheck->type = atoi(row[1]);
-		dcheck->key_ =   zbx_strdup(NULL, row[2]);
-		dcheck->snmp_community = zbx_strdup(NULL, row[3]);
+		dcheck->type = zbx_atoi(row[1]);
+		dcheck->key_ = zbx_strdup(NULL, row[2]);
+		dcheck->ports = zbx_strdup(NULL, row[3]);
+		dcheck->user = zbx_strdup(NULL, row[4]);
+		dcheck->password = zbx_strdup(NULL, row[5]);
 		dcheck->snmpv3_securityname = zbx_strdup(NULL, row[4]);
-		dcheck->snmpv3_securitylevel = (unsigned char)atoi(row[5]);
-		dcheck->snmpv3_authpassphrase = zbx_strdup(NULL, row[6]);
-		dcheck->snmpv3_privpassphrase = zbx_strdup(NULL, row[7]);
-		dcheck->snmpv3_authprotocol = (unsigned char)atoi(row[8]);
-		dcheck->snmpv3_privprotocol = (unsigned char)atoi(row[9]);
-		dcheck->ports = zbx_strdup(NULL, row[10]);
-		dcheck->snmpv3_contextname = zbx_strdup(NULL, row[11]);
-		dcheck->houseid = atoi(row[12]);
-		ZBX_STR2UINT64(dcheck->druleid, row[13]);
+		dcheck->snmpv3_contextname = zbx_strdup(NULL, row[5]);
+		dcheck->snmp_community = zbx_strdup(NULL, row[5]);
+		dcheck->snmpv3_securitylevel = (unsigned char)zbx_atoi(row[6]);
+		dcheck->snmpv3_authpassphrase = zbx_strdup(NULL, row[7]);
+		dcheck->snmpv3_privpassphrase = zbx_strdup(NULL, row[8]);
+		dcheck->snmpv3_authprotocol = (unsigned char)zbx_atoi(row[9]);
+		dcheck->snmpv3_privprotocol = (unsigned char)zbx_atoi(row[10]);
+		dcheck->houseid = zbx_atoi(row[11]);
+		ZBX_STR2UINT64(dcheck->druleid, row[12]);
 		zbx_vector_ptr_append(dchecks, dcheck);
 		zbx_vector_uint64_append(dcheckids, dcheck->dcheckid);
-
+		
 		//单条check去发现主机
 		process_check(dcheck, host_status, ip, now, services, config_timeout);
+		
 	}
 	zbx_db_free_result(result);
-	long ctime = time(NULL) - btime;
-	zabbix_log(LOG_LEVEL_WARNING, "#ZOPS#discoverer. druleid=%d,cost_time=%lld",drule->druleid, ctime);
 }
 
 static int	process_services(const zbx_db_drule *drule, zbx_db_dhost *dhost, const char *ip, const char *dns,
@@ -553,8 +588,6 @@ static int	process_services(const zbx_db_drule *drule, zbx_db_dhost *dhost, cons
 			dcheck = (DB_DCHECK *)dchecks->values[index];
 		}
 
-		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() service.dcheckid=[%d], service.port=[%d] service.status=[%d] service.status=[%s]",
-										__func__, service->dcheckid, service->port, service->status, service->value);
 		if (0 != (program_type & ZBX_PROGRAM_TYPE_SERVER))
 		{
 			//入库
@@ -591,7 +624,7 @@ static void	process_rule(zbx_db_drule *drule, int config_timeout)
 	char			ipnext[ZBX_INTERFACE_IP_LEN_MAX];
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() rule:'%s' range:'%s'", __func__, drule->name, drule->iprange);
-	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s()", __func__);
+	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s()1111111", __func__);
 	zbx_vector_ptr_create(&services);
 	zbx_vector_ptr_create(&dchecks);
 	zbx_vector_uint64_create(&dcheckids);
@@ -657,7 +690,7 @@ static void	process_rule(zbx_db_drule *drule, int config_timeout)
 			zbx_alarm_on(config_timeout);
 			zbx_gethost_by_ip(ip, dns, sizeof(dns));
 			zbx_alarm_off();
-
+			zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#IPMI %s()2222222", __func__);
 			//根据dchecks中的协议发现主机 并确认主机的状态
 			if (0 != drule->unique_dcheckid)
 				process_checks(drule, &host_status, ip, 1, now, &services, &dchecks, &dcheckids, config_timeout);

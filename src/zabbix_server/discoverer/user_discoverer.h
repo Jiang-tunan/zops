@@ -9,7 +9,6 @@
 #include "zbxdbhigh.h"
 #include "zbxthreads.h"
 #include "zbxnix.h"
-#include "../ipmi/ipmi_discovery.h"
 
 #define LOCK_USER_DISCOVER		zbx_mutex_lock(user_discover_lock)
 #define UNLOCK_USER_DISCOVER	zbx_mutex_unlock(user_discover_lock)
@@ -72,6 +71,7 @@ typedef struct
 	int                          sbegin_time;                       //完成时间
 	int                          query_number;						//查询次数，做进度条用
 	int                          progress;							//当前的进度0-100的值
+	zbx_vector_ptr_t             hostids;                           //扫描出来的hostid列表，保存对象为字符串(char *)
 }
 zbx_user_discover_session_t;
 

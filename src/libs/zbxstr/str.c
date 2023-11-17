@@ -2199,3 +2199,11 @@ int zbx_split(char *src, const char *separator, char **dest, int *num)
     *num = count;
 	return SUCCEED;
 }
+
+int zbx_atoi(char *dst)
+{
+	if(NULL ==  dst)
+		return 0;
+	else
+		return atoi(dst);
+}

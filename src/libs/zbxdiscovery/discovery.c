@@ -27,6 +27,7 @@
 #include "zbxserver.h"
 #include "zbx_host_constants.h"
 #include "zbxdbwrap.h"
+#include "../../zabbix_server/ipmi/ipmi_discovery.h"
 
 typedef struct
 {
@@ -42,7 +43,7 @@ typedef struct
 {
 	zbx_uint64_t	hostid;
 	//char		    *host;
-	//int		    status;
+	int		    status;
 	//int		    flags;
 }
 DB_HOST;
@@ -51,6 +52,7 @@ typedef struct
 {
 	zbx_uint64_t	interfaceid;
 	zbx_uint64_t	hostid;
+	// int             status;
 	//char		    *ip;
 	//char		    *port;
 	//unsigned char	type;
@@ -58,6 +60,39 @@ typedef struct
 	//unsigned char	useip;
 }
 DB_INTERFACE;
+
+typedef struct
+{
+	char *dunique;
+	zbx_uint64_t hostid;
+	int inventory_mode;	   // 主机资产填写模式.可能值是:-1 - (默认) 关闭;0 - 手动;1 - 自动.'
+	int houseid;		   // '机房id'
+	int inventory_typeid;  // 资产类型id'
+	char *manufacturer;	   //'厂商表名称,如：huawei'
+	int managerid;		   //'设备负责人id'
+	int hostgroupid;	   //'记录模板对应id，方便回显'
+	int groupid;		   //'设备类型id'
+	char *physical_model;  //'设备主机型号'
+	char *physical_serial; //'设备主机序列号'
+	char *chassis;		   //'机箱型号'
+	char *chassis_serial;  // '机箱序列号'
+	char *board;		   //'主板型号'
+	char *board_serial;	   // '主板序列号'
+	char *os_short;		   //'操作系统简称,如:Linux、Windows
+	char *ip;			   //'IP'
+	char *name;			   //'设备名称'
+	char *description;	  //'设备描述,一长串信息'
+	char *cpu;			   //'CPU信息,json定义:{\r\n\"cpu_num\": 2, //CPU数量\r\n\"mf\":\"Intel(R) Corporation\"  //CPU厂家\r\n\"name\":\"Intel(R) Xeon(R) Gold 5115 CPU @ 2.40GHz\"  //CPU名称\r\n}',
+	char *memory;		   // '内存信息,json定义\r\n{\r\n\"capacity\": 200, //内存总容量\r\n \"memory\":[{\r\n    \"mf\":\"Micron\",  //内存厂商\r\n    \"model\":\"镁光4G\",  //内存型号\r\n    \"serial\":\"0000000\",  //内存序列号\r\n    \"capacity\": \"4 G\",  //内存容量\r\n    }\r\n  ]\r\n}',
+	char *disk;			   // '磁盘信息,json定义：\r\n{\r\n\"disk_num\": 2, //磁盘数量\r\n \"disk\":[{\r\n    \"name\":\"镁光MTFDKBA512TFH\",  //磁盘名称\r\n    \"model\":\"Micron MTFDKABA512TFH\",  //磁盘型号\r\n    \"serial\":\"5WBXT0C4DAU2EM\",  //磁盘序列号\r\n    \"capacity\": \"512 G\",  //磁盘容量\r\n    }\r\n  ]\r\n}',
+	char *network;		   //'网络信息, json定义: \r\n{\r\n\"port_num\": 48,   //端口数量\r\n\"ethernet_num\": 2,  //网卡数量\r\n\"ethernet\": [{\r\n\"name\": \"HPE Ethernet 1Gb 4-port 331i Adapter - NIC\"\r\n},\r\n{\r\n\"name\": \"HPE Ethernet 2Gb 8-port 689 Adapter - NIC\"\r\n}\r\n]\r\n}',
+	char *bios;			   //'bios信息,json定义\r\n{\r\n\"mf\": \"HPE\",         //BIOS 厂家\r\n\"model\": \"U30\",   //BIOS 类型\r\n \"version\":\"03/16/2023\" //BIOS版本\r\n}',
+	char *psu;			   //'电源信息,json定义:\r\n{\r\n\"psu_num\": 2, //电源数量\r\n\"mf\":\"DELTA\",  //电源厂家\r\n\"model\":\"865414-B21\",  //电源型号\r\n \"version\":\"1.00\",  //电源版本\r\n \"serial\":\"5WBXT0C4DAU2EM\",  //电源序列号\r\n \"max_power\": 800,  //电源最大功率\r\n}',
+	//   int is_updateinfo;          //'是否已经更新过硬件信息，0否，1是'
+	//   long update_time;           //'更新时间'
+	//   long create_time;           //'创建时间'
+	char *macs;  //mac地址列表，格式为"ip1/ip2/ip3...",如："74-1f-4a-a2-02-bf/74-1f-4a-a2-02-d1/74-1f-4a-a2-02-ee"
+} DB_HOST_INVENTORY;
 
 static DB_RESULT	discovery_get_dhost_by_value(zbx_uint64_t dcheckid, const char *value)
 {
@@ -394,13 +429,13 @@ void vector_to_str(zbx_vector_str_t *v, char **out, const char *split)
 	}
 }
 
+
 //设备类型id 厂商id 模板id  (硬件型号->厂商id  硬件型号->设备类型id、品牌id->模板id(默认值))
-void discovery_parsing_value_model(const char *entphysicalmodelname, const char *sysdesc, int dcheck_type, int *groupid, int *manufacturerid, int *templateid)
+void discovery_parsing_value_model(const char *entphysicalmodelname, const char *sysdesc, int dcheck_type, int *groupid, char **manufacturer, int *templateid)
 {
-	char *manufacturer = NULL;
+	*manufacturer = NULL;
 
 	*groupid = 0;
-	*manufacturerid = 0;
 	*templateid = 0;
 	
 	DB_RESULT	result;
@@ -410,21 +445,22 @@ void discovery_parsing_value_model(const char *entphysicalmodelname, const char 
 	{
 		*templateid = atoi(row[0]);
 		*groupid = atoi(row[1]);
-		manufacturer = row[2];
+		*manufacturer = row[2];
 	}
 	zbx_db_free_result(result);
  
 
-	if (NULL != manufacturer)  // 如果在设备型号表能找到相关厂家信息，则用设备型号表的信息
-	{
-		result = zbx_db_select("select manufacturerid from manufacturer where name='%s'", manufacturer);
-		if (NULL != (row = zbx_db_fetch(result)))
-		{
-			*manufacturerid = atoi(row[0]);
-		}
-		zbx_db_free_result(result);
-	}
-	else if(NULL != sysdesc)  //否则根据snmp协议返回的系统描述找出相关的厂家id
+	// if (NULL != manufacturer)  // 如果在设备型号表能找到相关厂家信息，则用设备型号表的信息
+	// {
+	// 	result = zbx_db_select("select name from manufacturer where name='%s'", manufacturer);
+	// 	if (NULL != (row = zbx_db_fetch(result)))
+	// 	{
+	// 		*manufacturer = row[0];
+	// 	}
+	// 	zbx_db_free_result(result);
+	// }
+	// else 
+	if(NULL == *manufacturer && NULL != sysdesc)  //否则根据snmp协议返回的系统描述找出相关的厂家id
 	{	
 		zbx_vector_str_t	manufacturer_names;
 		zbx_vector_str_create(&manufacturer_names);
@@ -436,12 +472,12 @@ void discovery_parsing_value_model(const char *entphysicalmodelname, const char 
 
 		char	*sql = NULL;
 		size_t	sql_alloc = 0, sql_offset = 0;
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "select manufacturerid, name from manufacturer where");
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "select name from manufacturer where");
 		zbx_db_add_str_condition_alloc(&sql, &sql_alloc, &sql_offset, "name", (const char **)manufacturer_names.values, manufacturer_names.values_num);
 		result = zbx_db_select("%s", sql);
 		if (NULL != (row = zbx_db_fetch(result)))
 		{
-			*manufacturerid=atoi(row[0]);
+			*manufacturer=row[0];
 		}
 
 		zbx_vector_str_clear_ext(&manufacturer_names, zbx_str_free);
@@ -469,7 +505,7 @@ void discovery_parsing_value_os(const char *sysdesc, char **out)
  * 只注册不更新，web端会手动更新，如果自动更新会覆盖手动更新                       *
  *                                                                            *
  ******************************************************************************/
-static void	discovery_register_host(DB_HOST *host, const char *value, const char *ip, const char *dns, int port, int status, const DB_DCHECK *dcheck)
+static void	discovery_register_host(DB_HOST *host, DB_HOST_INVENTORY *inventory,const char *value, const char *ip, const char *dns, int port, int status, const DB_DCHECK *dcheck)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
@@ -493,12 +529,20 @@ static void	discovery_register_host(DB_HOST *host, const char *value, const char
 	zbx_vector_str_create(&macs_dis);
 	zbx_vector_str_create(&macs_his);
 
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() value=[%s]",
+								__func__, value);
+
 	discovery_parsing_value(value,ZBX_DSERVICE_KEY_SYSNAME,&sysname);
 	discovery_parsing_value(value,ZBX_DSERVICE_KEY_SYSDESC,&sysdesc);
 	discovery_parsing_macs(value,&macs_dis);
 	discovery_parsing_value(value,ZBX_DSERVICE_KEY_ENTPHYSICALSERIALNUM,&entphysicalserialnum);
 	discovery_parsing_value(value,ZBX_DSERVICE_KEY_ENTPHYSICALMODELNAME,&entphysicalmodelname);
 
+	
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() sysname=[%s] sysdesc=[%s] entphysicalserialnum=[%s] entphysicalmodelname=[%s]",
+								__func__, sysname, sysdesc, entphysicalserialnum, entphysicalmodelname);
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() macs_dis.values_num=[%d]",
+									__func__, macs_dis.values_num);
 	//如果mac地址为空 记录日志  
 	if (macs_dis.values_num == 0)
 	{
@@ -507,12 +551,14 @@ static void	discovery_register_host(DB_HOST *host, const char *value, const char
 		goto out;
 	}
 
+	char *manufacturer = NULL;
 	int groupid=0,manufacturerid=0,templateid=0;
-	discovery_parsing_value_model(entphysicalmodelname, sysdesc, dcheck->type, &groupid, &manufacturerid, &templateid);
+	discovery_parsing_value_model(entphysicalmodelname, sysdesc, dcheck->type, &groupid, &manufacturer, &templateid);
 
 	char *db_name = NULL;
+	host->status = HOST_STATUS_UNREACHABLE;
 	//新发现的mac地址和主机表里面的任何一个mac地址匹配上了 把匹配上的作为host字段 且说明在表里面
-	result = zbx_db_select("select hostid, ifphysaddresses, name from hosts where ifphysaddresses != '' ");
+	result = zbx_db_select("select hostid, ifphysaddresses, name, status from hosts where ifphysaddresses != '' ");
 	while (NULL != (row = zbx_db_fetch(result)))
 	{
 		zbx_vector_str_clear_ext(&macs_his, zbx_str_free);
@@ -523,8 +569,9 @@ static void	discovery_register_host(DB_HOST *host, const char *value, const char
 			int index;
 			if (FAIL != (index = zbx_vector_str_bsearch(&macs_his, macs_dis.values[i], ZBX_DEFAULT_STR_COMPARE_FUNC)))
 			{
-				db_name = row[2];
 				ZBX_STR2UINT64(host->hostid, row[0]);
+				db_name = row[2];
+				host->status = atoi(row[3]);
 				ifphysaddress = zbx_dsprintf(NULL, "%s", macs_his.values[index]);
 				break;
 			}
@@ -536,7 +583,7 @@ static void	discovery_register_host(DB_HOST *host, const char *value, const char
 		ifphysaddress = zbx_dsprintf(NULL, "%s", macs_dis.values[0]);
 
 	vector_to_str(&macs_dis, &ifphysaddresses, "/");
-
+	 
 	if(NULL != db_name && strlen(db_name) > 0){ //如果数据库已经存在系统名称，则用数据库的名称
 		name = zbx_strdup(NULL,db_name);
 	}else{
@@ -558,6 +605,7 @@ static void	discovery_register_host(DB_HOST *host, const char *value, const char
 	discovery_parsing_value_os(sysdesc, &os);
 	os_esc = zbx_db_dyn_escape_field("hosts", "os", os);
 	
+
 	//因为templateid字段有hostid外键关联，如果templateid没有对应hostid值，导致插入不进去的问题. 所以有值才插入templateid字段
 	if(templateid > 0) 
 	{ 
@@ -595,6 +643,53 @@ static void	discovery_register_host(DB_HOST *host, const char *value, const char
 					update_time,os_esc,name_upper_esc,groupid,host->hostid);
 		}
 	}
+
+	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, status=%d, hoststatus:%d, hostid:%d", __func__, status, host->status, host->hostid);
+	// status 0已监控，1已关闭，2未纳管, 未纳管的设备返回给前端实时显示
+	if(host->status == HOST_STATUS_UNREACHABLE)
+	{
+		user_discover_add_hostid(dcheck->druleid, host->hostid);
+	}
+	
+	zabbix_log(LOG_LEVEL_DEBUG,"#ZOPS#IPMI %s() dcheck_type= [%d]",
+								__func__, dcheck->type);
+	if(dcheck->type == SVC_IPMI)
+	{
+		// 更新 host表的ipmi信息
+		char *ipmi_username = NULL;
+		char *ipmi_password = NULL;
+		char *temp;
+		signed char ipmi_authtype;
+		unsigned char ipmi_privilege;
+
+		discovery_parsing_value(value, "ipmi_username",&ipmi_username);
+		discovery_parsing_value(value,"ipmi_password",&ipmi_password);
+		discovery_parsing_value(value,"ipmi_privilege",&temp);
+		ipmi_authtype = (signed char)zbx_atoi(temp);
+		discovery_parsing_value(value,"ipmi_authtype",&temp);
+		ipmi_privilege = (unsigned char)zbx_atoi(temp);
+
+		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() ipmi_username=[%s] ipmi_password=[%s] ipmi_privilege=[%d] ipmi_authtype=[%d] hsotid=[%d]",
+							__func__, ipmi_username,ipmi_password,ipmi_privilege,ipmi_authtype, host->hostid);
+		
+		char *escaped_ipmi_username = zbx_db_dyn_escape_field("hosts", "ipmi_username", ipmi_username);
+		char *escaped_ipmi_password = zbx_db_dyn_escape_field("hosts", "ipmi_password", ipmi_password);
+
+		char sql_query[MAX_STRING_LEN]; 
+		zbx_snprintf(sql_query, sizeof(sql_query), 
+					"UPDATE hosts SET ipmi_username='%s', ipmi_password='%s', ipmi_privilege=%d, ipmi_authtype=%d WHERE hostid=" ZBX_FS_UI64,
+					escaped_ipmi_username, escaped_ipmi_password, ipmi_privilege, ipmi_authtype, host->hostid);
+		zbx_db_execute(sql_query);
+
+		// 绑定模板和设备类型
+		bind_template_to_host(host->hostid);
+
+		zbx_free(ipmi_username);
+		zbx_free(ipmi_password);
+		zbx_free(escaped_ipmi_password);
+		zbx_free(escaped_ipmi_username);
+		zbx_free(temp);
+	}
 	//zbx_db_free_result(result);
 
 	// if (templateid)
@@ -617,6 +712,16 @@ static void	discovery_register_host(DB_HOST *host, const char *value, const char
 	// 	}
 	// 	zbx_db_free_result(result);
 	// }
+	inventory->hostid = host->hostid;
+	inventory->name = zbx_strdup(NULL, name);
+	inventory->description =  zbx_strdup(NULL,sysdesc);
+	inventory->physical_model =  zbx_strdup(NULL,entphysicalmodelname);
+	inventory->physical_serial =  zbx_strdup(NULL,entphysicalserialnum);
+	inventory->houseid = dcheck->houseid;
+	inventory->os_short = zbx_strdup(NULL,os);
+	inventory->manufacturer = zbx_strdup(NULL,manufacturer);
+	inventory->ip = zbx_strdup(NULL, ip);
+	inventory->macs = zbx_strdup(NULL, ifphysaddresses);
 
 out:
 	zbx_free(sysname);
@@ -634,10 +739,12 @@ out:
 	zbx_free(os_esc);
 	zbx_free(name);
 	zbx_free(name_upper_esc);
-	zbx_vector_str_clear_ext(&macs_dis, zbx_str_free);
-	zbx_vector_str_clear_ext(&macs_his, zbx_str_free);
-	zbx_vector_str_destroy(&macs_dis);
+	
 	zbx_vector_str_destroy(&macs_his);
+	zbx_vector_str_clear_ext(&macs_his, zbx_str_free);
+
+	zbx_vector_str_clear_ext(&macs_dis, zbx_str_free);
+	zbx_vector_str_destroy(&macs_dis);
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 }
 
@@ -659,8 +766,8 @@ unsigned char	get_interface_type_by_dservice_type(unsigned char type)
 		case SVC_SNMPv2c:
 		case SVC_SNMPv3:
 			return INTERFACE_TYPE_SNMP;
-		//case SVC_IPMI:
-		//	return INTERFACE_TYPE_IPMI;
+		case SVC_IPMI:
+			return INTERFACE_TYPE_IPMI;
 		default:
 			return INTERFACE_TYPE_UNKNOWN;
 	}
@@ -750,7 +857,7 @@ static void	discovery_register_interface(const DB_HOST *host, DB_INTERFACE *inte
 			main = 0;
 		}
 
-		// 如果hostid, type, ip, port 都一样，说明要更新
+		// 如果hostid, type, ip, port 都一样，说明要更新 
 		if(db_type == type && 0 == zbx_strcmp_null(ip_esc, db_ip) && port == db_port)
 		{
 			interfaceid = db_interfaceid;
@@ -770,20 +877,647 @@ static void	discovery_register_interface(const DB_HOST *host, DB_INTERFACE *inte
 	}
 	else
 	{
+		interface->interfaceid = interfaceid;
 		zbx_db_execute("update interface set hostid="ZBX_FS_UI64",ip='%s',dns='%s',port='%d',type=%d,main=%d"
 		" where interfaceid="ZBX_FS_UI64,
 		host->hostid,ip_esc,dns_esc,port,type,main, interfaceid);
 	}
+	zbx_db_free_result(result);
 
 	if (INTERFACE_TYPE_SNMP==type)
 		discovery_register_interface_snmp(interface->interfaceid, dcheck);
 
-	zbx_db_free_result(result);
+	
 	zbx_free(ip_esc);
 	zbx_free(dns_esc);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 }
+
+
+static char * get_str_field(char *str)
+{
+	if(str == NULL)
+		return zbx_strdup(NULL,"");
+	else
+		return str;
+}
+
+static char * get_str_inventory_field(char *old, char *new)
+{
+	if(new == NULL || strlen(new) <= 0)
+		return old;
+	else
+		return new;
+}
+
+static int get_int_inventory_field(int old, int new)
+{
+	if(new <= 0)
+		return old;
+	else
+		return new;
+}
+
+static char* update_inventory_cpu(char *old, char *new)
+{
+	if(new == NULL || strlen(new) <= 5)
+		return old;
+	else if(old == NULL || strlen(old) <= 5)
+		return new;
+	
+	char cpu_num_old[16],mf_old[256],name_old[256];
+	struct zbx_json_parse jp_old;
+	if (SUCCEED == zbx_json_open(old, &jp_old))
+	{
+		zbx_json_value_by_name(&jp_old, "cpu_num", cpu_num_old, sizeof(cpu_num_old), NULL);
+		zbx_json_value_by_name(&jp_old, "mf", mf_old, sizeof(mf_old), NULL);
+		zbx_json_value_by_name(&jp_old, "name", name_old, sizeof(name_old), NULL);
+	}
+
+	struct zbx_json_parse jp_new;
+	char cpu_num_new[16],mf_new[256],name_new[256];
+	if (SUCCEED == zbx_json_open(new, &jp_new))
+	{
+		zbx_json_value_by_name(&jp_new, "cpu_num", cpu_num_new, sizeof(cpu_num_new), NULL);
+		zbx_json_value_by_name(&jp_new, "mf", mf_new, sizeof(mf_new), NULL);
+		zbx_json_value_by_name(&jp_new, "name", name_new, sizeof(name_new), NULL);
+	}
+
+	struct zbx_json j;
+	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	zbx_json_addint64(&j, "cpu_num", zbx_atoi(get_str_inventory_field(cpu_num_old, cpu_num_new)));
+	zbx_json_addstring(&j, "mf", get_str_inventory_field(mf_old, mf_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_addstring(&j, "name", get_str_inventory_field(name_old, name_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_close(&j);
+    char *json = strdup(j.buffer);
+    zbx_json_free(&j);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s, old:%s new:%s match:%s",
+			   __func__, old, new, json);
+	return json;
+}
+
+
+static char* update_inventory_bios(char *old, char *new)
+{
+	if(new == NULL || strlen(new) <= 5)
+		return old;
+	else if(old == NULL || strlen(old) <= 5)
+		return new;
+
+	char mf_old[256],model_old[256],version_old[256];
+	struct zbx_json_parse jp_old;
+	if (SUCCEED == zbx_json_open(old, &jp_old))
+	{
+		zbx_json_value_by_name(&jp_old, "mf", mf_old, sizeof(mf_old), NULL);
+		zbx_json_value_by_name(&jp_old, "model", model_old, sizeof(model_old), NULL);
+		zbx_json_value_by_name(&jp_old, "version", version_old, sizeof(version_old), NULL);
+	}
+	//zbx_json_close(&jp_old);
+
+	struct zbx_json_parse jp_new;
+	char mf_new[256],model_new[256],version_new[256];
+	if (SUCCEED == zbx_json_open(new, &jp_new))
+	{
+		zbx_json_value_by_name(&jp_new, "mf", mf_new, sizeof(mf_new), NULL);
+		zbx_json_value_by_name(&jp_new, "model", model_new, sizeof(model_new), NULL);
+		zbx_json_value_by_name(&jp_new, "version", version_new, sizeof(version_new), NULL);
+	}
+	//zbx_json_close(&jp_new);
+
+	struct zbx_json j;
+	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	zbx_json_addint64(&j, "mf", get_str_inventory_field(mf_old, mf_new));
+	zbx_json_addstring(&j, "model", get_str_inventory_field(model_old, model_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_addstring(&j, "version", get_str_inventory_field(version_old, version_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_close(&j);
+    char *json = strdup(j.buffer);
+    zbx_json_free(&j);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s, old:%s new:%s match:%s",
+			   __func__, old, new, json);
+	return json;
+}
+
+/**
+ * 内存，json数据格式
+ * {
+	"capacity": "32G", //内存总容量
+	"memory":[{
+		"mf":"Micron",  //内存厂商
+		"model":"镁光16G",  //内存型号
+		"serial":"0000000",  //内存序列号
+		"capacity": "16 G" //内存容量
+		}
+	  ]
+	}
+*/
+static char* update_inventory_memory(char *old, char *new)
+{
+	if(new == NULL || strlen(new) <= 5)
+		return old;
+	else if(old == NULL || strlen(old) <= 5)
+		return new;
+
+	struct zbx_json j;
+	struct zbx_json_parse jp_old,jp_new;
+	struct zbx_json_parse jp_memory_old,jp_memory_new, *jp_memory;
+	int result_old = zbx_json_open(old, &jp_old);
+	int result_new = zbx_json_open(new, &jp_new);
+	
+	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	char t_capacity_old[256];
+	char t_capacity_new[256], mf_new[256],model_new[256],serial_new[256],capacity_new[256];
+	if (SUCCEED == result_old && SUCCEED == result_new)
+	{
+		zbx_json_value_by_name(&jp_old, "capacity", t_capacity_old, sizeof(t_capacity_old), NULL);
+		zbx_json_value_by_name(&jp_new, "capacity", t_capacity_new, sizeof(t_capacity_new), NULL);
+		zbx_json_addstring(&j, "capacity", get_str_inventory_field(t_capacity_old, t_capacity_new), ZBX_JSON_TYPE_STRING);
+		const char *p = NULL;
+
+		// 如果有新的对象有值，则用新的对象值
+		if (SUCCEED == zbx_json_brackets_by_name(&jp_new, "memory", &jp_memory_new)
+			&& zbx_json_count(&jp_memory_new) > 0)
+		{
+			jp_memory = &jp_memory_new;
+		}
+		// 否则则用数据库对象值
+		else if (SUCCEED == zbx_json_brackets_by_name(&jp_old, "memory", &jp_memory_old)
+			&& zbx_json_count(&jp_memory_old) > 0)
+		{
+			jp_memory = &jp_memory_old;
+		}
+
+		zbx_json_addarray(&j, "memory");
+		while (NULL != (p = zbx_json_next(jp_memory, p)))
+		{
+			struct zbx_json_parse obj_j;
+			if (SUCCEED == zbx_json_brackets_open(p, &obj_j))
+			{
+				zbx_json_addobject(&j, NULL);
+
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "mf", mf_new, sizeof(mf_new), NULL))
+				{
+					zbx_json_addstring(&j, "mf", mf_new, ZBX_JSON_TYPE_STRING);
+				}
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "model", model_new, sizeof(model_new), NULL))
+				{
+					zbx_json_addstring(&j, "model", model_new, ZBX_JSON_TYPE_STRING);
+				}
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "serial", serial_new, sizeof(serial_new), NULL))
+				{
+					zbx_json_addstring(&j, "serial", serial_new, ZBX_JSON_TYPE_STRING);
+				}
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "capacity", capacity_new, sizeof(capacity_new), NULL))
+				{
+					zbx_json_addstring(&j, "capacity", capacity_new, ZBX_JSON_TYPE_STRING);
+				}
+
+				zbx_json_close(&j);
+			}
+		}
+
+	} 
+	zbx_json_close(&j);
+    char *json = strdup(j.buffer);
+    zbx_json_free(&j);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s, old:%s new:%s match:%s",
+			   __func__, old, new, json);
+	return json;
+}
+
+/**
+ * 磁盘，json数据格式
+ * {
+	"capacity": "32G", //磁盘总容量
+	"disk":[{
+		"name":"镁光MTFDKBA512TFH",  //磁盘名称
+		"model":"Micron MTFDKABA512TFH",  //磁盘型号
+		"serial":"5WBXT0C4DAU2EM",  //磁盘序列号
+		"capacity": "512 G"  //磁盘容量
+		}
+	]
+	}
+*/
+static char* update_inventory_disk(char *old, char *new)
+{
+	if(new == NULL || strlen(new) <= 5)
+		return old;
+	else if(old == NULL || strlen(old) <= 5)
+		return new;
+
+	struct zbx_json j;
+	struct zbx_json_parse jp_old,jp_new;
+	struct zbx_json_parse jp_memory_old,jp_memory_new, *jp_memory;
+	int result_old = zbx_json_open(old, &jp_old);
+	int result_new = zbx_json_open(new, &jp_new);
+
+	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	char t_capacity_old[256];
+	char t_capacity_new[256], name_new[256],model_new[256],serial_new[256],capacity_new[256];
+	if (SUCCEED == result_old && SUCCEED == result_new)
+	{
+		zbx_json_value_by_name(&jp_old, "capacity", t_capacity_old, sizeof(t_capacity_old), NULL);
+		zbx_json_value_by_name(&jp_new, "capacity", t_capacity_new, sizeof(t_capacity_new), NULL);
+		zbx_json_addstring(&j, "capacity", get_str_inventory_field(t_capacity_old, t_capacity_new), ZBX_JSON_TYPE_STRING);
+		const char *p = NULL;
+
+		// 如果有新的对象有值，则用新的对象值
+		if (SUCCEED == zbx_json_brackets_by_name(&jp_new, "disk", &jp_memory_new)
+			&& zbx_json_count(&jp_memory_new) > 0)
+		{
+			jp_memory = &jp_memory_new;
+		}
+		// 否则则用数据库对象值
+		else if (SUCCEED == zbx_json_brackets_by_name(&jp_old, "disk", &jp_memory_old)
+			&& zbx_json_count(&jp_memory_old) > 0)
+		{
+			jp_memory = &jp_memory_old;
+		}
+
+		zbx_json_addarray(&j, "disk");
+		while (NULL != (p = zbx_json_next(jp_memory, p)))
+		{
+			struct zbx_json_parse obj_j;
+			if (SUCCEED == zbx_json_brackets_open(p, &obj_j))
+			{
+				zbx_json_addobject(&j, NULL);
+
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "name", name_new, sizeof(name_new), NULL))
+				{
+					zbx_json_addstring(&j, "name", name_new, ZBX_JSON_TYPE_STRING);
+				}
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "model", model_new, sizeof(model_new), NULL))
+				{
+					zbx_json_addstring(&j, "model", model_new, ZBX_JSON_TYPE_STRING);
+				}
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "serial", serial_new, sizeof(serial_new), NULL))
+				{
+					zbx_json_addstring(&j, "serial", serial_new, ZBX_JSON_TYPE_STRING);
+				}
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "capacity", capacity_new, sizeof(capacity_new), NULL))
+				{
+					zbx_json_addstring(&j, "capacity", capacity_new, ZBX_JSON_TYPE_STRING);
+				}
+
+				zbx_json_close(&j);
+			}
+		}
+
+	} 
+	zbx_json_close(&j);
+    char *json = strdup(j.buffer);
+    zbx_json_free(&j);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s, old:%s new:%s match:%s",
+			   __func__, old, new, json);
+	return json;
+}
+
+
+/**
+ * 网络，json数据格式
+ * {
+	"port_num": 48,   //端口数量
+	"ethernet_num": 2,  //网卡数量
+	"ethernet": [{
+	"name": "HPE Ethernet 1Gb 4-port 331i Adapter - NIC",  //网卡名称(不是端口名称)
+	"netspeed":"1G"     //传输速率
+	},
+	{
+	"name": "HPE Ethernet 2Gb 8-port 689 Adapter - NIC"
+	}
+	]
+	}
+*/
+static char* update_inventory_network(char *old, char *new)
+{
+	if(new == NULL || strlen(new) <= 5)
+		return old;
+	else if(old == NULL || strlen(old) <= 5)
+		return new;
+
+	struct zbx_json j;
+	struct zbx_json_parse jp_old,jp_new;
+	struct zbx_json_parse jp_memory_old,jp_memory_new, *jp_memory;
+	int result_old = zbx_json_open(old, &jp_old);
+	int result_new = zbx_json_open(new, &jp_new);
+
+	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	char port_num_old[32],port_num_new[32];
+	char ethernet_num_old[32],ethernet_num_new[32];
+	char name_new[256],netspeed_new[256];
+	if (SUCCEED == result_old && SUCCEED == result_new)
+	{
+		zbx_json_value_by_name(&jp_old, "port_num", port_num_old, sizeof(port_num_old), NULL);
+		zbx_json_value_by_name(&jp_new, "port_num", port_num_new, sizeof(port_num_new), NULL);
+		zbx_json_addint64(&j, "port_num", zbx_atoi(get_str_inventory_field(port_num_old, port_num_new)));
+		
+		zbx_json_value_by_name(&jp_old, "ethernet_num", ethernet_num_old, sizeof(ethernet_num_old), NULL);
+		zbx_json_value_by_name(&jp_new, "ethernet_num", ethernet_num_new, sizeof(ethernet_num_new), NULL);
+		zbx_json_addint64(&j, "ethernet_num", zbx_atoi(get_str_inventory_field(ethernet_num_old, ethernet_num_new)));
+		
+		
+		const char *p = NULL;
+
+		// 如果有新的对象有值，则用新的对象值
+		if (SUCCEED == zbx_json_brackets_by_name(&jp_new, "ethernet", &jp_memory_new)
+			&& zbx_json_count(&jp_memory_new) > 0)
+		{
+			jp_memory = &jp_memory_new;
+		}
+		// 否则则用数据库对象值
+		else if (SUCCEED == zbx_json_brackets_by_name(&jp_old, "ethernet", &jp_memory_old)
+			&& zbx_json_count(&jp_memory_old) > 0)
+		{
+			jp_memory = &jp_memory_old;
+		}
+
+		zbx_json_addarray(&j, "ethernet");
+		while (NULL != (p = zbx_json_next(jp_memory, p)))
+		{
+			struct zbx_json_parse obj_j;
+			if (SUCCEED == zbx_json_brackets_open(p, &obj_j))
+			{
+				zbx_json_addobject(&j, NULL);
+
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "name", name_new, sizeof(name_new), NULL))
+				{
+					zbx_json_addstring(&j, "name", name_new, ZBX_JSON_TYPE_STRING);
+				}
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "netspeed", netspeed_new, sizeof(netspeed_new), NULL))
+				{
+					zbx_json_addstring(&j, "netspeed", netspeed_new, ZBX_JSON_TYPE_STRING);
+				}
+
+				zbx_json_close(&j);
+			}
+		}
+
+	} 
+	zbx_json_close(&j);
+    char *json = strdup(j.buffer);
+    zbx_json_free(&j);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s, old:%s new:%s match:%s",
+			   __func__, old, new, json);
+	return json;
+}
+
+/**
+ * 电源信息，json格式定义:
+ * {
+	"psu_num": 2, //电源数量
+	"mf":"DELTA",  //电源厂家
+	"model":"865414-B21",  //电源型号
+	"version":"1.00",  //电源版本
+	"serial":"5WBXT0C4DAU2EM",  //电源序列号
+	"max_power": 800,  //电源最大功率
+	}
+*/
+static char* update_inventory_psu(char *old, char *new)
+{
+	if(new == NULL || strlen(new) <= 5)
+		return old;
+	else if(old == NULL || strlen(old) <= 5)
+		return new;
+	
+	char psu_num_old[16],mf_old[256],name_old[256],version_old[256],serial_old[256],max_power_old[256];
+	struct zbx_json_parse jp_old;
+	if (SUCCEED == zbx_json_open(old, &jp_old))
+	{
+		zbx_json_value_by_name(&jp_old, "psu_num", psu_num_old, sizeof(psu_num_old), NULL);
+		zbx_json_value_by_name(&jp_old, "mf", mf_old, sizeof(mf_old), NULL);
+		zbx_json_value_by_name(&jp_old, "name", name_old, sizeof(name_old), NULL);
+		zbx_json_value_by_name(&jp_old, "version", version_old, sizeof(version_old), NULL);
+		zbx_json_value_by_name(&jp_old, "serial", serial_old, sizeof(serial_old), NULL);
+		zbx_json_value_by_name(&jp_old, "max_power", max_power_old, sizeof(max_power_old), NULL);
+	}
+
+	struct zbx_json_parse jp_new;
+	char psu_num_new[16],mf_new[256],name_new[256],version_new[256],serial_new[256],max_power_new[256];
+	if (SUCCEED == zbx_json_open(new, &jp_new))
+	{
+		zbx_json_value_by_name(&jp_new, "psu_num", psu_num_new, sizeof(psu_num_new), NULL);
+		zbx_json_value_by_name(&jp_new, "mf", mf_new, sizeof(mf_new), NULL);
+		zbx_json_value_by_name(&jp_new, "name", name_new, sizeof(name_new), NULL);
+		zbx_json_value_by_name(&jp_new, "version", version_new, sizeof(version_new), NULL);
+		zbx_json_value_by_name(&jp_new, "serial", serial_new, sizeof(serial_new), NULL);
+		zbx_json_value_by_name(&jp_new, "max_power", max_power_new, sizeof(max_power_new), NULL);
+	}
+
+	struct zbx_json j;
+	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	zbx_json_addint64(&j, "psu_num", zbx_atoi(get_str_inventory_field(psu_num_old, psu_num_new)));
+	zbx_json_addstring(&j, "mf", get_str_inventory_field(mf_old, mf_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_addstring(&j, "name", get_str_inventory_field(name_old, name_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_addstring(&j, "version", get_str_inventory_field(version_old, version_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_addstring(&j, "serial", get_str_inventory_field(serial_old, serial_new), ZBX_JSON_TYPE_STRING);
+	zbx_json_addstring(&j, "max_power", get_str_inventory_field(max_power_old, max_power_new), ZBX_JSON_TYPE_STRING);
+
+	zbx_json_close(&j);
+    char *json = strdup(j.buffer);
+    zbx_json_free(&j);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s, old:%s new:%s match:%s",
+			   __func__, old, new, json);
+	return json;
+}
+
+/**
+ * 资产信息插入或更新
+*/
+static void discovery_register_host_inventory(DB_HOST_INVENTORY *inventory)
+{
+	DB_RESULT result;
+	DB_ROW row;
+	
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
+
+	int is_find_inventory = 0, is_insert = 0;
+	char *unique,*manufacturer;
+	char *physical_model,*physical_serial,*chassis,*chassis_serial,*board,*board_serial;
+	char *os_short,*description,*ip,*name,*cpu,*memory,*disk,*network,*bios,*psu;
+	int inventory_mode,hostid,houseid,managerid,hostgroupid,groupid;
+	int create_time, update_time;
+  
+	int inventory_id = -1;
+	int dunique_type = 0;
+	char *dunique = inventory->dunique;
+	inventory_mode = -1;  // -1 - (默认) 关闭;0 - 手动;1 - 自动.
+	// 根据mac地址找到对应的资产
+	if (inventory->macs != NULL && strlen(inventory->macs) > 0)
+	{
+		dunique_type = 1;
+		dunique = inventory->macs; 
+
+		zbx_vector_str_t	macs_his; 
+		zbx_vector_str_create(&macs_his); 
+		zbx_vector_str_t	macs_dis; 
+		zbx_vector_str_create(&macs_dis); 
+
+		str_to_vector(&macs_dis, inventory->macs, "/");
+ 
+		//新发现的mac地址和主机表里面的任何一个mac地址匹配上了，说明在表里面
+		result = zbx_db_select("select id, dunique from host_inventory where dunique_type = 1 ");
+		while (NULL != (row = zbx_db_fetch(result)))
+		{
+			zbx_vector_str_clear_ext(&macs_his, zbx_str_free);
+			zbx_vector_str_clear(&macs_his);
+			str_to_vector(&macs_his, row[1], "/");
+			for (int i = 0; i < macs_dis.values_num; i++)
+			{
+				int index;
+				if (FAIL != (index = zbx_vector_str_bsearch(&macs_his, macs_dis.values[i], ZBX_DEFAULT_STR_COMPARE_FUNC)))
+				{
+					inventory_id = zbx_atoi(row[0]);
+					break;
+				}
+			}
+		}
+
+		zbx_vector_str_clear_ext(&macs_his, zbx_str_free);
+		zbx_vector_str_destroy(&macs_his);
+
+		zbx_vector_str_clear_ext(&macs_dis, zbx_str_free);
+		zbx_vector_str_destroy(&macs_dis);
+
+		zbx_db_free_result(result);
+	} 
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s dunique_type=%d, inventory_id=%d, dunique=%s",
+		 __func__, dunique_type, inventory_id, dunique);
+
+	if((dunique_type == 1 && inventory_id >= 0) || 
+		(dunique_type != 1 && inventory->dunique != NULL && strlen(inventory->dunique) > 0))
+	{
+		char		*sql = NULL;
+		size_t		sql_alloc = 512, sql_offset = 0;
+		zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset,
+					"select id,hostid,houseid,managerid,hostgroupid,groupid,manufacturer," \
+						"physical_model,physical_serial,chassis,chassis_serial,board,board_serial," \
+						"os_short,description,ip,name,cpu,memory,disk,network,bios,psu from host_inventory " );
+		if(inventory_id >= 0)
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 
+				" where id=%d", inventory_id);
+		else
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 
+				"  where dunique='%s'", inventory->dunique);
+		
+		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s sql:'%s'", __func__, sql);
+		
+		result = zbx_db_select(sql); 
+		while (NULL != (row = zbx_db_fetch(result)))
+		{
+			int i=0;
+			int id  = zbx_atoi(row[i++]);
+			hostid =  get_int_inventory_field(zbx_atoi(row[i++]), inventory->hostid);
+			houseid =  get_int_inventory_field(zbx_atoi(row[i++]), inventory->houseid);
+			managerid = get_int_inventory_field(zbx_atoi(row[i++]), inventory->managerid);
+			hostgroupid = get_int_inventory_field(zbx_atoi(row[i++]), inventory->hostgroupid);
+			groupid = get_int_inventory_field(zbx_atoi(row[i++]), inventory->groupid);
+			manufacturer = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->manufacturer);
+			physical_model = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->physical_model);
+			physical_serial = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->physical_serial);
+			chassis = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->chassis);
+			chassis_serial = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->chassis_serial);
+			board = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->board);
+			board_serial = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->board_serial);
+			os_short = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->os_short);
+			description = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->description);
+			ip = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->ip);
+			name = get_str_inventory_field(zbx_strdup(NULL, row[i++]), inventory->name);
+			
+			cpu = zbx_strdup(NULL, row[i++]);
+			memory = zbx_strdup(NULL, row[i++]);
+			disk = zbx_strdup(NULL, row[i++]);
+			network = zbx_strdup(NULL, row[i++]);
+			bios = zbx_strdup(NULL, row[i++]);
+			psu = zbx_strdup(NULL, row[i++]);
+
+			cpu = update_inventory_cpu(cpu, inventory->cpu);
+			memory = update_inventory_memory(memory, inventory->memory);
+			disk = update_inventory_disk(disk, inventory->disk);
+			network = update_inventory_network(network, inventory->network);
+			bios = update_inventory_bios(bios, inventory->bios);
+			psu = update_inventory_psu(psu, inventory->psu);
+			update_time = (int)time(NULL);
+			
+			zbx_db_execute("update host_inventory set dunique_type=%d, dunique='%s', hostid=%d,houseid=%d, managerid=%d, hostgroupid=%d, groupid=%d,manufacturer='%s', " \ 
+				"physical_model='%s', physical_serial='%s', chassis='%s', chassis_serial='%s', board='%s', board_serial='%s', " \
+				"os_short='%s', description='%s', ip='%s',name='%s',cpu='%s', memory='%s', disk='%s', network='%s', bios='%s', psu='%s', update_time=%d " \
+				" where id=%d ",
+				dunique_type,dunique,hostid,houseid, managerid, hostgroupid, groupid, manufacturer, 
+				physical_model, physical_serial, chassis, chassis_serial, board, board_serial, 
+				os_short, description, ip, name, cpu, memory, disk, network, bios, psu, update_time, id);
+			is_find_inventory = 1;
+			break;
+		}
+		zbx_free(sql);
+		zbx_db_free_result(result);
+	}
+
+	if(is_find_inventory == 0)
+	{
+		hostid =  inventory->hostid;
+		houseid =  inventory->houseid;
+		managerid = inventory->managerid;
+		hostgroupid = inventory->hostgroupid;
+		groupid = inventory->groupid;
+		manufacturer = get_str_field(inventory->manufacturer);
+		physical_model = get_str_field(inventory->physical_model);
+		physical_serial = get_str_field(inventory->physical_serial);
+		chassis = get_str_field(inventory->chassis);
+		chassis_serial = get_str_field(inventory->chassis_serial);
+		board = get_str_field(inventory->board);
+		board_serial = get_str_field(inventory->board_serial);
+		os_short = get_str_field(inventory->os_short);
+		description = get_str_field(inventory->description);
+		ip = get_str_field(inventory->ip);
+		name = get_str_field(inventory->name);
+			
+		cpu = get_str_field(inventory->cpu);
+		memory = get_str_field(inventory->memory);
+		disk = get_str_field(inventory->disk);
+		network = get_str_field(inventory->network);
+		bios = get_str_field(inventory->bios);
+		psu = get_str_field(inventory->psu);
+
+		create_time = update_time = (int)time(NULL);
+		zbx_db_execute("insert into host_inventory (dunique_type,dunique,inventory_mode,hostid,houseid,managerid,hostgroupid,groupid,manufacturer," \
+ 					"physical_model,physical_serial,chassis,chassis_serial,board,board_serial," \
+ 					"os_short,description,ip,name,cpu,memory,disk,network,bios,psu,update_time,create_time)" \
+					   " values (%d,'%s',%d,%d,%d,%d,%d,%d,'%s',"\
+					             "'%s','%s','%s','%s','%s','%s'," \
+								 "'%s','%s','%s','%s','%s','%s','%s','%s','%s','%s',%d, %d)",
+					dunique_type,dunique,inventory_mode,hostid, houseid, managerid, hostgroupid, groupid, manufacturer, 
+					physical_model, physical_serial, chassis, chassis_serial, board, board_serial, 
+					os_short, description, ip, name, cpu, memory, disk, network, bios, psu, update_time, create_time);
+	}
+
+	zbx_free(manufacturer);
+	zbx_free(physical_model);
+	zbx_free(physical_serial);
+	zbx_free(chassis);
+	zbx_free(chassis_serial);
+	zbx_free(board);
+	zbx_free(board_serial);
+	zbx_free(os_short);
+	zbx_free(description);
+	zbx_free(ip);
+	zbx_free(name);
+	
+	zbx_free(cpu);
+	zbx_free(memory);
+	zbx_free(disk);
+	zbx_free(network);
+	zbx_free(bios);
+	zbx_free(psu);
+	  
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
+}
+
 
 /******************************************************************************
  *                                                                            *
@@ -892,7 +1626,6 @@ static void	discovery_update_dservice(zbx_uint64_t dserviceid, int status, int l
 
 	zbx_free(value_esc);
 }
-
 /******************************************************************************
  *                                                                            *
  * Purpose: update discovered service details                                 *
@@ -1056,6 +1789,7 @@ void	zbx_discovery_update_service(const zbx_db_drule *drule, zbx_uint64_t dcheck
 	DB_DSERVICE	dservice;
 	DB_HOST host;
 	DB_INTERFACE interface;
+	DB_HOST_INVENTORY inventory;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() ip:'%s' dns:'%s' port:%d status:%d value:'%s'",
 			__func__, ip, dns, port, status, value);
@@ -1063,7 +1797,8 @@ void	zbx_discovery_update_service(const zbx_db_drule *drule, zbx_uint64_t dcheck
 	memset(&dservice, 0, sizeof(dservice));
 	memset(&host, 0, sizeof(host));
 	memset(&interface, 0, sizeof(interface));
-
+	memset(&inventory, 0, sizeof(inventory));
+ 
 	//入库dhost /* register host if is not registered yet */
 	if (0 == dhost->dhostid)
 		discovery_register_dhost(drule, dcheckid, dhost, ip, port, status, value);
@@ -1082,11 +1817,17 @@ void	zbx_discovery_update_service(const zbx_db_drule *drule, zbx_uint64_t dcheck
 
 	//入库host
 	if (0 != dservice.dserviceid)
-		discovery_register_host(&host, value, ip, dns, port, status, dcheck);
+		discovery_register_host(&host, &inventory, value, ip, dns, port, status, dcheck);
 
 	//入库host对应的接口
 	if (0 != host.hostid)
 		discovery_register_interface(&host, &interface, value, ip, dns, port, dcheckid, dcheck);
+	
+	//入库host_inventory对应的接口
+	if (0 != dservice.dserviceid)
+		discovery_register_host_inventory(&inventory);
+	
+	
 
 out:
 	zbx_free(dservice.value);

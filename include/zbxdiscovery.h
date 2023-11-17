@@ -50,6 +50,8 @@ typedef struct
 	int		       houseid;
 	zbx_uint64_t   druleid;
 	char		*ip;
+	char		*user;
+	char		*password;
 }
 DB_DCHECK;
 
@@ -61,7 +63,7 @@ void vector_to_str(zbx_vector_str_t *v, char **out, const char *split);
 void str_to_vector(zbx_vector_str_t *out, const char *str, const char *split);
 void discovery_parsing_macs(const char *data, zbx_vector_str_t *out);
 void discovery_parsing_value(const char *data, const char *field, char **out);
-void discovery_parsing_value_model(const char *entphysicalmodelname, const char *sysdesc, const int dcheck_type, int *groupid, int *manufacturerid, int *templateid);
+void discovery_parsing_value_model(const char *entphysicalmodelname, const char *sysdesc, const int dcheck_type, int *groupid, char **manufacturer, int *templateid);
 void discovery_parsing_value_os(const char *sysdesc, char **out);
 
 #endif
