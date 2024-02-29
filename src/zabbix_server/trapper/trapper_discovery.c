@@ -56,6 +56,15 @@ void discovery_rules_trapper_thread_init(int server_num)
     }
 }
 
+int zops_tcp_send(zbx_socket_t *s, const char *data, size_t len, int timeout)
+{
+
+    int result = zbx_tcp_send_bytes_to(s, data, len, timeout);
+    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS# send response: socket=%d, send_result=%d, message=%s",
+             s->socket, result, data);
+    return result;
+}
+
 /*********************************************
  * Function_Name:discovery_rules_state
  *
@@ -98,7 +107,7 @@ int discovery_rules_state(zbx_socket_t *sock, char *input_json, int config_timeo
     zbx_vector_ptr_append(&global_sock_queue, new_item);
  
     // sock_queue_print();
-    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s() Current queue size: %d", __func__, global_sock_queue.values_num);
+    // zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s() Current queue size: %d", __func__, global_sock_queue.values_num);
 
 
     // 将 json 数据发送到 discoverer 处理
@@ -106,8 +115,8 @@ int discovery_rules_state(zbx_socket_t *sock, char *input_json, int config_timeo
     send_js.recv_type = G_TPR_MSG_TYPE;
     zbx_strscpy(send_js.content, input_json); 
     int send_size = sizeof(send_js.recv_type) + strlen(send_js.content) + 1;
-    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s() recv_type=%d, send_size=%d, got json %s", 
-        __func__, send_js.recv_type, send_size, send_js.content);
+    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS# recv request: socket=%d, recv_type=%d, send_size=%d, msg=%s", 
+            resp_sock->socket, send_js.recv_type, send_size, send_js.content);
 
     if (-1 == msgsnd(msgid, (void *)&send_js, send_size, IPC_NOWAIT))
     {
@@ -156,8 +165,7 @@ void* discovery_rules_trapper_thread_function(void* arg)
 			continue;
         }
 
-        zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s()receive queue. recv_type=%d,message=%s", __func__, r_msg.recv_type, r_msg.content);
-
+    
         if (SUCCEED != extract_session_from_json(r_msg.content, session_value))
         {
             zabbix_log(LOG_LEVEL_ERR, "#ZOPS#%s()Failed to extract session from JSON", __func__);
@@ -191,16 +199,15 @@ void* discovery_rules_trapper_thread_function(void* arg)
             continue;
         }
 
+        int result = zops_tcp_send(queue_item->sock, r_msg.content, strlen(r_msg.content), queue_item->config_timeout);
         // 使用找到的元素进行回复
-        if (SUCCEED != zbx_tcp_send_bytes_to(queue_item->sock, r_msg.content, strlen(r_msg.content), queue_item->config_timeout))
+        if (SUCCEED != result)
         {
             zabbix_log(LOG_LEVEL_ERR, "#ZOPS#%s()Failed to send response to client", __func__);
         }
-        
+
         zbx_tcp_close(queue_item->sock);
  
-        zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s()Current queue size: %d", 
-            __func__, global_sock_queue.values_num);
         zbx_free(queue_item);
     }
 
@@ -250,7 +257,7 @@ int send_productkey(zbx_socket_t *sock, const struct zbx_json_parse *jp, int con
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to ectract resqust value.");
         response = create_license_fail(FAIL, "Failed to ectract resqust value");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -260,7 +267,7 @@ int send_productkey(zbx_socket_t *sock, const struct zbx_json_parse *jp, int con
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to ectract session value.");
         response = create_license_fail(FAIL, "Failed to ectract session value");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -269,7 +276,7 @@ int send_productkey(zbx_socket_t *sock, const struct zbx_json_parse *jp, int con
     {
         zabbix_log(LOG_LEVEL_ERR, "Error creating product key. #error code=%d#", result);
         response = create_license_fail(result, "Error creating product key.");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -277,14 +284,13 @@ int send_productkey(zbx_socket_t *sock, const struct zbx_json_parse *jp, int con
     response = create_productkey_json(SUCCEED, resqust_value, session_value, productkey);
 
     // 发送响应
-    if (SUCCEED != zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout))
+    if (SUCCEED != zops_tcp_send(sock, response, strlen(response), config_timeout))
     {
         zabbix_log(LOG_LEVEL_ERR, "The send_productkey function encountered an error while sending the JSON response.");
         zbx_free(response);
         return FAIL;
     }
-	zabbix_log(LOG_LEVEL_DEBUG, "The send_productkey function sends a JSON response with the value '%s'.", response);
-    zbx_free(response);
+	zbx_free(response);
     return SUCCEED;
 }
 
@@ -307,7 +313,7 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to ectract resqust value.");
         response = create_license_fail(FAIL, "Failed to ectract resqust value");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -316,7 +322,7 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to ectract session value.");
         response = create_license_fail(FAIL, "Failed to ectract session value");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -326,7 +332,7 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to extract monitor and function data.");
         response = create_license_fail(FAIL, "Failed to extract monitor and function data.");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -358,7 +364,7 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
             response = create_license_fail(result, "License verification failed.");
         }
         
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -366,15 +372,14 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
     response = create_license_verify_json(resqust_value, session_value, monitor_services, function_services, monitor_size, func_size, lic_expired);
 
     // 发送响应
-    if (SUCCEED != zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout))
+    if (SUCCEED != zops_tcp_send(sock, response, strlen(response), config_timeout))
     {
         zabbix_log(LOG_LEVEL_ERR, "The `send_license_verify` function encountered an error while sending the JSON response.");
         zbx_free(response);
         return FAIL;
     }
 
-	zabbix_log(LOG_LEVEL_DEBUG, "The `send_license_verify` function sends a JSON response with the value `%s`.", response);
-    zbx_free(response);
+	zbx_free(response);
     return SUCCEED;
 }
 
@@ -393,7 +398,7 @@ int send_license_query(zbx_socket_t *sock, const struct zbx_json_parse *jp, int 
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to ectract resqust value.");
         response = create_license_fail(FAIL, "Failed to ectract resqust value");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -402,7 +407,7 @@ int send_license_query(zbx_socket_t *sock, const struct zbx_json_parse *jp, int 
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to ectract session value.");
         response = create_license_fail(FAIL, "Failed to ectract session value");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         return FAIL;
     }
@@ -412,7 +417,7 @@ int send_license_query(zbx_socket_t *sock, const struct zbx_json_parse *jp, int 
     {
         zabbix_log(LOG_LEVEL_ERR, "Failed to query license.");
         response = create_license_fail(FAIL, "Failed to query license.");
-        zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout);
+        zops_tcp_send(sock, response, strlen(response), config_timeout);
         zbx_free(response);
         zbx_free(lic);
         return FAIL;
@@ -421,7 +426,7 @@ int send_license_query(zbx_socket_t *sock, const struct zbx_json_parse *jp, int 
     response = create_license_query_json(resqust_value, session_value, lic);
 
     // 发送响应
-    if (SUCCEED != zbx_tcp_send_bytes_to(sock, response, strlen(response), config_timeout))
+    if (SUCCEED != zops_tcp_send(sock, response, strlen(response), config_timeout))
     {
         zabbix_log(LOG_LEVEL_ERR, "The `send_license_query` function encountered an error while sending the JSON response.");
         zbx_free(response);
@@ -429,7 +434,6 @@ int send_license_query(zbx_socket_t *sock, const struct zbx_json_parse *jp, int 
         return FAIL;
     }
 
-    zabbix_log(LOG_LEVEL_DEBUG, "The `send_license_query` function sends a JSON response with the value `%s`", response);
     zbx_free(response);
     zbx_free(lic);
     return SUCCEED;

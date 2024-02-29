@@ -30,6 +30,7 @@
 #define DISCOVERY_RESULT_STOP_FAIL			1005    //停止扫描结果失败
 #define DISCOVERY_RESULT_JSON_PARSE_FAIL	1006    //解析json失败
 #define DISCOVERY_RESULT_SCAN_FAIL			1007    //单设备扫描失败
+#define DISCOVERY_RESULT_CREDENTIAL_FAIL    1008    //凭证错误
 
 
 #define USER_DISCOVER_IP_INTERVAL_TIME 		3     //用户扫描每个IP估算间隔时间,单位秒
@@ -85,6 +86,11 @@ typedef struct
                                                                     //保存对象为 zbx_user_discover_session_t
 	zbx_vector_ptr_t             alarms;                            //没有mac地址的告警
 	zbx_user_discover_status_t   status;                            //扫描状态
+	int                          check_type;						//扫描类型
+	int                          vm_count;
+	int                          hv_count;
+	int                          vm_num;
+	int                          hv_num;							
 }
 zbx_user_discover_drule_t;
 
@@ -97,7 +103,7 @@ typedef struct
 }
 zbx_user_discover_drules_t;
 
-int	user_discover_create(const char *session, zbx_vector_uint64_t *druleids);
+int	user_discover_create(const char *session, zbx_vector_ptr_t *druleids);
 char* user_discover_progress(const char * session, const struct zbx_json_parse *jp);
 int	user_discover_stop(const char *session);
 
@@ -117,4 +123,7 @@ char* create_activate_or_stop_json(const char *response, const char *session_val
 char* create_fail_json(const char* response, const char* session, int result, const char* failreason);
 int extract_druleids(const struct zbx_json_parse *jp, zbx_vector_uint64_t *druleids);
 void discover_response_replay(int socket, const char* response);
+
+int vmware_add_ip_num(zbx_uint64_t druleid, int type, int ip_num);
+int vmware_add_discovered_ip_num(zbx_uint64_t druleid, int type, int ip_num);
 #endif

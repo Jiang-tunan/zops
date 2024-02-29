@@ -129,6 +129,9 @@ static int	zbx_host_interfaces_discovery(zbx_uint64_t hostid, struct zbx_json *j
 			case INTERFACE_TYPE_JMX:
 				p = "JMX";
 				break;
+			case INTERFACE_TYPE_VMWARE:
+				p = "WMWare";
+				break;
 			case INTERFACE_TYPE_UNKNOWN:
 			default:
 				p = "UNKNOWN";

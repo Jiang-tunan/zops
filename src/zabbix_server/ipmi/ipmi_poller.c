@@ -226,9 +226,6 @@ ZBX_THREAD_ENTRY(ipmi_poller_thread, args)
 			const int ipc_timeout = 2;
 			const int ipmi_timeout = 1;
 
-			// zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI begin");
-			// get_ipmi_value_by_ip();
-
 			if (SUCCEED != zbx_ipc_async_socket_recv(&ipmi_socket, ipc_timeout, &message))
 			{
 				zabbix_log(LOG_LEVEL_CRIT, "cannot read IPMI service request");

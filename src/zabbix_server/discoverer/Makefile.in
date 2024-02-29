@@ -123,7 +123,11 @@ libzbxdiscoverer_a_AR = $(AR) $(ARFLAGS)
 libzbxdiscoverer_a_LIBADD =
 am_libzbxdiscoverer_a_OBJECTS =  \
 	libzbxdiscoverer_a-user_discoverer.$(OBJEXT) \
-	libzbxdiscoverer_a-discoverer.$(OBJEXT)
+	libzbxdiscoverer_a-discoverer.$(OBJEXT) \
+	libzbxdiscoverer_a-discoverer_manager.$(OBJEXT) \
+	libzbxdiscoverer_a-discoverer_protocol.$(OBJEXT) \
+	libzbxdiscoverer_a-discoverer_single.$(OBJEXT) \
+	libzbxdiscoverer_a-discoverer_vmware.$(OBJEXT)
 libzbxdiscoverer_a_OBJECTS = $(am_libzbxdiscoverer_a_OBJECTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -140,6 +144,10 @@ am__v_at_1 =
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/libzbxdiscoverer_a-discoverer.Po \
+	./$(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Po \
+	./$(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Po \
+	./$(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Po \
+	./$(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Po \
 	./$(DEPDIR)/libzbxdiscoverer_a-user_discoverer.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -301,6 +309,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -403,7 +414,15 @@ libzbxdiscoverer_a_SOURCES = \
 	user_discoverer.c \
 	user_discoverer.h \
 	discoverer.c \
-	discoverer.h
+	discoverer.h \
+	discoverer_manager.c \
+	discoverer_manager.h \
+	discoverer_protocol.c \
+	discoverer_protocol.h \
+	discoverer_single.c \
+	discoverer_single.h \
+	discoverer_vmware.c \
+	discoverer_vmware.h
 
 libzbxdiscoverer_a_CFLAGS = \
 	$(TLS_CFLAGS)
@@ -457,6 +476,10 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscoverer_a-discoverer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscoverer_a-user_discoverer.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
@@ -508,6 +531,62 @@ libzbxdiscoverer_a-discoverer.obj: discoverer.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer.c' object='libzbxdiscoverer_a-discoverer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer.obj `if test -f 'discoverer.c'; then $(CYGPATH_W) 'discoverer.c'; else $(CYGPATH_W) '$(srcdir)/discoverer.c'; fi`
+
+libzbxdiscoverer_a-discoverer_manager.o: discoverer_manager.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_manager.o -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Tpo -c -o libzbxdiscoverer_a-discoverer_manager.o `test -f 'discoverer_manager.c' || echo '$(srcdir)/'`discoverer_manager.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_manager.c' object='libzbxdiscoverer_a-discoverer_manager.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_manager.o `test -f 'discoverer_manager.c' || echo '$(srcdir)/'`discoverer_manager.c
+
+libzbxdiscoverer_a-discoverer_manager.obj: discoverer_manager.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_manager.obj -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Tpo -c -o libzbxdiscoverer_a-discoverer_manager.obj `if test -f 'discoverer_manager.c'; then $(CYGPATH_W) 'discoverer_manager.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_manager.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_manager.c' object='libzbxdiscoverer_a-discoverer_manager.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_manager.obj `if test -f 'discoverer_manager.c'; then $(CYGPATH_W) 'discoverer_manager.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_manager.c'; fi`
+
+libzbxdiscoverer_a-discoverer_protocol.o: discoverer_protocol.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_protocol.o -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Tpo -c -o libzbxdiscoverer_a-discoverer_protocol.o `test -f 'discoverer_protocol.c' || echo '$(srcdir)/'`discoverer_protocol.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_protocol.c' object='libzbxdiscoverer_a-discoverer_protocol.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_protocol.o `test -f 'discoverer_protocol.c' || echo '$(srcdir)/'`discoverer_protocol.c
+
+libzbxdiscoverer_a-discoverer_protocol.obj: discoverer_protocol.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_protocol.obj -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Tpo -c -o libzbxdiscoverer_a-discoverer_protocol.obj `if test -f 'discoverer_protocol.c'; then $(CYGPATH_W) 'discoverer_protocol.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_protocol.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_protocol.c' object='libzbxdiscoverer_a-discoverer_protocol.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_protocol.obj `if test -f 'discoverer_protocol.c'; then $(CYGPATH_W) 'discoverer_protocol.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_protocol.c'; fi`
+
+libzbxdiscoverer_a-discoverer_single.o: discoverer_single.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_single.o -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Tpo -c -o libzbxdiscoverer_a-discoverer_single.o `test -f 'discoverer_single.c' || echo '$(srcdir)/'`discoverer_single.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_single.c' object='libzbxdiscoverer_a-discoverer_single.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_single.o `test -f 'discoverer_single.c' || echo '$(srcdir)/'`discoverer_single.c
+
+libzbxdiscoverer_a-discoverer_single.obj: discoverer_single.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_single.obj -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Tpo -c -o libzbxdiscoverer_a-discoverer_single.obj `if test -f 'discoverer_single.c'; then $(CYGPATH_W) 'discoverer_single.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_single.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_single.c' object='libzbxdiscoverer_a-discoverer_single.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_single.obj `if test -f 'discoverer_single.c'; then $(CYGPATH_W) 'discoverer_single.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_single.c'; fi`
+
+libzbxdiscoverer_a-discoverer_vmware.o: discoverer_vmware.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_vmware.o -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Tpo -c -o libzbxdiscoverer_a-discoverer_vmware.o `test -f 'discoverer_vmware.c' || echo '$(srcdir)/'`discoverer_vmware.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_vmware.c' object='libzbxdiscoverer_a-discoverer_vmware.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_vmware.o `test -f 'discoverer_vmware.c' || echo '$(srcdir)/'`discoverer_vmware.c
+
+libzbxdiscoverer_a-discoverer_vmware.obj: discoverer_vmware.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -MT libzbxdiscoverer_a-discoverer_vmware.obj -MD -MP -MF $(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Tpo -c -o libzbxdiscoverer_a-discoverer_vmware.obj `if test -f 'discoverer_vmware.c'; then $(CYGPATH_W) 'discoverer_vmware.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_vmware.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Tpo $(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discoverer_vmware.c' object='libzbxdiscoverer_a-discoverer_vmware.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscoverer_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscoverer_a-discoverer_vmware.obj `if test -f 'discoverer_vmware.c'; then $(CYGPATH_W) 'discoverer_vmware.c'; else $(CYGPATH_W) '$(srcdir)/discoverer_vmware.c'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -634,6 +713,10 @@ clean-am: clean-generic clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Po
 	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-user_discoverer.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
@@ -681,6 +764,10 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_manager.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_protocol.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_single.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-discoverer_vmware.Po
 	-rm -f ./$(DEPDIR)/libzbxdiscoverer_a-user_discoverer.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic

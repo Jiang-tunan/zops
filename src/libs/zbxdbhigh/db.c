@@ -676,7 +676,7 @@ int	zbx_db_validate_field_size(const char *tablename, const char *fieldname, con
 	max_bytes = ZBX_SIZE_T_MAX;
 #endif
 	max_chars = get_string_field_chars(field);
-
+	
 	if (max_bytes < strlen(str))
 		return FAIL;
 
@@ -2157,20 +2157,14 @@ const char	*zbx_db_sql_id_ins(zbx_uint64_t id)
  ******************************************************************************/
 const char	*zbx_db_get_inventory_field(unsigned char inventory_link)
 {
-	static const char	*inventory_fields[HOST_INVENTORY_FIELD_COUNT] =
+	static const char	*inventory_fields[HOST_INVENTORY_FIELD_COUNT+2] =
 	{
-		"type", "type_full", "name", "alias", "os", "os_full", "os_short", "serialno_a", "serialno_b", "tag",
-		"asset_tag", "macaddress_a", "macaddress_b", "hardware", "hardware_full", "software", "software_full",
-		"software_app_a", "software_app_b", "software_app_c", "software_app_d", "software_app_e", "contact",
-		"location", "location_lat", "location_lon", "notes", "chassis", "model", "hw_arch", "vendor",
-		"contract_number", "installer_name", "deployment_status", "url_a", "url_b", "url_c", "host_networks",
-		"host_netmask", "host_router", "oob_ip", "oob_netmask", "oob_router", "date_hw_purchase",
-		"date_hw_install", "date_hw_expiry", "date_hw_decomm", "site_address_a", "site_address_b",
-		"site_address_c", "site_city", "site_state", "site_country", "site_zip", "site_rack", "site_notes",
-		"poc_1_name", "poc_1_email", "poc_1_phone_a", "poc_1_phone_b", "poc_1_cell", "poc_1_screen",
-		"poc_1_notes", "poc_2_name", "poc_2_email", "poc_2_phone_a", "poc_2_phone_b", "poc_2_cell",
-		"poc_2_screen", "poc_2_notes"
+		"hostid", "inventory_mode", "dunique_type", "dunique", "houseid", "inventory_typeid", "managerid", "hostgroupid", 
+		"groupid", "manufacturer", "physical_model", "physical_serial", "chassis", "chassis_serial", "board", "board_serial", 
+		"os_short", "ip", "name", "description", "cpu", "memory", "disk", "network", "bios", "psu", "assets_code", 
+		"purchase_date", "purchase_price", "purchase_order_no", "maint_days"
 	};
+	
 
 	if (1 > inventory_link || inventory_link > HOST_INVENTORY_FIELD_COUNT)
 		return NULL;
@@ -3837,3 +3831,11 @@ char	*zbx_db_get_schema_esc(void)
 	return name;
 }
 #endif
+
+char *zbx_get_db_escape_string(char *str)
+{
+	if(str == NULL || strlen(str) == 0)
+		return zbx_strdup(NULL, "");
+	else
+		return zbx_db_dyn_escape_string_basic(str, ZBX_SIZE_T_MAX, ZBX_SIZE_T_MAX, ESCAPE_SEQUENCE_ON);
+}

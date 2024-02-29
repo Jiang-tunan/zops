@@ -1079,8 +1079,7 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 	int	ret = SUCCEED;
 
 	zbx_rtrim(s, " \r\n");
-
-	zabbix_log(LOG_LEVEL_DEBUG, "trapper got '%s'", s);
+	zabbix_log(LOG_LEVEL_DEBUG, "recv request: socket=%d, msg='%s'",sock->socket, s);
 	if ('{' == *s)	/* JSON protocol */
 	{
 		struct zbx_json_parse	jp;

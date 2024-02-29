@@ -3,10 +3,10 @@
 
 #include "user_discoverer.h"
 #include "discoverer_single.h"
+#include "discoverer_vmware.h"
 #include "zbxmutexs.h"
 #include "zbxip.h"
-
-
+#include "zbxserver.h"
 
 zbx_mutex_t		user_discover_lock = ZBX_MUTEX_NULL;
 zbx_user_discover_drules_t	*user_discover_g   = NULL;
@@ -25,13 +25,22 @@ void zbx_user_discover_g_free()
 	__zbx_user_discover_clean();
 	zbx_vector_ptr_destroy(&user_discover_g->drules);
 	zbx_free(user_discover_g);
+	UNLOCK_USER_DISCOVER;
 }
 
 
-void __zbx_user_discover_session_free(zbx_user_discover_session_t *ptr)
+void __zbx_user_discover_session_free(zbx_vector_ptr_t *v_session, int index)
 {
-	zbx_vector_ptr_clear_ext(&ptr->hostids, zbx_ptr_free);
-	zbx_vector_ptr_destroy(&ptr->hostids);
+	if(NULL == v_session)  return;
+
+	zbx_user_discover_session_t *ptr = (zbx_user_discover_session_t *)v_session->values[index];
+	if(ptr->progress >= 0)
+	{
+		ptr->progress = -1;
+		zbx_vector_ptr_clear_ext(&ptr->hostids, zbx_ptr_free);
+		zbx_vector_ptr_destroy(&ptr->hostids);
+	}
+	zbx_vector_ptr_remove(v_session, index);
 }
 
 
@@ -39,8 +48,6 @@ void __zbx_user_discover_drule_free(zbx_user_discover_drule_t *ptr)
 {
 	zbx_vector_ptr_clear_ext(&ptr->alarms, zbx_ptr_free);
 	zbx_vector_ptr_destroy(&ptr->alarms);
-
-	__zbx_user_discover_session_free(&ptr->sessions);
 	zbx_vector_ptr_clear_ext(&ptr->sessions, zbx_ptr_free);
 	zbx_vector_ptr_destroy(&ptr->sessions);
 	ptr->status = ZBX_USER_DISCOVER_STATUS_FREE;
@@ -79,20 +86,28 @@ int __zbx_user_discover_session_timout()
 }
 
 //用户扫描任务创建
-int	user_discover_create(const char *session, zbx_vector_uint64_t *druleids)
+int	user_discover_create(const char *session, zbx_vector_ptr_t *v_drules)
 {
-	zbx_vector_uint64_sort(druleids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-	zbx_vector_uint64_uniq(druleids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
+	// zbx_vector_uint64_sort(v_drules, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
+	// zbx_vector_uint64_uniq(v_drules, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
 
 	char			*sql = NULL;
 	size_t			sql_alloc = 0, sql_offset = 0;
 	DB_RESULT		result;
 	DB_ROW			row;
 	int             ret=FAIL;
+	zbx_user_discover_drule_t *dr = NULL;
+
+	zbx_vector_uint64_t druleids;
+	zbx_vector_uint64_create(&druleids);
+	for(int i = 0; i < v_drules->values_num; i ++){
+		dr = (zbx_user_discover_drule_t *)v_drules->values[i];
+		zbx_vector_uint64_append(&druleids, dr->druleid);  // 将druleid添加到向量中
+	}
 
 	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "select druleid, iprange from drules where");
-	zbx_db_add_condition_alloc(&sql, &sql_alloc, &sql_offset, "druleid", druleids->values, druleids->values_num);
-	result = zbx_db_select("%s", sql);
+	zbx_db_add_condition_alloc(&sql, &sql_alloc, &sql_offset, "druleid", druleids.values, druleids.values_num);
+	result = zbx_db_select(sql);
 
 	zbx_vector_uint64_pair_t rid_ipnum;
 	zbx_vector_uint64_pair_create(&rid_ipnum);
@@ -101,7 +116,7 @@ int	user_discover_create(const char *session, zbx_vector_uint64_t *druleids)
 		zbx_iprange_t iprange;
 		if (SUCCEED != zbx_iprange_parse(&iprange, row[1]))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "#ZOPS#user_discover_create ruleid:%s: wrong format of IP range:%s", row[0], row[1]);
+			zabbix_log(LOG_LEVEL_WARNING, "#ZOPS#%s ruleid:%s: wrong format of IP range:%s",__func__, row[0], row[1]);
 			continue;
 		}
 
@@ -117,50 +132,55 @@ int	user_discover_create(const char *session, zbx_vector_uint64_t *druleids)
 	LOCK_USER_DISCOVER;
 	if (NULL == user_discover_g)
 	{
-		UNLOCK_USER_DISCOVER;
 		goto out;
 	}
 
 	// 首先检测整个user_discover_g队列 session是否超时；
 	__zbx_user_discover_session_timout();
 
-	for(int i=0; i<druleids->values_num; i++)
+	for(int i=0; i<v_drules->values_num; i++)
 	{
+		dr = (zbx_user_discover_drule_t *)v_drules->values[i];
 		int index_drule;
-		if (FAIL != (index_drule = zbx_vector_ptr_bsearch(&user_discover_g->drules, &(druleids->values[i]), ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
+		if (FAIL != (index_drule = zbx_vector_ptr_bsearch(&user_discover_g->drules, &(dr->druleid), ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#user_discover_create druleid:[%d] is in tasks", druleids->values[i]);
-			zbx_user_discover_drule_t *dr = (zbx_user_discover_drule_t *)user_discover_g->drules.values[index_drule];
-			if (FAIL == zbx_vector_ptr_bsearch(&dr->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC))
+			zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s druleid:[%d] is in tasks",__func__, dr->druleid);
+			zbx_user_discover_drule_t *old_dr = (zbx_user_discover_drule_t *)user_discover_g->drules.values[index_drule];
+			if (FAIL == zbx_vector_ptr_bsearch(&old_dr->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC))
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#user_discover_create druleid:[%d] add session:[%s]", druleids->values[i], session);
+				zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s druleid:[%d] add session:[%s]", __func__, dr->druleid, session);
 				 
 				zbx_user_discover_session_t *t_session = (zbx_user_discover_session_t *)zbx_malloc(NULL, sizeof(zbx_user_discover_session_t));
 				memset(t_session, 0, sizeof(zbx_user_discover_session_t));
+				
 				t_session->sbegin_time = time(NULL);
-				zbx_vector_ptr_create(&t_session->hostids);
 				zbx_strscpy(t_session->session,  session);
-
-				zbx_vector_ptr_append(&dr->sessions, t_session);
+				zbx_vector_ptr_create(&t_session->hostids);
+				
+				zbx_vector_ptr_append(&old_dr->sessions, t_session);
 			}
 			continue;   //对应的规则id已经找到，说明已经创建过一次，不做任何处理，继续
 		}
 
 		zbx_uint64_pair_t pair;
 		int index_ipnum;
-		pair.first = druleids->values[i];
+		pair.first = dr->druleid;
 		if (FAIL == (index_ipnum = zbx_vector_uint64_pair_search(&rid_ipnum, pair, ZBX_DEFAULT_UINT64_COMPARE_FUNC)))
 			continue;
 
-		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#user_discover_create add druleid:[%d]", druleids->values[i]);
-		zbx_user_discover_drule_t *dr = (zbx_user_discover_drule_t *)zbx_malloc(NULL, sizeof(zbx_user_discover_drule_t));
-		memset(dr, 0, sizeof(zbx_user_discover_drule_t));
+		// zbx_user_discover_drule_t *dr = (zbx_user_discover_drule_t *)zbx_malloc(NULL, sizeof(zbx_user_discover_drule_t));
+		// memset(dr, 0, sizeof(zbx_user_discover_drule_t));
 		
 		//首次创建任务
 		dr->status = ZBX_USER_DISCOVER_STATUS_CREATE;
 		
-		dr->druleid=druleids->values[i];
-		dr->ip_all_num=rid_ipnum.values[index_ipnum].second;
+		// dr->druleid=v_drules->values[i];
+		// VMWare扫描，这个逻辑比较特殊，先把ip地址多少设置为160
+		if(SVC_VMWARE  == dr->check_type){
+			dr->ip_all_num= 160;  
+		}else{
+			dr->ip_all_num=rid_ipnum.values[index_ipnum].second;
+		}
 		zbx_vector_ptr_create(&dr->alarms);
 		zbx_vector_ptr_create(&dr->sessions);
  
@@ -174,18 +194,21 @@ int	user_discover_create(const char *session, zbx_vector_uint64_t *druleids)
 		 
 		zbx_vector_ptr_append(&user_discover_g->drules, dr);
 
+		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s add success. type=%d, druleid=%d, ", __func__, dr->check_type, dr->druleid);
+		
 		// 需要扫描的规则增加了1个
 		user_discover_g->need_scan_druleid_num ++; 
 		
 		// 通知discover进程立刻处理
 		notify_discover_thread();
 	}
-	UNLOCK_USER_DISCOVER;
 	ret = SUCCEED;
 
 out:
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#user_discover_create result:%d", ret);
-		
+
+	UNLOCK_USER_DISCOVER;
+	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s result:%d",__func__, ret);
+	zbx_vector_uint64_destroy(&druleids); 
 	zbx_vector_uint64_pair_destroy(&rid_ipnum);
 	zbx_free(sql);
 	zbx_db_free_result(result);
@@ -196,14 +219,12 @@ out:
 int __zbx_user_discover_session_clean_from_drule(int index, zbx_user_discover_drule_t *drule, const char *session)
 { 
 	int index_session;
-	if (FAIL == (index_session = zbx_vector_ptr_bsearch(&drule->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC)))
-		return FAIL;
-	
-	__zbx_user_discover_session_free(drule->sessions.values[index_session]);
-	zbx_vector_ptr_remove(&drule->sessions, index_session);
+	index_session = zbx_vector_ptr_bsearch(&drule->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC);
+	if(FAIL != index_session){
+		__zbx_user_discover_session_free(&drule->sessions,index_session);
+	}
 	if (drule->sessions.values_num)
 		return SUCCEED;
-
 	__zbx_user_discover_drule_free(drule);
 	zbx_vector_ptr_remove(&user_discover_g->drules, index);
 	user_discover_g->need_scan_druleid_num --;
@@ -330,8 +351,8 @@ int user_discover_next_druleid(zbx_uint64_t *druleid)
 	return next;
 }
 
-// 添加已经扫描出来的hostid
-int user_discover_add_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid)
+// VMWare扫出来的ip数不固定，这增加扫描ip数
+int vmware_add_ip_num(zbx_uint64_t druleid, int type, int ip_num)
 {
 	LOCK_USER_DISCOVER;
 	if (NULL == user_discover_g)
@@ -343,7 +364,109 @@ int user_discover_add_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid)
 	int index_drule;
 	if (FAIL == (index_drule = zbx_vector_ptr_bsearch(&user_discover_g->drules, &druleid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
 	{
-		zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS# %s, search druleid fail. druleid:%s, hostid:%d", __func__, druleid, hostid);
+		zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS# %s, search druleid fail. druleid:%s", __func__, druleid);
+		UNLOCK_USER_DISCOVER;
+		return FAIL;
+	}
+
+	zbx_user_discover_drule_t *drule = (zbx_user_discover_drule_t *)user_discover_g->drules.values[index_drule];
+	switch (type)
+	{
+	case VMWARE_SERVER_TYPE_HV:
+		drule->hv_num += ip_num;
+		break;
+	case VMWARE_SERVER_TYPE_VM:
+		drule->vm_num += ip_num;
+		break;
+	default:
+		break;
+	} 
+	
+	UNLOCK_USER_DISCOVER;
+	return SUCCEED;
+}
+
+// VMWare扫出来的ip数不固定，这增加扫描ip数
+int vmware_add_discovered_ip_num(zbx_uint64_t druleid, int type, int ip_num)
+{
+	LOCK_USER_DISCOVER;
+	if (NULL == user_discover_g)
+	{
+		UNLOCK_USER_DISCOVER;
+		return FAIL;
+	}
+
+	int index_drule;
+	if (FAIL == (index_drule = zbx_vector_ptr_bsearch(&user_discover_g->drules, &druleid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
+	{
+		zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, search druleid fail. druleid:%d", __func__, druleid);
+		UNLOCK_USER_DISCOVER;
+		return FAIL;
+	}
+
+	int count_num = 0;
+	zbx_user_discover_drule_t *drule = (zbx_user_discover_drule_t *)user_discover_g->drules.values[index_drule];
+
+	switch (type)
+	{
+	case VMWARE_SERVER_TYPE_HV:
+		if(ip_num <= 1){
+			drule->hv_count ++;
+			count_num = (int)(((float)drule->hv_count/(float)drule->hv_num)*50);
+			if(count_num > 0) drule->hv_count = 0;
+			drule->ip_discovered_num += count_num;
+		}
+		else if(ip_num >= drule->hv_num){
+			count_num = ip_num;
+			drule->ip_discovered_num = 60;
+		}
+		
+		break;
+	case VMWARE_SERVER_TYPE_VM:
+		if(ip_num <= 1){
+			drule->vm_count += ip_num;
+			count_num = (int)(((float)drule->vm_count/(float)drule->vm_num)*100);
+			if(count_num > 0) drule->vm_count = 0;
+			drule->ip_discovered_num += count_num;
+		}else if(ip_num >= drule->vm_num){
+			count_num = ip_num;
+			drule->ip_discovered_num = 160;
+		}
+		break;
+	default:
+		count_num = ip_num;
+		drule->ip_discovered_num += count_num;
+		break;
+	} 
+	
+	if(drule->ip_discovered_num >= drule->ip_all_num)
+	{
+		drule->status = ZBX_USER_DISCOVER_STATUS_FINISH;
+	}
+	for(int j = 0; j < drule->sessions.values_num; j ++)
+	{
+		zbx_user_discover_session_t *session = (zbx_user_discover_session_t *)drule->sessions.values[j];
+		session->sbegin_time = time(NULL);
+	}
+	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, index_drule=%d, type=%d, count_num=%d", __func__, index_drule, type, count_num);
+	UNLOCK_USER_DISCOVER;
+	return SUCCEED;
+}
+
+// 添加已经扫描出来的hostid
+int user_discover_add_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid)
+{
+	if (NULL == user_discover_g)
+	{
+		return FAIL;
+	}
+
+	LOCK_USER_DISCOVER;
+	
+	int index_drule;
+	if (FAIL == (index_drule = zbx_vector_ptr_bsearch(&user_discover_g->drules, &druleid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
+	{
+		zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, search druleid fail. druleid:%ld, hostid:%ld", __func__, druleid, hostid);
 		UNLOCK_USER_DISCOVER;
 		return FAIL;
 	}
@@ -355,7 +478,7 @@ int user_discover_add_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid)
 		char *hostid_s = (char *)zbx_malloc(NULL, 22);
 		zbx_snprintf(hostid_s, sizeof(hostid_s), ZBX_FS_UI64, hostid);
 		zbx_vector_ptr_append(&session->hostids, hostid_s);
-		// zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, success. session:%s, hostid:%d", __func__, session->session, hostid);
+		zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, success. session:%s, hostid:%d", __func__, session->session, hostid);
 	}
 	
 	UNLOCK_USER_DISCOVER;
@@ -365,15 +488,11 @@ int user_discover_add_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid)
 // 添加告警
 int user_discover_add_alarm(zbx_uint64_t druleid, const char *ip, const int port)
 {
-	LOCK_USER_DISCOVER;
 	if (NULL == user_discover_g)
 	{
-		UNLOCK_USER_DISCOVER;
 		return FAIL;
 	}
-
-	 
-
+	LOCK_USER_DISCOVER;
 	int index_drule;
 	if (FAIL == (index_drule = zbx_vector_ptr_bsearch(&user_discover_g->drules, &druleid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
 	{
@@ -492,9 +611,6 @@ void discovery_rules_select(const char* request_value,int recv_type, const struc
 	char *response = NULL;
 	char session_value[MAX_STRING_LEN];
 
-	// zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI 111111");
-	// get_ipmi_value_by_ip();
-
 	// 提取 session
 	if (SUCCEED != zbx_json_value_by_name(jp, "session", session_value, sizeof(session_value), NULL))
 	{
@@ -503,11 +619,11 @@ void discovery_rules_select(const char* request_value,int recv_type, const struc
 	// 比较 request 值 进行对应操作
 	else if (SUCCEED == zbx_strcmp_null(request_value, DISCOVERY_CMD_ACTIVITE)) 
 	{
-		zbx_vector_uint64_t druleids;
-		zbx_vector_uint64_create(&druleids);  // 创建向量
+		zbx_vector_ptr_t druleids;
+		zbx_vector_ptr_create(&druleids);  // 创建向量
 
 		// 提取 druleids
-		if (SUCCEED != extract_druleids(jp, &druleids))
+		if (SUCCEED != parse_rules_activate(jp, &druleids))
 		{
 			response = create_fail_json(request_value, session_value, DISCOVERY_RESULT_NO_DRULEID, "No druleids");
 		}
@@ -558,7 +674,6 @@ void discovery_rules_select(const char* request_value,int recv_type, const struc
 	zbx_free(response);
 }
 
-
 int query_druleid_progress(const char * session, zbx_uint64_t druleid, 
 	int *out_progress, int *out_remain_time, char **out_hostids)
 {
@@ -602,7 +717,7 @@ int query_druleid_progress(const char * session, zbx_uint64_t druleid,
 
 					if (now >= dsession->sbegin_time + timeout)  //session超时，则移除session
 					{
-						zbx_vector_ptr_remove(&drule->sessions, index_session);
+						__zbx_user_discover_session_free(&drule->sessions, index_session);
 
 						// 该ruldid下没有任何任务，就从队列中移除ruldid
 						if(drule->sessions.values_num == 0)
@@ -646,13 +761,13 @@ int query_druleid_progress(const char * session, zbx_uint64_t druleid,
 			if (FAIL != (index_session = zbx_vector_ptr_bsearch(&drule->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC)))
 			{
 				dsession = (zbx_user_discover_session_t *)drule->sessions.values[index_session];
-				zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, get hostids. hostids_num:%d", __func__, dsession->hostids.values_num);
+				//zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#%s, get hostids. hostids_num:%d", __func__, dsession->hostids.values_num);
 			
-				for(int k = 0; k < dsession->hostids.values_num; k ++)
+				for(int k = dsession->hostids.values_num - 1; k >= 0; k --)
 				{
 					char *str_hostid = (char *)dsession->hostids.values[k]; 
 					strcat(hostids, str_hostid);
-					if(k < (dsession->hostids.values_num - 1))
+					if(k > 0)
 						strcat(hostids, ",");
 					zbx_free(str_hostid);
 					zbx_vector_ptr_remove(&dsession->hostids, k);
@@ -667,7 +782,7 @@ int query_druleid_progress(const char * session, zbx_uint64_t druleid,
 			need_remove_druleid = 1;
 		}
 
-		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s status:[%d],all_num=%d,discovered_num=%d,progress=%d,remain_time=%d,need_remove=%d", __func__, 
+		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#%s status=%d,all_num=%d,discovered_num=%d,progress=%d,remain_time=%d,need_remove=%d", __func__, 
 				drule->status, drule->ip_all_num,drule->ip_discovered_num, progress,remain_time,need_remove_druleid);
 
 		// 如果100%了或者超时 就移除该ruleid的任务 如果没有下一个任务了就清理所有任务
@@ -675,6 +790,7 @@ int query_druleid_progress(const char * session, zbx_uint64_t druleid,
 		{
 			__zbx_user_discover_session_clean_from_drule(index_drule, drule, session);
 		}
+
 	}
 	else
 	{
@@ -833,7 +949,6 @@ char* create_fail_json(const char* response, const char* session, int result, co
 }
 
 /*********************************************
- * Function_Name: extract_druleids
  *
  * Decscription: 提取规则
  *
@@ -844,10 +959,10 @@ char* create_fail_json(const char* response, const char* session, int result, co
  *  SUCCEED					提取成功 存入 druleids
  *	FAIL					提取失败
 ************************************************/
-int extract_druleids(const struct zbx_json_parse *jp, zbx_vector_uint64_t *druleids)
+int parse_rules_activate(const struct zbx_json_parse *jp, zbx_vector_ptr_t *drules)
 {
     struct zbx_json_parse data_jp, obj_j;
-    char druleid_str[MAX_STRING_LEN];
+    char tstr[MAX_STRING_LEN];
     zbx_uint64_t druleid_value;
     const char *p = NULL;
 
@@ -859,12 +974,26 @@ int extract_druleids(const struct zbx_json_parse *jp, zbx_vector_uint64_t *drule
 	{
 		if (SUCCEED == zbx_json_brackets_open(p, &obj_j))
 		{
+			zbx_user_discover_drule_t *dr = (zbx_user_discover_drule_t *)zbx_malloc(NULL, sizeof(zbx_user_discover_drule_t));
+			memset(dr, 0, sizeof(zbx_user_discover_drule_t));
 			// 从当前对象中提取druleid的值
-			if (SUCCEED == zbx_json_value_by_name(&obj_j, "druleid", druleid_str, sizeof(druleid_str), NULL))
+			if (SUCCEED == zbx_json_value_by_name(&obj_j, "druleid", tstr, sizeof(tstr), NULL))
 			{
-				ZBX_STR2UINT64(druleid_value, druleid_str);  // 将字符串转换为uint64_t
-				zbx_vector_uint64_append(druleids, druleid_value);  // 将druleid添加到向量中
+				ZBX_STR2UINT64(druleid_value, tstr);  // 将字符串转换为uint64_t
+				dr->druleid = druleid_value;
 			}
+
+			memset(&tstr, 0, sizeof(tstr));
+			// 从当前对象中提取check_type的值
+			if (SUCCEED == zbx_json_value_by_name(&obj_j, "checktype", tstr, sizeof(tstr), NULL))
+			{
+				dr->check_type = zbx_atoi(tstr);
+			}
+
+			if(dr->druleid > 0)
+				zbx_vector_ptr_append(drules, dr);  // 将druleid添加到向量中
+			else
+				zbx_free(dr);
 		}
 	}
 

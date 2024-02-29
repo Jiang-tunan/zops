@@ -823,10 +823,10 @@ static int	validate_host(zbx_uint64_t hostid, zbx_vector_uint64_t *templateids, 
 				"select type,interfaceid"
 				" from interface"
 				" where hostid=" ZBX_FS_UI64
-					" and type in (%d,%d,%d,%d)"
+					" and type in (%d,%d,%d,%d,%d)"
 					" and main=1",
 				hostid, INTERFACE_TYPE_AGENT, INTERFACE_TYPE_SNMP,
-				INTERFACE_TYPE_IPMI, INTERFACE_TYPE_JMX);
+				INTERFACE_TYPE_IPMI, INTERFACE_TYPE_JMX, INTERFACE_TYPE_VMWARE);
 
 		while (NULL != (trow = zbx_db_fetch(tresult)))
 		{

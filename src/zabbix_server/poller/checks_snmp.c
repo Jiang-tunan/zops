@@ -523,7 +523,7 @@ static struct snmp_session	*zbx_snmp_open_session(const DC_ITEM *item, char *err
 	}
 	
 
-	if (ZBX_FLAG_DISCOVERY_RULE & item->flags)  // 如果是扫码发现规则,设置0.5秒超时时间
+	if (ZBX_FLAG_DISCOVERY_RULE & item->flags)  // 如果是扫码发现规则,设置1.5秒超时时间
 	{
 		session.timeout = 1 * 1500 * 1000;
 

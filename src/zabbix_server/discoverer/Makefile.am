@@ -12,7 +12,8 @@ libzbxdiscoverer_a_SOURCES = \
 	discoverer_protocol.c \
 	discoverer_protocol.h \
 	discoverer_single.c \
-	discoverer_single.h
-
+	discoverer_single.h \
+	discoverer_vmware.c \
+	discoverer_vmware.h
 libzbxdiscoverer_a_CFLAGS = \
 	$(TLS_CFLAGS)

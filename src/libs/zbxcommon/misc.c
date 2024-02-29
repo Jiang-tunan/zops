@@ -27,7 +27,8 @@ const int	INTERFACE_TYPE_PRIORITY[INTERFACE_TYPE_COUNT] =
 	INTERFACE_TYPE_AGENT,
 	INTERFACE_TYPE_SNMP,
 	INTERFACE_TYPE_JMX,
-	INTERFACE_TYPE_IPMI
+	INTERFACE_TYPE_IPMI,
+	INTERFACE_TYPE_VMWARE
 };
 
 static ZBX_THREAD_LOCAL volatile sig_atomic_t	zbx_timed_out;	/* 0 - no timeout occurred, 1 - SIGALRM took place */
@@ -196,7 +197,7 @@ char	*zbx_strdup2(const char *filename, int line, char *old, const char *str)
 
 	zbx_free(old);
 	
-	// Èç¹ûÄ¿±ê×Ö·û´®ÎªNULL£¬Ôò·µ»Ø""×Ö·û´®
+	// ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ÎªNULLï¿½ï¿½ï¿½ò·µ»ï¿½""ï¿½Ö·ï¿½ï¿½ï¿½
 	if (NULL == str)
 		return strdup("");
 

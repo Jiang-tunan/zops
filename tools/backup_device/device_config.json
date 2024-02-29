@@ -1,0 +1,91 @@
+{
+	"enable": 1,
+	"crontab": "01 00 * * * bash /usr/local/tognix/sbin/backup_device",
+	"tftpServer": "192.168.31.23",
+	"tftpPath": "/var/lib/tftpboot/",
+	"retain_days": 7,
+	"logMode": 1,
+	"DBHost": "127.0.0.1",
+	"DBPort": 3306,
+	"DBName": "tognix",
+	"DBUser": "tognix",
+	"DBPassword": "Tognix666#888",
+	"replies":{
+		"lineEndMark":["(.|\n)*([#>\\]\n][ ?]?)$"],
+		"PS1": ["(.|\n)*([#>][ \n]?)$"],
+		"question":["(.|\n)*((login:|username:)[ ]?[ \n]?)$","(.|\n)*(password:[ ]?[ \n]?)$","(.|\n)*(the password needs to be changed. change now\\? \\[y/n\\]:[ \n]?)$",
+		"(.|\n)*((\\[y/n\\])[: ]?)$","(.|\n)*((\\[yes/no\\])[: ]?)$","address or name of remote host \\[\\]\\?","destination filename \\[.*\\]\\?"],
+		"answer":["{username}","{password}","N","Y","yes","{tftpServer}","{fileName}"],
+		"failPrompt":["(.|\n)*(login failed.)(.|\n)*"],
+		"failCode":[1002]
+	},
+	"cmds": [{
+		"type": "huawei",
+		"config_type":"Running",
+		"cmd": ["save config.cfg","tftp {ip} put config.cfg {fileName}"],
+		"verMark":["!Software Version"]
+	},
+	{
+		"type": "h3c",
+		"config_type":"Startup",
+		"cmd": ["save config.cfg","tftp {ip} put config.cfg {fileName}"],
+		"verMark":["version"]
+	},
+	{
+		"type": "ruijie",
+		"config_type":"Running",
+		"cmd": ["enable","copy running-config tftp://{ip}/{fileName}"],
+		"verMark":["version"]
+	},
+	{
+		"type": "cisco",
+		"config_type":"Running",
+		"cmd": ["enable","copy running-config tftp"],
+		"verMark":["version"]
+	},
+	{
+		"type": "dell",
+		"config_type":"Running",
+		"cmd": ["copy running-configuration tftp://{ip}/{fileName}"],
+		"verMark":["! Version"]
+	},
+	{
+		"type": "brocade",
+		"config_type":"Running",
+		"cmd": ["enable", "copy running-config tftp {ip} {fileName}"],
+		"verMark":["ver"]
+	},
+	{
+		"type": "forti",
+		"config_type":"Running",
+		"cmd": ["exec backup config tftp {fileName} {ip}"],
+		"verMark":["#conf_file_ver"]
+	},
+	{
+		"type": "hillstone",
+		"config_type":"Startup",
+		"cmd": ["export configuration startup to tftp server {ip} {fileName}"],
+		"verMark":["# Software Version"]
+	},
+	{
+		"type": "checkpoint",
+		"config_type":"Running",
+		"cmd": ["backup tftp ip {ip}"],
+		"checkBackupFile":["show backup status","Backup file location:", 30, 10],
+		"isCheckDiff": 0
+	},
+	{
+		"type": "aruba",
+		"config_type":"Running",
+		"cmd": ["copy running-config tftp://{ip}/{fileName} cli"],
+		"verMark":["!Version"]
+	},
+	{
+		"type": "aruba-cx",
+		"config_type":"Running",
+		"cmd": ["copy running-config tftp://{ip}/{fileName} cli vrf mgmt"],
+		"verMark":["!Version"]
+	}
+	
+	]
+}

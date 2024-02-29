@@ -623,6 +623,7 @@ const char	*dc_strpool_intern(const char *str)
 
 void	dc_strpool_release(const char *str)
 {
+	if(NULL == str) return;
 	zbx_uint32_t	*refcount;
 
 	refcount = (zbx_uint32_t *)(str - REFCOUNT_FIELD_SIZE);
@@ -647,7 +648,7 @@ int	dc_strpool_replace(int found, const char **curr, const char *new_str)
 {
 	if (1 == found)
 	{
-		if (0 == strcmp(*curr, new_str))
+		if (0 == zbx_strcmp_null(*curr, new_str))
 			return FAIL;
 
 		dc_strpool_release(*curr);
@@ -2449,7 +2450,8 @@ static void	dc_interface_update_agent_stats(ZBX_DC_INTERFACE *interface, unsigne
 	if ((NULL != interface) && ((ITEM_TYPE_ZABBIX == type && INTERFACE_TYPE_AGENT == interface->type) ||
 			(ITEM_TYPE_SNMP == type && INTERFACE_TYPE_SNMP == interface->type) ||
 			(ITEM_TYPE_JMX == type && INTERFACE_TYPE_JMX == interface->type) ||
-			(ITEM_TYPE_IPMI == type && INTERFACE_TYPE_IPMI == interface->type)))
+			(ITEM_TYPE_IPMI == type && INTERFACE_TYPE_IPMI == interface->type) ||
+			(ITEM_TYPE_SIMPLE == type && INTERFACE_TYPE_VMWARE == interface->type)))
 		interface->items_num += num;
 }
 
@@ -6865,8 +6867,8 @@ void	DCsync_configuration(unsigned char mode, zbx_synced_new_config_t synced, zb
 	hsec = zbx_time() - sec;
 
 	sec = zbx_time();
-	if (FAIL == zbx_dbsync_compare_host_inventory(&hi_sync))
-		goto out;
+	//if (FAIL == zbx_dbsync_compare_host_inventory(&hi_sync))
+	//	goto out;
 	hisec = zbx_time() - sec;
 
 	sec = zbx_time();
@@ -6922,7 +6924,7 @@ void	DCsync_configuration(unsigned char mode, zbx_synced_new_config_t synced, zb
 	hsec2 = zbx_time() - sec;
 
 	sec = zbx_time();
-	DCsync_host_inventory(&hi_sync, new_revision);
+	//DCsync_host_inventory(&hi_sync, new_revision);
 	hisec2 = zbx_time() - sec;
 
 	sec = zbx_time();
@@ -14934,7 +14936,8 @@ void	zbx_get_host_interfaces_availability(zbx_uint64_t hostid, zbx_agent_availab
 			i = ZBX_AGENT_JMX;
 		else if (INTERFACE_TYPE_SNMP == interface->type)
 			i = ZBX_AGENT_SNMP;
-
+		else if (INTERFACE_TYPE_VMWARE == interface->type)
+			i = ZBX_AGENT_VMWARE;
 		if (ZBX_AGENT_UNKNOWN != i)
 			DCinterface_get_agent_availability(interface, &agents[i]);
 	}

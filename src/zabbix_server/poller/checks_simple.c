@@ -216,7 +216,8 @@ int	get_value_simple(const DC_ITEM *item, AGENT_RESULT *result, zbx_vector_ptr_t
 		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item key format."));
 		goto out;
 	}
-
+	// zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS# key=%s, p0=%s, p2='%s'", item->key, request.params[0],request.params[1]);
+	
 	request.lastlogsize = item->lastlogsize;
 
 	if (0 == strcmp(request.key, "net.tcp.service") || 0 == strcmp(request.key, "net.udp.service"))
@@ -243,7 +244,9 @@ int	get_value_simple(const DC_ITEM *item, AGENT_RESULT *result, zbx_vector_ptr_t
 				ret = SUCCEED;
 		}
 		else
+		{
 			SET_MSG_RESULT(result, zbx_strdup(NULL, "Support for VMware checks was not compiled in."));
+		}
 	}
 	else if (0 == strcmp(request.key, ZBX_VMWARE_PREFIX "eventlog"))
 	{
@@ -259,7 +262,9 @@ int	get_value_simple(const DC_ITEM *item, AGENT_RESULT *result, zbx_vector_ptr_t
 	{
 		/* it will execute item from a loadable module if any */
 		if (SUCCEED == zbx_execute_agent_check(item->key, ZBX_PROCESS_MODULE_COMMAND, result))
+		{
 			ret = SUCCEED;
+		}
 	}
 
 	if (NOTSUPPORTED == ret && !ZBX_ISSET_MSG(result))

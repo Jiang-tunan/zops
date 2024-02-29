@@ -128,12 +128,14 @@ static void	interface_set_availability(DC_INTERFACE *dc_interface, const zbx_int
 		*pdisable_until = availability->disable_until;
 }
 
+// 增加监控来源是否可用类型，以后增加一个监控来源，这里要增加对应的监控来源判断
 static int	interface_availability_by_item_type(unsigned char item_type, unsigned char interface_type)
 {
 	if ((ITEM_TYPE_ZABBIX == item_type && INTERFACE_TYPE_AGENT == interface_type) ||
 			(ITEM_TYPE_SNMP == item_type && INTERFACE_TYPE_SNMP == interface_type) ||
 			(ITEM_TYPE_JMX == item_type && INTERFACE_TYPE_JMX == interface_type) ||
-			(ITEM_TYPE_IPMI == item_type && INTERFACE_TYPE_IPMI == interface_type))
+			(ITEM_TYPE_IPMI == item_type && INTERFACE_TYPE_IPMI == interface_type) ||
+			(ITEM_TYPE_SIMPLE == item_type && INTERFACE_TYPE_VMWARE == interface_type))
 		return SUCCEED;
 
 	return FAIL;
@@ -173,8 +175,8 @@ void	zbx_activate_item_interface(zbx_timespec_t *ts, DC_ITEM *item,  unsigned ch
 {
 	zbx_interface_availability_t	in, out;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() interfaceid:" ZBX_FS_UI64 " itemid:" ZBX_FS_UI64 " type:%d",
-			__func__, item->interface.interfaceid, item->itemid, (int)item->type);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() interfaceid:" ZBX_FS_UI64 " itemid:" ZBX_FS_UI64 " type:%d, interface_type:%d, available:%d",
+		__func__, item->interface.interfaceid, item->itemid, (int)item->type, (int)item->interface.type, (int)item->interface.available);
 
 	zbx_interface_availability_init(&in, item->interface.interfaceid);
 	zbx_interface_availability_init(&out, item->interface.interfaceid);
@@ -228,8 +230,8 @@ void	zbx_deactivate_item_interface(zbx_timespec_t *ts, DC_ITEM *item, unsigned c
 {
 	zbx_interface_availability_t	in, out;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() interfaceid:" ZBX_FS_UI64 " itemid:" ZBX_FS_UI64 " type:%d",
-			__func__, item->interface.interfaceid, item->itemid, (int)item->type);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() interfaceid:" ZBX_FS_UI64 " itemid:" ZBX_FS_UI64 " type:%d, interface_type:%d, available:%d",
+		__func__, item->interface.interfaceid, item->itemid, (int)item->type, (int)item->interface.type, (int)item->interface.available);
 
 	zbx_interface_availability_init(&in, item->interface.interfaceid);
 	zbx_interface_availability_init(&out,item->interface.interfaceid);

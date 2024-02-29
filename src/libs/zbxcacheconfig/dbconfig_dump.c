@@ -1544,7 +1544,7 @@ void	DCdump_configuration(void)
 	DCdump_host_tags();
 	DCdump_proxies();
 	DCdump_ipmihosts();
-	DCdump_host_inventories();
+	//DCdump_host_inventories();
 	DCdump_kvs_paths();
 	um_cache_dump(config->um_cache);
 	DCdump_interfaces();

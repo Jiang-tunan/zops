@@ -2207,3 +2207,19 @@ int zbx_atoi(char *dst)
 	else
 		return atoi(dst);
 }
+
+long zbx_atol(char *dst)
+{
+	if(NULL ==  dst)
+		return 0;
+	else
+		return atol(dst);
+}
+
+char * get_str_field(char *str)
+{
+	if(str == NULL)
+		return zbx_strdup(NULL,"");
+	else
+		return str;
+}

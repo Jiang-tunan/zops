@@ -1,0 +1,940 @@
+zabbix_export:
+  version: '6.4'
+  templates:
+    - uuid: 53b04aab59994cff99182e17e4e56835
+      template: 'Nutanix Cluster by SNMP'
+      name: 'Nutanix Cluster by SNMP'
+      groups:
+        - name: Templates/Common
+      items:
+        - uuid: 3f782212ea1746d683fe3a236e9e2014
+          name: 'ICMP ping'
+          type: SIMPLE
+          key: icmpping
+          history: 1w
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 3d59d9fc318a4058925c1b3a1012c581
+              expression: 'max(/Nutanix Cluster by SNMP/icmpping,#3)=0'
+              name: 'Unavailable by ICMP ping'
+              priority: HIGH
+              description: 'Last three attempts returned timeout.  Please check device connectivity.'
+              tags:
+                - tag: scope
+                  value: availability
+        - uuid: b79acb5aa27c4835a196ff85cc6e091a
+          name: 'ICMP loss'
+          type: SIMPLE
+          key: icmppingloss
+          history: 1w
+          value_type: FLOAT
+          units: '%'
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 7508f9e0fb1244079c227b03278b7533
+              expression: 'min(/Nutanix Cluster by SNMP/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/Nutanix Cluster by SNMP/icmppingloss,5m)<100'
+              name: 'High ICMP ping loss'
+              opdata: 'Loss: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Nutanix Cluster by SNMP/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+        - uuid: 2b6b955cacd7461991974173f9bfaf06
+          name: 'ICMP response time'
+          type: SIMPLE
+          key: icmppingsec
+          history: 1w
+          value_type: FLOAT
+          units: s
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: c86a4407c10e4641872b1e747cbfe6f7
+              expression: 'avg(/Nutanix Cluster by SNMP/icmppingsec,5m)>{$ICMP_RESPONSE_TIME_WARN}'
+              name: 'High ICMP ping response time'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'High ICMP ping loss'
+                  expression: 'min(/Nutanix Cluster by SNMP/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/Nutanix Cluster by SNMP/icmppingloss,5m)<100'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Nutanix Cluster by SNMP/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+        - uuid: 35ec0bd6e44c4fae8a50ea7744bcfa48
+          name: 'Cluster Free Storage Capacity (percent)'
+          type: CALCULATED
+          key: clusterFreeStorage
+          delay: '60'
+          value_type: FLOAT
+          units: '%'
+          params: '100*(last(//clusterTotalStorageCapacity) - last(//clusterUsedStorageCapacity)) / last(//clusterTotalStorageCapacity)'
+          description: 'Overall Cluster Capacity Storage'
+          tags:
+            - tag: Application
+              value: 'Nutanix Cluster'
+          triggers:
+            - uuid: 39aabebd561749dd9600bde7c592019e
+              expression: 'last(/Nutanix Cluster by SNMP/clusterFreeStorage) < 10'
+              name: 'Free storage is less than 10% on Nutanix Cluster'
+              priority: AVERAGE
+            - uuid: a96575e3e9c44a86ad5624b95b63d29c
+              expression: 'last(/Nutanix Cluster by SNMP/clusterFreeStorage) < 20'
+              name: 'Free storage is less than 20% on Nutanix Cluster'
+              priority: WARNING
+              dependencies:
+                - name: 'Free storage is less than 10% on Nutanix Cluster'
+                  expression: 'last(/Nutanix Cluster by SNMP/clusterFreeStorage) < 10'
+        - uuid: e7323f3682f244488a6a48739178a1a8
+          name: 'Cluster IO Bandwidth'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.41263.508.0
+          key: clusterIOBandwidth
+          delay: '60'
+          history: 30d
+          units: bps
+          description: 'Cluster wide IO bandwidth in KBps.'
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '1000'
+          tags:
+            - tag: Application
+              value: 'Nutanix Cluster'
+        - uuid: 9be87541409a41759483bb02c7d2e71f
+          name: 'Cluster IOPS'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.41263.506.0
+          key: clusterIops
+          delay: '60'
+          history: 30d
+          units: iops
+          description: 'Cluster wide average IO operations per second.'
+          tags:
+            - tag: Application
+              value: 'Nutanix Cluster'
+        - uuid: fffb9f403fe34488bc68d196a99d7085
+          name: 'Cluster Latency'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.41263.507.0
+          key: clusterLatency
+          delay: '60'
+          history: 30d
+          value_type: FLOAT
+          units: ms
+          description: 'Cluster wide average latency.'
+          preprocessing:
+            - type: MULTIPLIER
+              parameters:
+                - '0.001'
+          tags:
+            - tag: Application
+              value: 'Nutanix Cluster'
+          triggers:
+            - uuid: f943156ca37e4faf9e3d424f5dba2393
+              expression: 'min(/Nutanix Cluster by SNMP/clusterLatency,300s) > 10'
+              name: 'Nutanix Cluster storage latency is greater than 10 ms for 5 minutes'
+              priority: WARNING
+        - uuid: 72888c1a80854d4c85f8e373ce38d021
+          name: 'Cluster Name'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.41263.501.0
+          key: 'clusterName[{#HOST}]'
+          delay: '3600'
+          history: 30d
+          trends: '0'
+          value_type: CHAR
+          description: 'Name of the cluster.'
+          tags:
+            - tag: Application
+              value: 'Nutanix Cluster'
+        - uuid: c4b0182dca3a4432a8e79956b7596e97
+          name: 'Cluster Total Storage Capacity'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.41263.504.0
+          key: clusterTotalStorageCapacity
+          delay: '60'
+          history: 30d
+          units: bytes
+          description: 'Total storage capacity of the cluster in bytes.'
+          tags:
+            - tag: Application
+              value: 'Nutanix Cluster'
+        - uuid: ca02550bcb3341a6a8c5c2d9cc9e70ed
+          name: 'Cluster Used Storage Capacity'
+          type: SNMP_AGENT
+          snmp_oid: .1.3.6.1.4.1.41263.505.0
+          key: clusterUsedStorageCapacity
+          delay: '60'
+          history: 30d
+          units: bytes
+          description: 'Number of bytes of storage used on the cluster.'
+          tags:
+            - tag: Application
+              value: 'Nutanix Cluster'
+      discovery_rules:
+        - uuid: e33b0ebe7fe545e0ab7105838a93f1e0
+          name: 'Discovered Containers'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.41263.8.1.3]'
+          key: citEntry
+          delay: '3600'
+          lifetime: 7d
+          description: 'Containers informations'
+          item_prototypes:
+            - uuid: df02e70cf6a8476fa127c6f2f2d855cb
+              name: 'Container $1 Latency'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.8.1.7.{#SNMPINDEX}'
+              key: 'citAvgLatencyUsecs[{#SNMPVALUE}]'
+              delay: '60'
+              history: 7d
+              value_type: FLOAT
+              units: ms
+              description: 'Average IO latency for this container in microseconds.'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Containers'
+              trigger_prototypes:
+                - uuid: 60acb053d1024b5194a351e05361e430
+                  expression: 'min(/Nutanix Cluster by SNMP/citAvgLatencyUsecs[{#SNMPVALUE}],300s) > 10'
+                  name: 'Nutanix Container {#SNMPVALUE} latency is greater than 10 ms for 5 minutes'
+                  priority: WARNING
+            - uuid: 1286cc0146194cc7ab52dbaec94dfffc
+              name: 'Container $1 Free Storage (percent)'
+              type: CALCULATED
+              key: 'citFreeCapacity[{#SNMPVALUE}]'
+              delay: '300'
+              history: 7d
+              value_type: FLOAT
+              units: '%'
+              params: '100*(last(//citTotalCapacity[{#SNMPVALUE}]) - last(//citUsedCapacity[{#SNMPVALUE}])) / last(//citTotalCapacity[{#SNMPVALUE}])'
+              description: 'Free Storage Capacity of the Container'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Containers'
+              trigger_prototypes:
+                - uuid: b0c556e5733c4c12bdd3f75f35c4b0a4
+                  expression: 'last(/Nutanix Cluster by SNMP/citFreeCapacity[{#SNMPVALUE}]) < 10'
+                  name: 'Free storage is less than 10% on Nutanix Container {#SNMPVALUE}'
+                  priority: AVERAGE
+                - uuid: 7eb59215ab6244fda0e591387fab42d8
+                  expression: 'last(/Nutanix Cluster by SNMP/citFreeCapacity[{#SNMPVALUE}]) < 20'
+                  name: 'Free storage is less than 20% on Nutanix Container {#SNMPVALUE}'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'Free storage is less than 10% on Nutanix Container {#SNMPVALUE}'
+                      expression: 'last(/Nutanix Cluster by SNMP/citFreeCapacity[{#SNMPVALUE}]) < 10'
+            - uuid: 82a53da1f6974bccab18f2df20401db4
+              name: 'Container $1 IOPS'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.8.1.6.{#SNMPINDEX}'
+              key: 'citIOPerSecond[{#SNMPVALUE}]'
+              delay: '60'
+              history: 7d
+              units: iops
+              description: 'Number of IO operations served per second from this container.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Containers'
+            - uuid: 1970df4e2c67407db4335614b50852a8
+              name: 'Container $1 Total Storage Capacity'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.8.1.4.{#SNMPINDEX}'
+              key: 'citTotalCapacity[{#SNMPVALUE}]'
+              delay: '3600'
+              history: 7d
+              units: bytes
+              description: 'Total capacity of the container in bytes.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Containers'
+            - uuid: 3d717e6b7614466baecd7283b6272948
+              name: 'Container $1 Used Storage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.8.1.5.{#SNMPINDEX}'
+              key: 'citUsedCapacity[{#SNMPVALUE}]'
+              delay: '300'
+              history: 7d
+              units: bytes
+              description: 'Number of bytes used in the container.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Containers'
+        - uuid: ba99903019ff4afa8d9531ac71053387
+          name: 'Discovered CVM'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.41263.11.1.2]'
+          key: CstEntry
+          delay: '3600'
+          lifetime: 5d
+          item_prototypes:
+            - uuid: bb2a803722c54a688c98c62b7d5d20ca
+              name: 'Status of CVM $1'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.11.1.3.{#SNMPINDEX}'
+              key: 'cstControllerVMStatus[{#SNMPVALUE}]'
+              delay: '120'
+              history: 120d
+              trends: '0'
+              value_type: CHAR
+              description: 'Status of the node.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+              trigger_prototypes:
+                - uuid: aa4b2f345aed46238b51a475719c5977
+                  expression: 'find(/Nutanix Cluster by SNMP/cstControllerVMStatus[{#SNMPVALUE}],,"like","Up") = 0'
+                  name: 'Nuranix CVM {#SNMPVALUE} is down'
+                  priority: AVERAGE
+            - uuid: 28ce9843558a4f28ac3071464946e018
+              name: 'Data Status of CVM $1'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.11.1.4.{#SNMPINDEX}'
+              key: 'cstDataServiceStatus[{#SNMPVALUE}]'
+              delay: '120'
+              history: 30d
+              trends: '0'
+              value_type: CHAR
+              description: 'Status of core data services on the Controller VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+              trigger_prototypes:
+                - uuid: e9080009da544e38b767b42b366aaa8c
+                  expression: 'find(/Nutanix Cluster by SNMP/cstDataServiceStatus[{#SNMPVALUE}],,"like","Up") = 0'
+                  name: 'Nutanix Core Data Service on CVM {#SNMPVALUE} is down'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'Nuranix CVM {#SNMPVALUE} is down'
+                      expression: 'find(/Nutanix Cluster by SNMP/cstControllerVMStatus[{#SNMPVALUE}],,"like","Up") = 0'
+            - uuid: 9d887aee465e4a1cb23effb3b16ec1ad
+              name: 'MetaData Status of CVM $1'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.11.1.5.{#SNMPINDEX}'
+              key: 'cstMetadataServiceStatus[{#SNMPVALUE}]'
+              delay: '120'
+              history: 30d
+              trends: '0'
+              value_type: CHAR
+              description: 'Status of metadata services on the Controller VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+              trigger_prototypes:
+                - uuid: 1519a6b0212f49b7b6815ab91afe8746
+                  expression: 'find(/Nutanix Cluster by SNMP/cstMetadataServiceStatus[{#SNMPVALUE}],,"like","Up") = 0'
+                  name: 'Nutanix Metadata Service on CVM {#SNMPVALUE} is down'
+                  priority: WARNING
+                  dependencies:
+                    - name: 'Nuranix CVM {#SNMPVALUE} is down'
+                      expression: 'find(/Nutanix Cluster by SNMP/cstControllerVMStatus[{#SNMPVALUE}],,"like","Up") = 0'
+        - uuid: 7dfb6624ca114636bd99e539c9d6fae5
+          name: 'Discovered Disks'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.41263.3.1.3]'
+          key: DstEntry
+          delay: '3600'
+          lifetime: 5d
+          description: 'A unique index for each row in the disk status table'
+          item_prototypes:
+            - uuid: 0fc832eb26b345349cfcc3c5f006531b
+              name: 'Disk {#SNMPINDEX} Average Latency'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.10.{#SNMPINDEX}'
+              key: 'dstAverageLatency[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              value_type: FLOAT
+              units: ms
+              description: 'Average IO latency per micro seconds for the disk'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 5a3399da9f0f4cd0bc1caee32f183b9a
+              name: 'Disk {#SNMPINDEX} ID'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.2.{#SNMPINDEX}'
+              key: 'dstDiskId[{#SNMPINDEX}]'
+              delay: '3600'
+              history: 7d
+              trends: '0'
+              value_type: CHAR
+              description: 'A unique disk id for each disk.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: aae4ef326681471f992fd5d099a990b3
+              name: 'Disk {#SNMPINDEX} IO Bandwidth'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.11.{#SNMPINDEX}'
+              key: 'dstIOBandwidth[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              units: bps
+              description: 'IO bandwidth in KBps for the disk.'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1000'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 25d1ee2223b0466c8f4354c7823459f2
+              name: 'Disk {#SNMPINDEX} IOPS'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.12.{#SNMPINDEX}'
+              key: 'dstNumberIops[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              units: iops
+              description: 'Number IO per seconds for the disk.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 2fedb57d5ea84938a8769476e6d8cd65
+              name: 'Disk {#SNMPINDEX} Bytes Free'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.7.{#SNMPINDEX}'
+              key: 'dstNumFreeBytes[{#SNMPINDEX}]'
+              delay: '900'
+              history: 7d
+              units: bytes
+              description: 'Total number of bytes availabe to the non-root users on the device through its file system.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 38cf5c2e28bd47168a74adcb16e89221
+              name: 'Disk {#SNMPINDEX} Inodes Free'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.9.{#SNMPINDEX}'
+              key: 'dstNumFreeInodes[{#SNMPINDEX}]'
+              delay: '900'
+              history: 7d
+              description: 'Total number of inodes availabe to the non-root users on the device through its file system.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: f945086b1de849888572db89e081de98
+              name: 'Disk {#SNMPINDEX} Free Percent'
+              type: CALCULATED
+              key: 'dstNumFreePercent[{#SNMPINDEX}]'
+              delay: '900'
+              history: 7d
+              value_type: FLOAT
+              units: '%'
+              params: '100*last(//dstNumFreeBytes[{#SNMPINDEX}])/last(//dstNumTotalBytes[{#SNMPINDEX}])'
+              description: 'Percentage of free space left on physical disk'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 9c93f9742ceb4d168855a934602508b8
+              name: 'Disk {#SNMPINDEX} Bytes Raw'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.5.{#SNMPINDEX}'
+              key: 'dstNumRawBytes[{#SNMPINDEX}]'
+              delay: '3600'
+              history: 7d
+              status: DISABLED
+              units: bytes
+              description: 'Maximum number of raw bytes available on the device'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 119e3ddff3da474d8bc9343304959e79
+              name: 'Disk {#SNMPINDEX} Bytes Total'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.6.{#SNMPINDEX}'
+              key: 'dstNumTotalBytes[{#SNMPINDEX}]'
+              delay: '3600'
+              history: 7d
+              units: bytes
+              description: 'Total number of bytes usable on the device through its file system.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 990173363df042438187075649a6674f
+              name: 'Disk {#SNMPINDEX} Inodes Total'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.8.{#SNMPINDEX}'
+              key: 'dstNumTotalInodes[{#SNMPINDEX}]'
+              delay: '3600'
+              history: 7d
+              description: 'Maximum number of inodes usable on the device through its file system.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+            - uuid: 91e50817d28c4a6d8ae7f5e96ae3f85a
+              name: 'Disk {#SNMPINDEX} State'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.3.1.13.{#SNMPINDEX}'
+              key: 'dstState[{#SNMPINDEX}]'
+              delay: '300'
+              history: 30d
+              trends: '0'
+              description: |
+                State of the disk.
+                online 1
+                offline 2
+              preprocessing:
+                - type: BOOL_TO_DECIMAL
+                  parameters:
+                    - ''
+              tags:
+                - tag: Application
+                  value: 'Nutanix CVM {#SNMPVALUE}'
+              trigger_prototypes:
+                - uuid: 098a281fb83d466d99644b83b78d4c40
+                  expression: 'last(/Nutanix Cluster by SNMP/dstState[{#SNMPINDEX}]) = 2'
+                  name: 'Nutanix Hard Drive {#SNMPINDEX} is offline'
+                  priority: AVERAGE
+        - uuid: 1256d13b0d8c4b96a4731e0b03361b95
+          name: 'Discovered Hypervisors'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.41263.9.1.3]'
+          key: hypervisorEntry
+          delay: '3600'
+          lifetime: 10d
+          item_prototypes:
+            - uuid: 98d44b3fbfd4478891b79f5e1ee5a3ef
+              name: 'Hypervisor {#SNMPVALUE} Latency'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.11.{#SNMPINDEX}'
+              key: 'hypervisorAverageLatency[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              units: ms
+              description: 'Average IO latency per micro seconds of the hypervisor.'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: e15e9bb0165347faab52b5a838720765
+              name: 'Hypervisor {#SNMPVALUE} CPU Count'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.5.{#SNMPINDEX}'
+              key: 'hypervisorCpuCount[{#SNMPINDEX}]'
+              delay: '3600'
+              history: 7d
+              description: 'Total number of CPU threads present in the hypervisor.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: be26c913ba454abf8b7c57aa2321674d
+              name: 'Hypervisor {#SNMPVALUE} CPU Usage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.6.{#SNMPINDEX}'
+              key: 'hypervisorCpuUsagePercent[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              units: '%'
+              description: 'CPU usage percentage of the hypervisor.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 5d9051bcd19e4896bc091b9cc0e871c7
+              name: 'Hypervisor {#SNMPVALUE} IO Bandwidth'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.12.{#SNMPINDEX}'
+              key: 'hypervisorIOBandwidth[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              units: bps
+              description: 'IO bandwidth in KBps of the hypervisor.'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1000'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 03f2fd9bdc204ed0bb71aec731401d31
+              name: 'Hypervisor {#SNMPVALUE} Memory Usage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.8.{#SNMPINDEX}'
+              key: 'hypervisorMemoryUsagePercent[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              units: '%'
+              description: 'Memory usage percentage of the hypervisor."'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: a2877cdcc5514770bdd9ab9ad2e817a2
+              name: 'Hypervisor {#SNMPVALUE} Memory'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.7.{#SNMPINDEX}'
+              key: 'hypervisorMemory[{#SNMPINDEX}]'
+              delay: '3600'
+              history: 7d
+              units: bytes
+              description: 'Total memory available on the hypervisor in bytes.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: d7c2039316524257861b89db3e2ffae7
+              name: 'Hypervisor {#SNMPVALUE} IOPS Read'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.9.{#SNMPINDEX}'
+              key: 'hypervisorReadIOPerSecond[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              value_type: FLOAT
+              units: rps
+              description: 'Number of read IO operations served per second on this hypervisor.'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1000'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 1ac87053584f43ea81c16b4e2f8389b7
+              name: 'Hypervisor {#SNMPVALUE} Rx Bytes'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.13.{#SNMPINDEX}'
+              key: 'hypervisorRxBytes[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              value_type: FLOAT
+              units: bps
+              description: 'Total number of bytes recieved on the hypervisor.'
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 1f4074c7f0f74bcd860abd2b51c65ddb
+              name: 'Hypervisor {#SNMPVALUE} Rx Drop Count'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.15.{#SNMPINDEX}'
+              key: 'hypervisorRxDropCount[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              description: 'Total number of packets dropped while receiving on the hypervisor.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 249d69c2d28641a58b9a4ba6686f7b06
+              name: 'Hypervisor {#SNMPVALUE} Tx Bytes'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.14.{#SNMPINDEX}'
+              key: 'hypervisorTxBytes[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              value_type: FLOAT
+              units: bps
+              description: 'Total number of bytes transmitted from the hypervisor.'
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 9673347b8f5c470987e1e6d164442651
+              name: 'Hypervisor {#SNMPVALUE} Tx Drop Count'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.16.{#SNMPINDEX}'
+              key: 'hypervisorTxDropCount[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              units: bytes
+              description: 'Total number of packets dropped while transmiting from hypervisor.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 99b93426cd5646328cbbd832dc0616a1
+              name: 'Hypervisor {#SNMPVALUE}: VMs Count'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.4.{#SNMPINDEX}'
+              key: 'hypervisorVmCount[{#SNMPINDEX}]'
+              delay: '900'
+              history: 7d
+              units: VMs
+              description: 'Total number of VM configured on the hypervisor.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+            - uuid: 90e283aa79634151bcda9eee9cc6f0f6
+              name: 'Hypervisor {#SNMPVALUE} IOPS Write'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.9.1.10.{#SNMPINDEX}'
+              key: 'hypervisorWriteIOPerSecond[{#SNMPINDEX}]'
+              delay: '60'
+              history: 7d
+              value_type: FLOAT
+              units: wps
+              description: 'Number of write IO operations served per second on this hypervisor.'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1000'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Hypervisor {#SNMPVALUE}'
+        - uuid: 72ea4ee79b2d4f59bda8b28a9d00f22b
+          name: 'Discovered Virtual Machines'
+          type: SNMP_AGENT
+          snmp_oid: 'discovery[{#SNMPVALUE},.1.3.6.1.4.1.41263.10.1.3]'
+          key: vmEntry
+          delay: '3600'
+          status: DISABLED
+          lifetime: 2d
+          item_prototypes:
+            - uuid: e894550c37e545f0bdd24b1f80772938
+              name: '{#SNMPVALUE} Latency'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.12.{#SNMPINDEX}'
+              key: 'vmAverageLatency[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              value_type: FLOAT
+              units: ms
+              description: 'Average IO latency per micro seconds of the VM.'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.001'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 140f9f1325e0492aa48cdb74b62cf44c
+              name: '{#SNMPVALUE} VM CPU Count'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.6.{#SNMPINDEX}'
+              key: 'vmCpuCount[{#SNMPINDEX}]'
+              delay: '900'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              description: 'Total number of CPUs allocated to the VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 10d0b69a61cd4a9495bb6cb870dc31f6
+              name: '{#SNMPVALUE} VM CPU Usage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.7.{#SNMPINDEX}'
+              key: 'vmCpuUsagePercent[{#SNMPINDEX}]'
+              delay: '120'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              value_type: FLOAT
+              units: '%'
+              description: 'CPU usage percentage of the VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 08005c652a2e43f28a3c4df7af6387e0
+              name: '{#SNMPVALUE} VM Hypervisor ID'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.4.{#SNMPINDEX}'
+              key: 'vmHypervisorId[{#SNMPINDEX}]'
+              delay: '1800'
+              trends: '0'
+              status: DISABLED
+              value_type: CHAR
+              description: 'Hypervisor id on which the VM resides.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 24798bc113274e6e95b308b0eb201315
+              name: '{#SNMPVALUE} VM ID'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.2.{#SNMPINDEX}'
+              key: 'vmId[{#SNMPINDEX}]'
+              delay: '1800'
+              history: 7d
+              trends: '0'
+              status: DISABLED
+              value_type: CHAR
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 9f06c51b834e41a09164240bbf6e21d1
+              name: '{#SNMPVALUE} IO Bandwidth'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.13.{#SNMPINDEX}'
+              key: 'vmIOBandwidth[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              value_type: FLOAT
+              units: bps
+              description: 'IO bandwidth in KBps of the VM'
+              preprocessing:
+                - type: MULTIPLIER
+                  parameters:
+                    - '1000'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 27fe5bd7873a4d4d9c495e32b3b82377
+              name: '{#SNMPVALUE} VM Memory Usage'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.9.{#SNMPINDEX}'
+              key: 'vmMemoryUsagePercent[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              value_type: FLOAT
+              units: '%'
+              description: 'Memory usage percentage of the VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 6c2aa0428ef54281ac4de6a9cbb3f0b5
+              name: '{#SNMPVALUE} VM Memory'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.8.{#SNMPINDEX}'
+              key: 'vmMemory[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              units: bytes
+              description: 'Total memory available on the VM in bytes.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: a0e9cbb4c6b34d81ad27687f07c46082
+              name: '{#SNMPVALUE} VM Power State'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.5.{#SNMPINDEX}'
+              key: 'vmPowerState[{#SNMPINDEX}]'
+              delay: '900'
+              history: 7d
+              trends: '0'
+              status: DISABLED
+              value_type: CHAR
+              description: 'Power state of the VM'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 7f3d988f54e84456898f866c6f6c7ed5
+              name: '{#SNMPVALUE} IOPS Read'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.10.{#SNMPINDEX}'
+              key: 'vmReadIOPerSecond[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              units: iops
+              description: 'Number of Read IO operations served per second on this VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: e485a01b86224b04b333a129b2efd510
+              name: '{#SNMPVALUE} Bytes Received'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.14.{#SNMPINDEX}'
+              key: 'vmRxBytes[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              units: bytes
+              description: 'Total number of bytes recieved on the VM'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 6e402b8ac8aa40e1a716cf8eb7f52fe6
+              name: '{#SNMPVALUE} Droped Bytes Received'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.16.{#SNMPINDEX}'
+              key: 'vmRxDropCount[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              units: packets
+              description: 'Total number of packets dropped while receiving on the VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 98e697c846ae45038e91ad092f806460
+              name: '{#SNMPVALUE} Bytes Transmitted'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.15.{#SNMPINDEX}'
+              key: 'vmTxBytes[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              units: bytes
+              description: 'Total number of bytes transmitted from the VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 19757b3aebc14bef812529fc36897795
+              name: '{#SNMPVALUE} Droped Bytes Transmitted'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.17.{#SNMPINDEX}'
+              key: 'vmTxDropCount[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              units: packets
+              description: 'Total number of packets dropped while transmiting from VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+            - uuid: 4ce2b005cc0c479187da0f25aadda60d
+              name: '{#SNMPVALUE} IOPS Write'
+              type: SNMP_AGENT
+              snmp_oid: '.1.3.6.1.4.1.41263.10.1.11.{#SNMPINDEX}'
+              key: 'vmWriteIOPerSecond[{#SNMPINDEX}]'
+              delay: '300'
+              history: 7d
+              trends: 182d
+              status: DISABLED
+              units: iops
+              description: 'Number of Write IO operations served per second on this VM.'
+              tags:
+                - tag: Application
+                  value: 'Nutanix Virtual Machines'
+      macros:
+        - macro: '{$ICMP_LOSS_WARN}'
+          value: '20'
+        - macro: '{$ICMP_RESPONSE_TIME_WARN}'
+          value: '0.15'

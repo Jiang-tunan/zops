@@ -8820,6 +8820,7 @@ out:
 
 	vmware_data_shared_free(service->data);
 	service->data = vmware_data_shared_dup(data);
+	zabbix_log(LOG_LEVEL_DEBUG, "service->data = vmware_data_shared_dup(data).");
 	service->eventlog.skip_old = evt_skip_old;
 
 	if (0 != events.values_num)
@@ -9709,7 +9710,10 @@ zbx_vmware_service_t	*zbx_vmware_get_service(const char* url, const char* userna
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() '%s'@'%s'", __func__, username, url);
 
 	if (NULL == vmware)
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "zbx_vmware_get_service NULL == vmware");
 		goto out;
+	}
 
 	now = time(NULL);
 
@@ -9724,8 +9728,12 @@ zbx_vmware_service_t	*zbx_vmware_get_service(const char* url, const char* userna
 
 			/* return NULL if the service is not ready yet */
 			if (0 == (service->state & (ZBX_VMWARE_STATE_READY | ZBX_VMWARE_STATE_FAILED)))
+			{
+				zabbix_log(LOG_LEVEL_DEBUG, "zbx_vmware_get_service NULL == service");
 				service = NULL;
-
+			}
+			// zabbix_log(LOG_LEVEL_DEBUG, "zbx_vmware_get_service NULL service->url=%s,url=%s,service->username=%s,username=%s,service->password=%s,password=%s",service->url,
+			// 	url,service->username,username,service->password,password);
 			goto out;
 		}
 	}
@@ -9763,6 +9771,7 @@ zbx_vmware_service_t	*zbx_vmware_get_service(const char* url, const char* userna
 	zbx_vmware_job_create(vmware, service, ZBX_VMWARE_UPDATE_REST_TAGS);
 
 	/* new service does not have any data - return NULL */
+	zabbix_log(LOG_LEVEL_DEBUG, "zbx_vmware_get_service service = NULL");
 	service = NULL;
 out:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__,

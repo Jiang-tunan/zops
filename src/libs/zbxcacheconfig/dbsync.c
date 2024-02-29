@@ -1065,13 +1065,14 @@ out:
 static int	dbsync_compare_host_inventory(const ZBX_DC_HOST_INVENTORY *hi, const DB_ROW dbrow)
 {
 	int	i;
+	if(NULL == hi) return FAIL;
 
 	if (SUCCEED != dbsync_compare_uchar(dbrow[1], hi->inventory_mode))
 		return FAIL;
 
 	for (i = 0; i < HOST_INVENTORY_FIELD_COUNT; i++)
 	{
-		if (FAIL == dbsync_compare_str(dbrow[i + 2], hi->values[i]))
+		if (FAIL == zbx_strcmp_null(dbrow[i + 2], hi->values[i]))
 			return FAIL;
 	}
 
@@ -1097,24 +1098,16 @@ int	zbx_dbsync_compare_host_inventory(zbx_dbsync_t *sync)
 	zbx_uint64_t		rowid;
 	ZBX_DC_HOST_INVENTORY	*hi;
 	const char		*sql;
-
-	sql = "select hostid,inventory_mode,type,type_full,name,alias,os,os_full,os_short,serialno_a,"
-			"serialno_b,tag,asset_tag,macaddress_a,macaddress_b,hardware,hardware_full,software,"
-			"software_full,software_app_a,software_app_b,software_app_c,software_app_d,"
-			"software_app_e,contact,location,location_lat,location_lon,notes,chassis,model,"
-			"hw_arch,vendor,contract_number,installer_name,deployment_status,url_a,url_b,"
-			"url_c,host_networks,host_netmask,host_router,oob_ip,oob_netmask,oob_router,"
-			"date_hw_purchase,date_hw_install,date_hw_expiry,date_hw_decomm,site_address_a,"
-			"site_address_b,site_address_c,site_city,site_state,site_country,site_zip,site_rack,"
-			"site_notes,poc_1_name,poc_1_email,poc_1_phone_a,poc_1_phone_b,poc_1_cell,"
-			"poc_1_screen,poc_1_notes,poc_2_name,poc_2_email,poc_2_phone_a,poc_2_phone_b,"
-			"poc_2_cell,poc_2_screen,poc_2_notes"
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
+	sql = "select hostid, inventory_mode, dunique_type, dunique, houseid, inventory_typeid, managerid, hostgroupid, groupid, " \
+	       " manufacturer, physical_model, physical_serial, chassis, chassis_serial, board, board_serial, os_short, ip, name, description, " \
+		   " cpu, memory, disk, network, bios, psu, assets_code, purchase_date, purchase_price, purchase_order_no, maint_days " \
 			" from host_inventory";
 
 	if (NULL == (result = zbx_db_select("%s", sql)))
 		return FAIL;
 
-	dbsync_prepare(sync, 72, NULL);
+	dbsync_prepare(sync, HOST_INVENTORY_FIELD_COUNT + 2, NULL);
 
 	if (ZBX_DBSYNC_INIT == sync->mode)
 	{
@@ -1131,15 +1124,16 @@ int	zbx_dbsync_compare_host_inventory(zbx_dbsync_t *sync)
 
 		ZBX_STR2UINT64(rowid, dbrow[0]);
 		zbx_hashset_insert(&ids, &rowid, sizeof(rowid));
-
-		if (NULL == (hi = (ZBX_DC_HOST_INVENTORY *)zbx_hashset_search(&dbsync_env.cache->host_inventories,
-				&rowid)))
+		if(NULL != &dbsync_env.cache && NULL != &dbsync_env.cache->host_inventories)
 		{
-			tag = ZBX_DBSYNC_ROW_ADD;
+			if (NULL == ((ZBX_DC_HOST_INVENTORY *)zbx_hashset_search(&dbsync_env.cache->host_inventories,
+					&rowid)))
+			{
+				tag = ZBX_DBSYNC_ROW_ADD;
+			}
+			else if (FAIL == dbsync_compare_host_inventory(hi, dbrow))
+				tag = ZBX_DBSYNC_ROW_UPDATE;
 		}
-		else if (FAIL == dbsync_compare_host_inventory(hi, dbrow))
-			tag = ZBX_DBSYNC_ROW_UPDATE;
-
 		if (ZBX_DBSYNC_ROW_NONE != tag)
 			dbsync_add_row(sync, rowid, tag, dbrow);
 
@@ -1154,7 +1148,7 @@ int	zbx_dbsync_compare_host_inventory(zbx_dbsync_t *sync)
 
 	zbx_hashset_destroy(&ids);
 	zbx_db_free_result(result);
-
+	zabbix_log(LOG_LEVEL_DEBUG, "end %s()", __func__);
 	return SUCCEED;
 }
 

@@ -1,0 +1,107 @@
+zabbix_export:
+  version: '6.4'
+  template_groups:
+    - uuid: 6edb0f6f23744f13a920289a40f1eccf
+      name: 'Templates/Common'
+  templates:
+    - uuid: 80fb562bf8be46b4b8070b8707d94749
+      template: 'Device by Ping'
+      name: 'Device by Ping'
+      description: |
+        Template for all device 
+      vendor:
+        name: Tognix
+        version: 6.4-0
+      groups:
+        - name: 'Templates/Common'
+      items:
+        - uuid: 2a47a681a5a9491f9ed101e38895b816
+          name: 'ICMP ping'
+          type: SIMPLE
+          key: icmpping
+          history: 1w
+          valuemap:
+            name: 'Service state'
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 1605722b08e846ba9affe25adb0344cc
+              expression: 'max(/Device by Ping/icmpping,#3)=0'
+              name: 'Unavailable by ICMP ping'
+              priority: HIGH
+              description: 'Last three attempts returned timeout.  Please check device connectivity.'
+              tags:
+                - tag: scope
+                  value: availability
+        - uuid: 33653abde1d0441c9889759ddeadf09f
+          name: 'ICMP loss'
+          type: SIMPLE
+          key: icmppingloss
+          history: 1w
+          value_type: FLOAT
+          units: '%'
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 18ee30168f5e47b8ac00fda5b086bcd3
+              expression: 'min(/Device by Ping/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/Device by Ping/icmppingloss,5m)<100'
+              name: 'High ICMP ping loss'
+              opdata: 'Loss: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Device by Ping/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+        - uuid: 9c8d1c3d2dbc4118befae96764c2a96e
+          name: 'ICMP response time'
+          type: SIMPLE
+          key: icmppingsec
+          history: 1w
+          value_type: FLOAT
+          units: s
+          tags:
+            - tag: component
+              value: health
+            - tag: component
+              value: network
+          triggers:
+            - uuid: 821d5a33d9ff4d3f8c24cd8ea93e197d
+              expression: 'avg(/Device by Ping/icmppingsec,5m)>{$ICMP_RESPONSE_TIME_WARN}'
+              name: 'High ICMP ping response time'
+              opdata: 'Value: {ITEM.LASTVALUE1}'
+              priority: WARNING
+              dependencies:
+                - name: 'High ICMP ping loss'
+                  expression: 'min(/Device by Ping/icmppingloss,5m)>{$ICMP_LOSS_WARN} and min(/Device by Ping/icmppingloss,5m)<100'
+                - name: 'Unavailable by ICMP ping'
+                  expression: 'max(/Device by Ping/icmpping,#3)=0'
+              tags:
+                - tag: scope
+                  value: availability
+                - tag: scope
+                  value: performance
+      macros:
+        - macro: '{$CPU.UTIL.CRIT}'
+          value: '90'
+        - macro: '{$ICMP_LOSS_WARN}'
+          value: '20'
+        - macro: '{$ICMP_RESPONSE_TIME_WARN}'
+          value: '0.15'
+      valuemaps:
+        - uuid: 01d1db6b59fc4b1293dda3dfd0fef643
+          name: 'Service state'
+          mappings:
+            - value: '0'
+              newvalue: 'Off'
+            - value: '1'
+              newvalue: 'On'
