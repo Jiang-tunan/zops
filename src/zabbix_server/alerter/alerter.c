@@ -137,7 +137,7 @@ static char	*create_email_inreplyto(zbx_uint64_t mediatypeid, const char *sendto
 		zbx_chrcpy_alloc(&str, &str_alloc, &str_offset, hex[hash[i] & 15]);
 	}
 
-	zbx_snprintf_alloc(&str, &str_alloc, &str_offset, "." ZBX_FS_UI64 ".%s@zops.com>", mediatypeid,
+	zbx_snprintf_alloc(&str, &str_alloc, &str_offset, "." ZBX_FS_UI64 ".%s@bozoyo.com>", mediatypeid,
 			zbx_dc_get_instanceid());
 
 	return str;
@@ -331,7 +331,7 @@ ZBX_THREAD_ENTRY(zbx_alerter_thread, args)
 	zbx_update_selfmon_counter(info, ZBX_PROCESS_STATE_BUSY);
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#alerter init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#alerter init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	while (ZBX_IS_RUNNING() && LIC_IS_SUCCESS())
 	{

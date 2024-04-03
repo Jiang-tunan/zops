@@ -58,6 +58,12 @@ zbx_session_type_t;
 #define ZBX_AGENT_SNMP		(INTERFACE_TYPE_SNMP - 1)
 #define ZBX_AGENT_IPMI		(INTERFACE_TYPE_IPMI - 1)
 #define ZBX_AGENT_JMX		(INTERFACE_TYPE_JMX - 1)
+#define ZBX_AGENT_VMWARE	(INTERFACE_TYPE_VMWARE - 1)
+#define ZBX_AGENT_HTTP		(INTERFACE_TYPE_HTTP - 1)
+#define ZBX_AGENT_ICMP		(INTERFACE_TYPE_ICMP - 1)
+#define ZBX_AGENT_NUTANIX	(INTERFACE_TYPE_NUTANIX - 1)
+#define ZBX_AGENT_ODBC	(INTERFACE_TYPE_ODBC - 1)
+
 #define ZBX_AGENT_UNKNOWN	255
 #define ZBX_AGENT_MAX		INTERFACE_TYPE_COUNT
 
@@ -364,6 +370,8 @@ typedef struct
 
 	char				proxy_address[HOST_PROXY_ADDRESS_LEN_MAX];
 	int				last_version_error_time;
+
+	int isfullsync;  // 服务端是否向代理同步全部配置数据
 }
 DC_PROXY;
 

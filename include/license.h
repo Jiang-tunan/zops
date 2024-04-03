@@ -13,6 +13,7 @@
 #define LICENSE_OVER_NODES  				1108	// 节点数超出
 #define LICENSE_EXPIRED  					1109	// license过期
 
+#define ZBX_PROGRAM_TYPE_SERVER		0x01
 struct service
 {
 	char func[64];		// 名称
@@ -23,7 +24,7 @@ struct service
 struct app_license
 {
 	char company[128];		//公司名称
-	char version[16];		//zops的版本，目前不校验
+	char version[16];		//tognix的版本，目前不校验
 	char lic_begin[24];		//license开始时间
 	char lic_expired[24];	//license过期时间，时间为当天的23:59:59
 	char productkey[128];	//产品key
@@ -50,13 +51,13 @@ int create_productkey(char *productkey);
 
 /***
  * 初始化license服务
- * zops_lic：license 文件路径，如："zops_irigud.lic"
+ * tognix_lic：license 文件路径，如："tognix_irigud.lic"
  * 返回：LICENSE_SUCCESS:成功，其他：失败看 LICENSE_XXX 定义
  * 用法：
- * char *lic_file = "zops_irigud.lic";
+ * char *lic_file = "tognix_irigud.lic";
 	init_license(lic_file);
 */
-int init_license(char *zops_lic);
+int init_license(char *tognix_lic);
 
 /***
  * 校验license 是否合法性，包括节点数是否超标，许可日期是否过期，某个功能是否允许。
@@ -143,4 +144,6 @@ int create_key(unsigned char **key);
 int lic_encrypt_pwd(char *pwd, char **out_enpwd);
 
 int lic_decrypt_pwd(char *b64pwd, char **out_depwd);
+
+int get_monitor_nodes(char *func);
 #endif //_LICENSE_H

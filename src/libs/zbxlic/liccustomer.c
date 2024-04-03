@@ -20,10 +20,10 @@
 
 #define load_custome_privatekey()                                \
     {                                                            \
-        customer_privatekey = get_zops_customer_RSAPrivateKey(); \
+        customer_privatekey = get_tognix_customer_RSAPrivateKey(); \
     }
 
-RSA *get_zops_customer_RSAPrivateKey()
+RSA *get_tognix_customer_RSAPrivateKey()
 {
     BIO *bp = NULL;
     char *chPrivateKey = "-----BEGIN RSA PRIVATE KEY-----\n\
@@ -65,9 +65,9 @@ SMovLUEco10fr60DHe7yvb3gLr8LpzBOmblS4XR3hzA/J9k7S9LJyBA2Sh/6PTV7\
 
 #define load_provider_publickey()                           \
     {                                                       \
-        provider_publickey = get_zops_provider_publickey(); \
+        provider_publickey = get_tognix_provider_publickey(); \
     }
-RSA *get_zops_provider_publickey()
+RSA *get_tognix_provider_publickey()
 {
     BIO *bp = NULL;
     char *chPublicKey = "-----BEGIN RSA PUBLIC KEY-----\n\
@@ -96,7 +96,7 @@ RSA *customer_privatekey = NULL;
 RSA *provider_publickey = NULL;
 
 char provider_lic[256] = {"provider.lic"};
-
+extern int g_running_program_type;
  
 void free_license(char *session_key, char *enc_session_key, char *enc_license,
                   unsigned char *license_buffer, char *enc_sign, char *dec_buffer)
@@ -250,14 +250,14 @@ int parse_license_fromjson(char *license_buffer)
     return LICENSE_SUCCESS;
 }
 
-int load_license_from_file(const char *zops_lic, char **enc_session_key, char **enc_license, char **sign)
+int load_license_from_file(const char *tognix_lic, char **enc_session_key, char **enc_license, char **sign)
 {
 
     FILE *file = NULL;
 #ifdef _WIN64
-    fopen_s(&file, zops_lic, "r");
+    fopen_s(&file, tognix_lic, "r");
 #else
-    file = fopen(zops_lic, "r");
+    file = fopen(tognix_lic, "r");
 #endif
 
     if (!file)
@@ -399,7 +399,7 @@ void exit_license()
 
 }
 
-int init_license(char *zops_lic_file)
+int init_license(char *tognix_lic_file)
 {
     if(g_license_init ==1){
         return g_result;
@@ -423,7 +423,7 @@ int init_license(char *zops_lic_file)
     load_provider_publickey();
 
     g_result = LICENSE_SUCCESS;
-    if ((result = load_license_from_file(zops_lic_file, &enc_session_key, &enc_license, &enc_sign)) < 0)
+    if ((result = load_license_from_file(tognix_lic_file, &enc_session_key, &enc_license, &enc_sign)) < 0)
     {
         free_license(session_key, enc_session_key, enc_license,
                      license_buffer, enc_sign, dec_buffer);
@@ -582,6 +582,22 @@ int query_license(struct app_license **lic)
 
 int LIC_IS_SUCCESS(void)
 {
-	return (g_result == LICENSE_SUCCESS && g_lic_expired > 0) ? time(NULL) <= g_lic_expired : 0;
+    if(ZBX_PROGRAM_TYPE_SERVER == g_running_program_type)
+	    return (g_result == LICENSE_SUCCESS && g_lic_expired > 0) ? time(NULL) <= g_lic_expired : 0;
+    else
+        return 1;
 }
- 
+
+int get_monitor_nodes(char *func)
+{
+    if(NULL == func || NULL == g_app_lic.monitor){
+        return 0;
+    }
+    for(int i = 0; i < g_app_lic.monitor_size; i++)
+    {
+        if(0 == zbx_strcmp_null(g_app_lic.monitor[i].func, func))
+         return g_app_lic.monitor[i].nodes;
+    }
+
+    return 0;
+}

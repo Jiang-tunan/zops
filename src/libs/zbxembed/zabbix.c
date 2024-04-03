@@ -142,7 +142,7 @@ static duk_ret_t	es_zabbix_sleep(duk_context *ctx)
 	sleep_dbl = duk_to_number(ctx, 0);
 
 	if (FP_NAN == fpclassify((float)sleep_dbl) || 0.0 > sleep_dbl)
-		return duk_error(ctx, DUK_ERR_EVAL_ERROR, "invalid Zops.sleep() duration");
+		return duk_error(ctx, DUK_ERR_EVAL_ERROR, "invalid tognix.sleep() duration");
 
 	if (DUK_UINT_MAX < sleep_dbl)
 		sleep_ms = DUK_UINT_MAX;
@@ -154,7 +154,7 @@ static duk_ret_t	es_zabbix_sleep(duk_context *ctx)
 	if (sleep_ms > timeout)
 	{
 		return duk_error(ctx, DUK_ERR_EVAL_ERROR,
-				"Zops.sleep(%u) duration is longer than JS execution timeout(" ZBX_FS_UI64 ")",
+				"tognix.sleep(%u) duration is longer than JS execution timeout(" ZBX_FS_UI64 ")",
 				sleep_ms, timeout);
 	}
 

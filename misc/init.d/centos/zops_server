@@ -1,19 +1,19 @@
 #!/bin/bash
 # chkconfig: - 95 5
 # description: ZOps Monitoring Server
-# processname: zops_server
+# processname: tognix_server
 
 . /etc/init.d/functions
 
 RETVAL=0
-prog="zops_server"
-ZOPS_HOME="/usr/local/zops-server"
-ZOPS_BIN="${ZOPS_HOME}/sbin/${prog}"
-ZOPS_SOCK="${ZOPS_HOME}/data/${prog}_*.sock"
-ZBX_LOCK="${ZOPS_HOME}/data/${prog}.lock"
+prog="tognix_server"
+TOGNIX_HOME="/usr/local/tognix-server"
+TOGNIX_BIN="${TOGNIX_HOME}/sbin/${prog}"
+TOGNIX_SOCK="${TOGNIX_HOME}/data/${prog}_*.sock"
+ZBX_LOCK="${TOGNIX_HOME}/data/${prog}.lock"
 
-if [ ! -x ${ZOPS_BIN} ] ; then
-        echo -n "${ZOPS_BIN} not installed! "
+if [ ! -x ${TOGNIX_BIN} ] ; then
+        echo -n "${TOGNIX_BIN} not installed! "
         # Tell the user this has skipped
         exit 5
 fi
@@ -23,8 +23,8 @@ start() {
         ps -fe|grep "${prog}:" |grep -v grep
         if [ $? -ne 0 ] 
         then
-          rm -rf $ZOPS_LOCK
-          daemon $ZOPS_BIN -c "${ZOPS_HOME}/etc/${prog}.conf"
+          rm -rf $TOGNIX_LOCK
+          daemon $TOGNIX_BIN -c "${TOGNIX_HOME}/etc/${prog}.conf"
           RETVAL=$?
           # [ $RETVAL -eq 0 ] && touch $ZBX_LOCK
           echo
@@ -63,7 +63,7 @@ case "$1" in
         fi
         ;;
   status)
-        status $ZOPS_BIN
+        status $TOGNIX_BIN
         RETVAL=$?
         ;;
   *)

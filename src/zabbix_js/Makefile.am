@@ -1,10 +1,10 @@
 ## Process this file with automake to produce Makefile.in
 
-bin_PROGRAMS = zops_js
+bin_PROGRAMS = tognix_js
 
-zops_js_SOURCES = zabbix_js.c
+tognix_js_SOURCES = zabbix_js.c
 
-zops_js_LDADD = \
+tognix_js_LDADD = \
 	$(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
 	$(top_srcdir)/src/libs/zbxembed/libzbxembed.a \
 	$(top_srcdir)/src/libs/zbxjson/libzbxjson.a \
@@ -29,6 +29,6 @@ zops_js_LDADD = \
 	$(top_srcdir)/src/libs/zbxtime/libzbxtime.a \
 	$(top_srcdir)/src/libs/zbxcommon/libzbxcommon.a
 
-zops_js_LDADD += @ZBXJS_LIBS@ $(LIBXML2_LIBS)
+tognix_js_LDADD += @ZBXJS_LIBS@ $(LIBXML2_LIBS)
 
-zops_js_LDFLAGS = @ZBXJS_LDFLAGS@ $(LIBXML2_LDFLAGS)
+tognix_js_LDFLAGS = @ZBXJS_LDFLAGS@ $(LIBXML2_LDFLAGS)

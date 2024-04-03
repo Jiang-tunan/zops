@@ -525,7 +525,9 @@ void nutanix_register_hostmacro(int type, int hostid, char *url, char *user, cha
 {
 	DB_RESULT	result;
 	DB_ROW		row;
- 
+	
+	if(0 == hostid)  return;
+
 	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s type=%d, hostid:%d, uuid=%s", __func__, type, hostid, uuid);
 	
 
@@ -609,6 +611,12 @@ static void discovery_register_nutanix(int nutanix_stype, nutanix_server *p_serv
 		// status 0已监控，1已关闭，2未纳管, 未纳管的设备返回给前端实时显示
 		if(host->status == HOST_STATUS_UNREACHABLE || interface.status  == HOST_STATUS_UNREACHABLE)
 		{
+			if(DEVICE_TYPE_VM == nutanix_stype){
+				host->hstgrpid = HSTGRP_GROUPID_VM;
+			}else{
+				host->hstgrpid = HSTGRP_GROUPID_SERVER;
+			}
+			discoverer_bind_templateid(host);
 			user_discover_add_hostid(dcheck->druleid, host->hostid);
 		}
 	}
@@ -639,7 +647,7 @@ static int discover_nutanix_cluster(zbx_db_drule *drule, const DB_DCHECK *dcheck
 	{
 		get_discover_hstgrp(&v_hstgrps);
 		//最顶层的groupid 默认为"3"-服务器, 如果key包括 dc 或 cluster 扫描，说明是vCenter扫描，要增加vc层。
-		if(HSTGRP_GROUPID_HV == top_groupid) top_groupid = get_discover_vc_groupid(HSTGRP_TYPE_NTX, ip);
+		if(HSTGRP_GROUPID_SERVER == top_groupid) top_groupid = get_discover_vc_groupid(HSTGRP_TYPE_NTX, ip, dcheck->proxy_hostid);
 		// 集群上层是NTX
 		p_server->hstgrpid = top_groupid; 
 		 
@@ -719,12 +727,7 @@ static void discover_nutanix_hv(const zbx_db_drule *drule, const DB_DCHECK *dche
 	
 	discovered_next_ip(drule->druleid, DEVICE_TYPE_HV, v_nutanix_hv.values_num);
 	
-
-	// zbx_vector_ptr_clear_ext(&v_hosts, (zbx_mem_free_func_t)free_discover_hosts_ptr);
-	// zbx_vector_ptr_destroy(&v_hosts);
-
-	zbx_vector_ptr_clear_ext(&v_hstgrps, (zbx_mem_free_func_t)free_discover_hstgrp_ptr);
-	zbx_vector_ptr_destroy(&v_hstgrps);
+	free_discover_hstgrp(&v_hstgrps); 
 
 	zbx_vector_ptr_clear_ext(&v_nutanix_hv, (zbx_mem_free_func_t)wmware_free_nutanix_server_ptr);
 	zbx_vector_ptr_destroy(&v_nutanix_hv);
@@ -798,11 +801,7 @@ static void discover_nutanix_vm(const zbx_db_drule *drule, const DB_DCHECK *dche
 	discovered_next_ip(drule->druleid, DEVICE_TYPE_VM, v_nutanix_vm.values_num);
 	
 
-	zbx_vector_ptr_clear_ext(&v_hstgrps, (zbx_mem_free_func_t)free_discover_hstgrp_ptr);
-	zbx_vector_ptr_destroy(&v_hstgrps);
-
-	// zbx_vector_ptr_clear_ext(&v_hosts, (zbx_mem_free_func_t)free_discover_hosts_ptr);
-	// zbx_vector_ptr_destroy(&v_hosts);
+	free_discover_hstgrp(&v_hstgrps);
 
 	zbx_vector_ptr_clear_ext(&v_nutanix_vm, (zbx_mem_free_func_t)wmware_free_nutanix_server_ptr);
 	zbx_vector_ptr_destroy(&v_nutanix_vm);
@@ -827,7 +826,7 @@ void do_discover_nutanix(zbx_db_drule *drule, const DB_DCHECK *dcheck,
 	char *keys, char *user, char *passwd, char *ip, int port)
 {
 	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, druleid=%d, ip=%s, user=%s, key=%s", __func__, drule->druleid, ip, user, keys);
-	int top_groupid = HSTGRP_GROUPID_HV; // 扫描的最顶层群组id，默认是Esxi扫描最顶层为服务器
+	int top_groupid = HSTGRP_GROUPID_SERVER; // 扫描的最顶层群组id，默认是Esxi扫描最顶层为服务器
 	zbx_vector_str_t v_keys;
 	zbx_vector_str_create(&v_keys);
 	str_to_vector(&v_keys, keys, ",");

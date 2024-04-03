@@ -415,12 +415,12 @@ int	zbx_rtc_wait(zbx_ipc_async_socket_t *rtc, const zbx_thread_info_t *info, zbx
  *               FAIL    - otherwise                                          *
  *                                                                            *
  ******************************************************************************/
-int	zbx_rtc_reload_config_cache(char **error)
+int	zbx_rtc_reload_config_cache(char **error, int timeout)
 {
 	unsigned char	*result = NULL;
 
 	if (SUCCEED != zbx_ipc_async_exchange(ZBX_IPC_SERVICE_RTC, ZBX_RTC_CONFIG_CACHE_RELOAD_WAIT,
-			ZBX_IPC_WAIT_FOREVER, NULL, 0, &result, error))
+			timeout, NULL, 0, &result, error))
 	{
 		return FAIL;
 	}

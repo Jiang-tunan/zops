@@ -182,7 +182,7 @@ int create_key(unsigned char **key)
 {
     unsigned char productkey[2 * SHA256_DIGEST_SIZE + 1];
     create_productkey(productkey);
-    char* skey = join("zopsUn18*qR9", productkey);
+    char* skey = join("tognixUn18*qR9", productkey);
     skey = join(skey, "bzyl6EpMn$8");
     char *target = NULL;
     char *b64key = base64_encode(skey, strlen(skey), &target);

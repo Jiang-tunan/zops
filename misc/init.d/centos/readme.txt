@@ -1,7 +1,7 @@
 设置自启动
-  # ln -s /etc/init.d/zops_server /usr/sbin/
-  # ln -s /etc/init.d/zops_agentd /usr/sbin/
-  # chkconfig --add zops_server 
-  # chkconfig --add zops_agentd
-  # chkconfig zops_server on
-  # chkconfig zops_agentd on
+  # ln -s /etc/init.d/tognix_server /usr/sbin/
+  # ln -s /etc/init.d/tognix_agentd /usr/sbin/
+  # chkconfig --add tognix_server 
+  # chkconfig --add tognix_agentd
+  # chkconfig tognix_server on
+  # chkconfig tognix_agentd on

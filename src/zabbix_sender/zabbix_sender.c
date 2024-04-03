@@ -1,6 +1,6 @@
 /*
-** Zops
-** Copyright (C) 2001-2023 Zops SIA
+** tognix
+** Copyright (C) 2001-2023 tognix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -149,17 +149,17 @@ static int	CONFIG_SENDER_TIMEOUT = GET_SENDER_TIMEOUT;
 #define CONFIG_SENDER_TIMEOUT_MAX_STR	ZBX_STR(CONFIG_SENDER_TIMEOUT_MAX)
 
 const char	*help_message[] = {
-	"Utility for sending monitoring data to Zops server or proxy.",
+	"Utility for sending monitoring data to tognix server or proxy.",
 	"",
 	"General options:",
-	"  -c --config config-file    Path to Zops agentd configuration file",
+	"  -c --config config-file    Path to tognix agentd configuration file",
 	"",
-	"  -z --zabbix-server server  Hostname or IP address of Zops server or proxy",
+	"  -z --zabbix-server server  Hostname or IP address of tognix server or proxy",
 	"                             to send data to. When used together with --config,",
 	"                             overrides the first entry of \"ServerActive\"",
 	"                             parameter specified in agentd configuration file",
 	"",
-	"  -p --port port             Specify port number of trapper process of Zops",
+	"  -p --port port             Specify port number of trapper process of tognix",
 	"                             server or proxy. When used together with --config,",
 	"                             overrides the port of the first entry of",
 	"                             \"ServerActive\" parameter specified in agentd",
@@ -174,7 +174,7 @@ const char	*help_message[] = {
 	"                             (default: " ZBX_STR(GET_SENDER_TIMEOUT) " seconds)",
 	"",
 	"  -s --host host             Specify host name the item belongs to (as",
-	"                             registered in Zops frontend). Host IP address",
+	"                             registered in tognix frontend). Host IP address",
 	"                             and DNS name will not work. When used together",
 	"                             with --config, overrides \"Hostname\" parameter",
 	"                             specified in agentd configuration file",
@@ -252,7 +252,7 @@ const char	*help_message[] = {
 	"                             criteria",
 #endif
 #else
-	"  Not available. This Zops sender was compiled without TLS support",
+	"  Not available. This tognix sender was compiled without TLS support",
 #endif
 	"",
 	"Example(s):",
@@ -264,12 +264,12 @@ const char	*help_message[] = {
 	"    --tls-server-cert-issuer \\",
 	"    \"CN=Signing CA,OU=IT operations,O=Example Corp,DC=example,DC=com\" \\",
 	"    --tls-server-cert-subject \\",
-	"    \"CN=Zops proxy,OU=IT operations,O=Example Corp,DC=example,DC=com\" \\",
+	"    \"CN=tognix proxy,OU=IT operations,O=Example Corp,DC=example,DC=com\" \\",
 	"    --tls-cert-file /home/zabbix/zabbix_agentd.crt \\",
 	"    --tls-key-file /home/zabbix/zabbix_agentd.key",
 	"",
 	"  zabbix_sender -z 127.0.0.1 -s \"Linux DB3\" -k db.connections -o 43 \\",
-	"    --tls-connect psk --tls-psk-identity \"PSK ID Zops agentd\" \\",
+	"    --tls-connect psk --tls-psk-identity \"PSK ID tognix agentd\" \\",
 	"    --tls-psk-file /home/zabbix/zabbix_agentd.psk",
 #endif
 	NULL	/* end of text */
@@ -615,7 +615,7 @@ static const char	*get_string(const char *p, char *buf, size_t bufsize)
  *                                                                            *
  * Purpose: Check whether JSON response is SUCCEED                            *
  *                                                                            *
- * Parameters: JSON response from Zops trapper                              *
+ * Parameters: JSON response from tognix trapper                              *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
  *                FAIL - an error occurred                                    *
@@ -989,7 +989,7 @@ static void	zbx_load_config(const char *config_file_in)
 
 static void	parse_commandline(int argc, char **argv)
 {
-/* Minimum and maximum port numbers Zops sender can connect to. */
+/* Minimum and maximum port numbers tognix sender can connect to. */
 /* Do not forget to modify port number validation below if MAX_ZABBIX_PORT is ever changed. */
 #define MIN_ZABBIX_PORT 1u
 #define MAX_ZABBIX_PORT 65535u
@@ -1117,7 +1117,7 @@ static void	parse_commandline(int argc, char **argv)
 				zbx_config_tls->cipher_cmd13 = zbx_strdup(zbx_config_tls->cipher_cmd13, zbx_optarg);
 #elif defined(HAVE_GNUTLS)
 				zbx_error("parameter \"--tls-cipher13\" can be used with OpenSSL 1.1.1 or newer."
-						" Zops sender was compiled with GnuTLS");
+						" tognix sender was compiled with GnuTLS");
 				exit(EXIT_FAILURE);
 #endif
 				break;
@@ -1136,7 +1136,7 @@ static void	parse_commandline(int argc, char **argv)
 			case '9':
 			case 'A':
 			case 'B':
-				zbx_error("TLS parameters cannot be used: Zops sender was compiled without TLS"
+				zbx_error("TLS parameters cannot be used: tognix sender was compiled without TLS"
 						" support");
 				exit(EXIT_FAILURE);
 				break;
@@ -1581,7 +1581,7 @@ int	main(int argc, char **argv)
 			zbx_tls_init_child(zbx_config_tls, get_program_type);
 		}
 #else
-		zabbix_log(LOG_LEVEL_CRIT, "TLS parameters cannot be used: Zops sender was compiled without TLS"
+		zabbix_log(LOG_LEVEL_CRIT, "TLS parameters cannot be used: tognix sender was compiled without TLS"
 				" support");
 		goto exit;
 #endif

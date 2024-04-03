@@ -128,6 +128,7 @@ am_libzbxtrapper_a_OBJECTS = libzbxtrapper_a-active.$(OBJEXT) \
 	libzbxtrapper_a-trapper_preproc.$(OBJEXT) \
 	libzbxtrapper_a-trapper_expressions_evaluate.$(OBJEXT) \
 	libzbxtrapper_a-trapper_item_test.$(OBJEXT) \
+	libzbxtrapper_a-trapper_dproxy.$(OBJEXT) \
 	libzbxtrapper_a-trapper_discovery.$(OBJEXT) \
 	libzbxtrapper_a-trapper.$(OBJEXT)
 libzbxtrapper_a_OBJECTS = $(am_libzbxtrapper_a_OBJECTS)
@@ -161,6 +162,7 @@ am__depfiles_remade = ./$(DEPDIR)/libzbxtrapper_a-active.Po \
 	./$(DEPDIR)/libzbxtrapper_a-trapper.Po \
 	./$(DEPDIR)/libzbxtrapper_a-trapper_auth.Po \
 	./$(DEPDIR)/libzbxtrapper_a-trapper_discovery.Po \
+	./$(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Po \
 	./$(DEPDIR)/libzbxtrapper_a-trapper_expressions_evaluate.Po \
 	./$(DEPDIR)/libzbxtrapper_a-trapper_item_test.Po \
 	./$(DEPDIR)/libzbxtrapper_a-trapper_preproc.Po \
@@ -329,6 +331,9 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -442,6 +447,8 @@ libzbxtrapper_a_SOURCES = \
 	trapper_expressions_evaluate.h \
 	trapper_item_test.c \
 	trapper_item_test.h \
+	trapper_dproxy.c \
+	trapper_dproxy.h \
 	trapper_discovery.c \
 	trapper_discovery.h \
 	trapper.c \
@@ -532,6 +539,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxtrapper_a-trapper.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxtrapper_a-trapper_auth.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxtrapper_a-trapper_discovery.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxtrapper_a-trapper_expressions_evaluate.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxtrapper_a-trapper_item_test.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxtrapper_a-trapper_preproc.Po@am__quote@ # am--include-marker
@@ -657,6 +665,20 @@ libzbxtrapper_a-trapper_item_test.obj: trapper_item_test.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='trapper_item_test.c' object='libzbxtrapper_a-trapper_item_test.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxtrapper_a_CFLAGS) $(CFLAGS) -c -o libzbxtrapper_a-trapper_item_test.obj `if test -f 'trapper_item_test.c'; then $(CYGPATH_W) 'trapper_item_test.c'; else $(CYGPATH_W) '$(srcdir)/trapper_item_test.c'; fi`
+
+libzbxtrapper_a-trapper_dproxy.o: trapper_dproxy.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxtrapper_a_CFLAGS) $(CFLAGS) -MT libzbxtrapper_a-trapper_dproxy.o -MD -MP -MF $(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Tpo -c -o libzbxtrapper_a-trapper_dproxy.o `test -f 'trapper_dproxy.c' || echo '$(srcdir)/'`trapper_dproxy.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Tpo $(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='trapper_dproxy.c' object='libzbxtrapper_a-trapper_dproxy.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxtrapper_a_CFLAGS) $(CFLAGS) -c -o libzbxtrapper_a-trapper_dproxy.o `test -f 'trapper_dproxy.c' || echo '$(srcdir)/'`trapper_dproxy.c
+
+libzbxtrapper_a-trapper_dproxy.obj: trapper_dproxy.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxtrapper_a_CFLAGS) $(CFLAGS) -MT libzbxtrapper_a-trapper_dproxy.obj -MD -MP -MF $(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Tpo -c -o libzbxtrapper_a-trapper_dproxy.obj `if test -f 'trapper_dproxy.c'; then $(CYGPATH_W) 'trapper_dproxy.c'; else $(CYGPATH_W) '$(srcdir)/trapper_dproxy.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Tpo $(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='trapper_dproxy.c' object='libzbxtrapper_a-trapper_dproxy.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxtrapper_a_CFLAGS) $(CFLAGS) -c -o libzbxtrapper_a-trapper_dproxy.obj `if test -f 'trapper_dproxy.c'; then $(CYGPATH_W) 'trapper_dproxy.c'; else $(CYGPATH_W) '$(srcdir)/trapper_dproxy.c'; fi`
 
 libzbxtrapper_a-trapper_discovery.o: trapper_discovery.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxtrapper_a_CFLAGS) $(CFLAGS) -MT libzbxtrapper_a-trapper_discovery.o -MD -MP -MF $(DEPDIR)/libzbxtrapper_a-trapper_discovery.Tpo -c -o libzbxtrapper_a-trapper_discovery.o `test -f 'trapper_discovery.c' || echo '$(srcdir)/'`trapper_discovery.c
@@ -844,6 +866,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_auth.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_discovery.Po
+	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_expressions_evaluate.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_item_test.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_preproc.Po
@@ -900,6 +923,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_auth.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_discovery.Po
+	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_dproxy.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_expressions_evaluate.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_item_test.Po
 	-rm -f ./$(DEPDIR)/libzbxtrapper_a-trapper_preproc.Po

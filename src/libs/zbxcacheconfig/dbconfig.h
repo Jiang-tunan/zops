@@ -472,6 +472,9 @@ typedef struct
 
 	zbx_vector_dc_host_ptr_t	hosts;
 	zbx_vector_host_rev_t		removed_hosts;
+
+	int port;
+	int tls_connect;
 }
 ZBX_DC_PROXY;
 

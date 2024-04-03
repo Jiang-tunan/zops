@@ -57,7 +57,7 @@ ZBX_THREAD_ENTRY(httppoller_thread, args)
 	zbx_db_connect(ZBX_DB_CONNECT_NORMAL);
 	
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#httppoller init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#httppoller init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	while (ZBX_IS_RUNNING() && LIC_IS_SUCCESS())
 	{

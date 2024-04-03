@@ -583,7 +583,7 @@ ZBX_THREAD_ENTRY(lld_manager_thread, args)
 	lld_manager_init(&manager, args_in->get_process_forks_cb_arg);
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#lld_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#lld_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	/* initialize statistics */
 	time_stat = zbx_time();

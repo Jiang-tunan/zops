@@ -11,18 +11,14 @@
 #include "zbxtime.h"
 #include "zbxstr.h"
 #include "license.h"
+#include "zbxdiscovery.h"
 
 #define FALSE     0
 #define TRUE   	  1
 #define MSG_KEY				(key_t)0416
 
 #define SHA256_DIGEST_SIZE 32 
-struct json_queue
-{
-    long int type;
-	int recv_type;
-    char content[BUFSIZ];
-};
+
 struct sock_queue
 {  
 	int id;								// 所属消息队列标识
@@ -30,6 +26,16 @@ struct sock_queue
 	int config_timeout;
 	char session_value[MAX_STRING_LEN];
 };
+
+typedef struct {
+	zbx_uint64_t proxyhostid;
+	char *cmd;
+	char *session;
+	const char *request;
+	zbx_socket_t *sock;
+	int config_timeout;
+	const zbx_config_vault_t *config_vault;
+}proxy_thread_arg;
 
 /*zhu content * 端口扫描 */
 void discovery_rules_trapper_thread_init(int server_num);
@@ -51,4 +57,5 @@ char* create_license_fail(const int result, const char *retmsg);
 
 int extract_monitor_and_function(const struct zbx_json_parse *jp, int *nodes, struct service *monitor_services, struct service *function_services, short *monitor_size, short *func_size);
 
+int tognix_tcp_send(zbx_socket_t *s, const char *data, size_t len, int timeout);
 #endif

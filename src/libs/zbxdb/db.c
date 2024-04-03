@@ -1054,7 +1054,7 @@ int	zbx_db_begin_basic(void)
 
 	if (txn_level > 0)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "ERROR: nested transaction detected. Please report it to Zops Team.");
+		zabbix_log(LOG_LEVEL_CRIT, "ERROR: nested transaction detected. Please report it to tognix Team.");
 		assert(0);
 	}
 
@@ -1136,7 +1136,7 @@ int	zbx_db_rollback_basic(void)
 	if (0 == txn_level)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "ERROR: rollback without transaction."
-				" Please report it to Zops Team.");
+				" Please report it to tognix Team.");
 		assert(0);
 	}
 

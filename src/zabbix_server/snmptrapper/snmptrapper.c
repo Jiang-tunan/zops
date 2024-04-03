@@ -606,7 +606,7 @@ ZBX_THREAD_ENTRY(snmptrapper_thread, args)
 	DBget_lastsize();
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#snmptrapper init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#snmptrapper init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	buffer = (char *)zbx_malloc(buffer, MAX_BUFFER_LEN);
 	*buffer = '\0';

@@ -28,7 +28,11 @@ const int	INTERFACE_TYPE_PRIORITY[INTERFACE_TYPE_COUNT] =
 	INTERFACE_TYPE_SNMP,
 	INTERFACE_TYPE_JMX,
 	INTERFACE_TYPE_IPMI,
-	INTERFACE_TYPE_VMWARE
+	INTERFACE_TYPE_VMWARE,
+	INTERFACE_TYPE_HTTP,
+	INTERFACE_TYPE_ICMP,
+	INTERFACE_TYPE_NUTANIX,
+	INTERFACE_TYPE_ODBC,
 };
 
 static ZBX_THREAD_LOCAL volatile sig_atomic_t	zbx_timed_out;	/* 0 - no timeout occurred, 1 - SIGALRM took place */
@@ -143,7 +147,7 @@ void	*zbx_malloc2(const char *filename, int line, void *old, size_t size)
 	if (NULL != old)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_malloc: allocating already allocated memory. "
-				"Please report this to Zabbix developers.",
+				"Please report this to Tognix developers.",
 				filename, line);
 	}
 
@@ -197,7 +201,6 @@ char	*zbx_strdup2(const char *filename, int line, char *old, const char *str)
 
 	zbx_free(old);
 	
-	// ���Ŀ���ַ���ΪNULL���򷵻�""�ַ���
 	if (NULL == str)
 		return strdup("");
 

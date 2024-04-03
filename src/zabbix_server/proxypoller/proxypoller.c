@@ -213,11 +213,11 @@ static int	get_data_from_proxy(DC_PROXY *proxy, const char *request, int config_
 					if (0 != (s.protocol & ZBX_TCP_COMPRESS))
 						flags_response |= ZBX_TCP_COMPRESS;
 
-					zbx_send_response_ext(&s, FAIL, "Zops server shutdown in progress", NULL,
+					zbx_send_response_ext(&s, FAIL, "tognix server shutdown in progress", NULL,
 							flags_response, config_timeout);
 
 					zabbix_log(LOG_LEVEL_WARNING, "cannot process proxy data from passive proxy at"
-							" \"%s\": Zops server shutdown in progress", s.peer);
+							" \"%s\": tognix server shutdown in progress", s.peer);
 					ret = FAIL;
 				}
 				else
@@ -266,6 +266,7 @@ static int	proxy_send_configuration(DC_PROXY *proxy, const zbx_config_vault_t *c
 	size_t				buffer_size, reserved = 0;
 	zbx_proxyconfig_status_t	status;
 
+	//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Proxy#%s host=%s",__func__, proxy->host);
 
 	zbx_json_init(&j, 512 * ZBX_KIBIBYTE);
 	zbx_json_addstring(&j, ZBX_PROTO_TAG_REQUEST, ZBX_PROTO_VALUE_PROXY_CONFIG, ZBX_JSON_TYPE_STRING);
@@ -358,6 +359,7 @@ static int	proxy_send_configuration(DC_PROXY *proxy, const zbx_config_vault_t *c
 				proxy->auto_compress = (0 != (s.protocol & ZBX_TCP_COMPRESS) ? 1 : 0);
 				proxy->lastaccess = time(NULL);
 				zbx_free(version_str);
+				//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Proxy %s success. host=%s, peer=%s",__func__, proxy->host, s.peer);
 			}
 		}
 	}
@@ -367,7 +369,7 @@ out:
 	zbx_free(buffer);
 	zbx_free(error);
 	zbx_json_free(&j);
-
+	//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Proxy#%s end. host=%s, ret=%d",__func__, proxy->host,ret);
 	return ret;
 }
 
@@ -557,6 +559,12 @@ static int	process_proxy(const zbx_config_vault_t *config_vault, int config_time
 	{
 		int		ret = FAIL;
 		unsigned char	update_nextcheck = 0;
+		
+		// 校验被动模式的代理是否允许被使用
+		if (SUCCEED != zbx_proxy_check_allow_permissions(&proxy))
+		{
+			continue;
+		}
 
 		memcpy(&proxy_old, &proxy, sizeof(DC_PROXY));
 
@@ -673,7 +681,7 @@ ZBX_THREAD_ENTRY(proxypoller_thread, args)
 	zbx_db_connect(ZBX_DB_CONNECT_NORMAL);
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#proxypoller init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#proxypoller init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	zbx_rtc_subscribe(process_type, process_num, rtc_msgs, ARRSIZE(rtc_msgs), proxy_poller_args_in->config_timeout,
 			&rtc);
@@ -720,12 +728,13 @@ ZBX_THREAD_ENTRY(proxypoller_thread, args)
 			total_sec = 0.0;
 			last_stat_time = time(NULL);
 		}
-
+		// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#proxypoller before sleeptime=%d", __func__, rtc_cmd, sleeptime);
 		if (SUCCEED == zbx_rtc_wait(&rtc, info, &rtc_cmd, &rtc_data, sleeptime) && 0 != rtc_cmd)
 		{
 			if (ZBX_RTC_SHUTDOWN == rtc_cmd)
 				break;
 		}
+		// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#proxypoller after %s  rtc_cmd=%d, sleeptime=%d", __func__, rtc_cmd, sleeptime);
 	}
 
 	zbx_setproctitle("%s #%d [terminated]", get_process_type_string(process_type), process_num);

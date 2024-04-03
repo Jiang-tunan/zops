@@ -207,6 +207,9 @@ typedef struct
 	zbx_uint64_t	unique_dcheckid;
 	char		*iprange;
 	char		*name;
+
+	zbx_uint64_t	main_hostid;  //主设备的hostid,针对一个设备多个扫描类型情况,(如:一个设备同时扫描snmp,ipmi等)
+	zbx_uint64_t	proxy_hostid; //代理hostid
 }
 zbx_db_drule;
 
@@ -216,6 +219,15 @@ typedef struct
 	int		status;
 	int		lastup;
 	int		lastdown;
+
+	// 增加绑定模板需要的参数, add by 1.5
+	zbx_uint64_t hostid;
+	int templateid;
+	int hstgrpid;
+	int hstatus;
+	int istatus; 
+	int druleid;
+	int proxy_hostid;
 }
 zbx_db_dhost;
 
@@ -579,6 +591,7 @@ char	*zbx_db_dyn_escape_field(const char *table_name, const char *field_name, co
 char	*zbx_db_dyn_escape_string(const char *src);
 char	*zbx_db_dyn_escape_string_len(const char *src, size_t length);
 char	*zbx_db_dyn_escape_like_pattern(const char *src);
+char    *zbx_get_db_escape_string(char *str);
 
 void	zbx_db_add_condition_alloc(char **sql, size_t *sql_alloc, size_t *sql_offset, const char *fieldname,
 		const zbx_uint64_t *values, const int num);
@@ -746,6 +759,8 @@ void	zbx_db_save_item_changes(char **sql, size_t *sql_alloc, size_t *sql_offset,
 		zbx_uint64_t mask);
 
 int	zbx_db_check_instanceid(void);
+
+int	zbx_db_check_tognix(void);
 
 /* tags */
 typedef struct

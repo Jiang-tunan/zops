@@ -9,35 +9,6 @@
 #include "zbxversion.h"
 #include "zbxdiscovery.h"
 
-#define VMWARE_GROUP_TYPE_VC			2 //VC中心
-#define VMWARE_GROUP_TYPE_DATACENTER	3 //数据中心
-#define VMWARE_GROUP_TYPE_CLUSTER		4 //集群
-
-#define VMWARE_SERVER_HV_GROUPID			3  //服務器的groupid
-#define VMWARE_SERVER_VM_GROUPID			2  //虚拟机的groupid
-
-#define VMWARE_SERVER_HV_TEMPLATEID			17 //物理机VMware模板id
-#define VMWARE_SERVER_VM_TEMPLATEID			18 //虚拟机VMware模板id
-
-#define VMWARE_SERVER_TYPE_HV       1 //物理机
-#define VMWARE_SERVER_TYPE_VM		2 //虚拟机
-
-typedef struct
-{
-	int groupid;
-	char *name;
-	char *uuid;
-	int type;
-	int fgroupid;
-}vmware_hstgrp;
-
-typedef struct
-{
-	int hostid;
-	char *uuid;
-	int device_type;
-	int hstgrpid;
-}vmware_hosts;
 
 typedef struct
 {
@@ -70,7 +41,7 @@ typedef struct
 
 typedef struct
 {
-	const zbx_db_drule *drule;
+	zbx_db_drule *drule;
 	const DB_DCHECK *dcheck;
 	char *key;
 	char *user;
@@ -79,7 +50,7 @@ typedef struct
 	int port;
 } vmware_arg;
  
-void discover_vmware(const zbx_db_drule *drule, const DB_DCHECK *dcheck,
+void discover_vmware(zbx_db_drule *drule, const DB_DCHECK *dcheck,
 	char *keys, char *user, char *passwd, char *ip, int port);
 
 #endif

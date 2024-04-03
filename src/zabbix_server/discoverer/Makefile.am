@@ -3,6 +3,8 @@
 noinst_LIBRARIES = libzbxdiscoverer.a
 
 libzbxdiscoverer_a_SOURCES = \
+	discoverer_comm.c \
+	discoverer_comm.h \
 	user_discoverer.c \
 	user_discoverer.h \
 	discoverer.c \
@@ -14,6 +16,11 @@ libzbxdiscoverer_a_SOURCES = \
 	discoverer_single.c \
 	discoverer_single.h \
 	discoverer_vmware.c \
-	discoverer_vmware.h
+	discoverer_vmware.h \
+	discoverer_nutanix.c \
+	discoverer_nutanix.h \
+	discoverer_kubernetes.c \
+	discoverer_kubernetes.h
+
 libzbxdiscoverer_a_CFLAGS = \
 	$(TLS_CFLAGS)

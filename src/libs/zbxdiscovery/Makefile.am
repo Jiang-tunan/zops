@@ -3,7 +3,9 @@
 noinst_LIBRARIES = libzbxdiscovery.a
 
 libzbxdiscovery_a_SOURCES = \
-	discovery.c
+	discovery.c \
+	discovery_inventory.c \
+	discovery_comm.c
 
 libzbxdiscovery_a_CFLAGS = \
 	-I$(top_srcdir)/src/zabbix_server/ \

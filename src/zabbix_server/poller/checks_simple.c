@@ -216,7 +216,7 @@ int	get_value_simple(const DC_ITEM *item, AGENT_RESULT *result, zbx_vector_ptr_t
 		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item key format."));
 		goto out;
 	}
-	// zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS# key=%s, p0=%s, p2='%s'", item->key, request.params[0],request.params[1]);
+	// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX# key=%s, p0=%s, p2='%s'", item->key, request.params[0],request.params[1]);
 	
 	request.lastlogsize = item->lastlogsize;
 

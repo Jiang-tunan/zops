@@ -76,6 +76,7 @@
 #define OFF	0
 
 #if defined(_WINDOWS)
+#define strtok_r strtok_s
 #	define	ZBX_SERVICE_NAME_LEN	64
 extern char ZABBIX_SERVICE_NAME[ZBX_SERVICE_NAME_LEN];
 extern char ZABBIX_EVENT_SOURCE[ZBX_SERVICE_NAME_LEN];
@@ -157,13 +158,18 @@ typedef enum
 	INTERFACE_TYPE_SNMP,
 	INTERFACE_TYPE_IPMI,
 	INTERFACE_TYPE_JMX,
+	INTERFACE_TYPE_VMWARE,
+	INTERFACE_TYPE_HTTP,
+	INTERFACE_TYPE_ICMP,
+	INTERFACE_TYPE_NUTANIX,
+	INTERFACE_TYPE_ODBC,
 	INTERFACE_TYPE_OPT = 254,
 	INTERFACE_TYPE_ANY = 255
 }
 zbx_interface_type_t;
 const char	*zbx_interface_type_string(zbx_interface_type_t type);
 
-#define INTERFACE_TYPE_COUNT	4	/* number of interface types */
+#define INTERFACE_TYPE_COUNT	9	/* number of interface types */
 extern const int	INTERFACE_TYPE_PRIORITY[INTERFACE_TYPE_COUNT];
 
 #define SNMP_BULK_DISABLED	0
@@ -783,7 +789,7 @@ typedef struct
 }
 zbx_tag_t;
 
-#define ZBX_STR2UCHAR(var, string) var = (unsigned char)atoi(string)
+#define ZBX_STR2UCHAR(var, string) var = (unsigned char)zbx_atoi(string)
 
 #define ZBX_CONST_STRING(str) "" str
 #define ZBX_CONST_STRLEN(str) (sizeof(ZBX_CONST_STRING(str)) - 1)

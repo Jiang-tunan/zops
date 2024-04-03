@@ -85,7 +85,7 @@ typedef struct
 	int		server_num;
 	int		process_num;
 	unsigned char	process_type;
-	char lic_file[128];  // 许可文件路径，如:"/usr/local/zops-server/etc/zops.lic"
+	char lic_file[128];  // 许可文件路径，如:"/usr/local/tognix/etc/tognix.lic"
 }
 zbx_thread_info_t;
 

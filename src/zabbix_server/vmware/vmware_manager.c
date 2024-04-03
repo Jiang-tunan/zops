@@ -204,7 +204,7 @@ ZBX_THREAD_ENTRY(vmware_thread, args)
 				/* once in STAT_INTERVAL seconds */
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#vmware_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#vmware_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	time_stat = zbx_time();
 

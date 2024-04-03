@@ -110,7 +110,7 @@ static int	refresh_kstat(ZBX_CPUS_STAT_DATA *pcpus)
 	{
 		if (cpu_over_count_prev < cpu_over_count)
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "%d new processor(s) added. Restart Zops agentd to enable"
+			zabbix_log(LOG_LEVEL_WARNING, "%d new processor(s) added. Restart tognix agentd to enable"
 					" collecting new data.", cpu_over_count - cpu_over_count_prev);
 			cpu_over_count_prev = cpu_over_count;
 		}

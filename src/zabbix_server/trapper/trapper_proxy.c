@@ -42,19 +42,31 @@ int	trapper_process_request(const char *request, zbx_socket_t *sock, const struc
 	{
 		if (0 != (get_program_type_cb() & ZBX_PROGRAM_TYPE_PROXY_PASSIVE))
 		{
-			zbx_recv_proxyconfig(sock, config_tls, config_vault, config_timeout);
+			zbx_recv_proxyconfig(sock, config_tls, config_vault, config_timeout, ZBX_IPC_WAIT_FOREVER);
 			return SUCCEED;
 		}
 		else if (0 != (get_program_type_cb() & ZBX_PROGRAM_TYPE_PROXY_ACTIVE))
 		{
-			/* This is a misconfiguration: the proxy is configured in active mode */
-			/* but server sends requests to it as to a proxy in passive mode. To  */
-			/* prevent logging of this problem for every request we report it     */
-			/* only when the server sends configuration to the proxy and ignore   */
-			/* it for other requests.                                             */
-			active_passive_misconfig(sock, config_timeout);
+			zbx_recv_proxyconfig(sock, config_tls, config_vault, config_timeout, ZBX_IPC_RECV_IMMEDIATE);
 			return SUCCEED;
 		}
+		
+		// if (0 != (get_program_type_cb() & ZBX_PROGRAM_TYPE_PROXY_PASSIVE))
+		// {
+		// 	int ret = zbx_recv_proxyconfig(sock, config_tls, config_vault, config_timeout);
+		// 	return SUCCEED;
+		// }
+		// else if (0 != (get_program_type_cb() & ZBX_PROGRAM_TYPE_PROXY_ACTIVE))
+		// {
+		// 	/* This is a misconfiguration: the proxy is configured in active mode */
+		// 	/* but server sends requests to it as to a proxy in passive mode. To  */
+		// 	/* prevent logging of this problem for every request we report it     */
+		// 	/* only when the server sends configuration to the proxy and ignore   */
+		// 	/* it for other requests.                                             */
+		// 	active_passive_misconfig(sock, config_timeout);
+		// 	return SUCCEED;
+		// }
+		
 	}
 
 	ZBX_UNUSED(jp);

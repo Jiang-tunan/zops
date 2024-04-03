@@ -1313,7 +1313,7 @@ ZBX_THREAD_ENTRY(housekeeper_thread, args)
 	}
 #endif
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#housekeeper init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#housekeeper init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 
 	while (ZBX_IS_RUNNING() && LIC_IS_SUCCESS())

@@ -488,6 +488,9 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 
 			for (i = 0; NULL != cfg[i].parameter; i++)
 			{
+
+				//printf("lineno:%d parameter:%s i:%d parameter:%s \n",lineno,parameter,i,cfg[i].parameter);
+			
 				if (0 != strcmp(cfg[i].parameter, parameter))
 					continue;
 
@@ -627,7 +630,7 @@ int	check_cfg_feature_int(const char *parameter, int value, const char *feature)
 {
 	if (0 != value)
 	{
-		zbx_error("\"%s\" configuration parameter cannot be used: Zops %s was compiled without %s",
+		zbx_error("\"%s\" configuration parameter cannot be used: tognix %s was compiled without %s",
 				parameter, program_type_str, feature);
 		return FAIL;
 	}
@@ -639,7 +642,7 @@ int	check_cfg_feature_str(const char *parameter, const char *value, const char *
 {
 	if (NULL != value)
 	{
-		zbx_error("\"%s\" configuration parameter cannot be used: Zops %s was compiled without %s",
+		zbx_error("\"%s\" configuration parameter cannot be used: tognix %s was compiled without %s",
 				parameter, program_type_str, feature);
 		return FAIL;
 	}

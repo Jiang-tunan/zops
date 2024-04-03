@@ -8,24 +8,24 @@ EXTRA_DIST = \
 	shutdown.sh \
 	startup.sh
 
-ZJG = bin/zops-java-gateway-$(VERSION).jar
+ZJG = bin/tognix-java-gateway-$(VERSION).jar
 LIB = lib/android-json-4.3_r3.1.jar:lib/logback-core-1.2.9.jar:lib/logback-classic-1.2.9.jar:lib/slf4j-api-1.7.32.jar
 JUNIT = tests/junit-4.8.2.jar
 
-ZJG_DEST = $(DESTDIR)$(sbindir)/zops_java
+ZJG_DEST = $(DESTDIR)$(sbindir)/tognix_java
 
 all: $(ZJG)
 
-$(ZJG): class src/com/zabbix/gateway/*.java
-	$(JAVAC) -d class/src -classpath $(LIB) src/com/zabbix/gateway/*.java
+$(ZJG): class src/com/tognix/gateway/*.java
+	$(JAVAC) -d class/src -classpath $(LIB) src/com/tognix/gateway/*.java
 	$(JAR) cf $(ZJG) -C class/src .
 
 test: class
-	echo "badger useruser" > tests/com/zabbix/gateway/jmx_test_beans/jmxremote.password
-	chmod 600 tests/com/zabbix/gateway/jmx_test_beans/jmxremote.password
-	$(JAVAC) tests/com/zabbix/gateway/jmx_test_beans/*.java
-	$(JAVAC) -d class/tests -classpath class/src:$(JUNIT) tests/com/zabbix/gateway/*.java
-	java -classpath class/tests:$(LIB):$(ZJG):$(JUNIT) com.zabbix.gateway.AllTestRunner
+	echo "badger useruser" > tests/com/tognix/gateway/jmx_test_beans/jmxremote.password
+	chmod 600 tests/com/tognix/gateway/jmx_test_beans/jmxremote.password
+	$(JAVAC) tests/com/tognix/gateway/jmx_test_beans/*.java
+	$(JAVAC) -d class/tests -classpath class/src:$(JUNIT) tests/com/tognix/gateway/*.java
+	java -classpath class/tests:$(LIB):$(ZJG):$(JUNIT) com.tognix.gateway.AllTestRunner
 
 class:
 	$(MKDIR_P) class/src
@@ -42,10 +42,10 @@ install: all
 	if test ! -f "$(ZJG_DEST)/lib/logback-console.xml"; then cp lib/logback-console.xml "$(ZJG_DEST)/lib"; fi
 
 clean:
-	rm -f tests/com/zabbix/gateway/jmx_test_beans/*.class
+	rm -f tests/com/tognix/gateway/jmx_test_beans/*.class
 	rm -f bin/*
 	rm -f $(ZJG)
-	rm -f tests/com/zabbix/gateway/jmx_test_beans/*.class
+	rm -f tests/com/tognix/gateway/jmx_test_beans/*.class
 	rm -f bin/*
 	rm -rf class/src/*
 	rm -rf class/tests/*

@@ -124,4 +124,97 @@ out:
 	return ret;
 }
 
+
+int write_odbc_config(DB_DCHECK *dcheck, long *file_size) 
+{
+    char odbc_dsn[MAX_STRING_LEN]; 
+    char file_content[MAX_FILE_SIZE];
+    FILE *file;
+    int ret = 0;
+
+    zbx_snprintf(odbc_dsn, sizeof(odbc_dsn),
+                 "[%s]\nDriver=%s\nServer=%s\nPort=%s\n\n",
+                 dcheck->dsn_name, dcheck->driver, dcheck->ip, dcheck->ports);
+
+    zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#ODBC %s() odbc_dsn=%s", __func__, odbc_dsn);
+
+    // 打开文件
+    file = fopen(ODBCINI_PATH, "r+");
+    if (file == NULL) {
+        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#ODBC %s() Failed to open file [%s]", __func__, dcheck->dsn_name);
+        return FAIL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    *file_size = ftell(file);
+    if (*file_size == -1L) {
+        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#ODBC %s() Failed to get file size [%s]", __func__, dcheck->dsn_name);
+        fclose(file);
+        return FAIL;
+    }
+
+
+    rewind(file);
+    fread(file_content, sizeof(char), *file_size, file);
+
+    // 检查配置是否已存在
+    if (strstr(file_content, odbc_dsn) != NULL) 
+	{
+        zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#ODBC %s() Configuration already exists, updating [%s]", __func__, dcheck->dsn_name);
+    } 
+	else 
+	{
+        // 配置不存在，追加新配置
+        fseek(file, 0, SEEK_END);
+        if (fputs(odbc_dsn, file) == EOF) {
+            zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#ODBC %s() Failed to write to file [%s]", __func__, dcheck->dsn_name);
+            fclose(file);
+            return FAIL;
+        }
+    }
+
+    fclose(file);
+    return ret;
+}
+
+
+int restore_file_size(const char *file_path, long size) 
+{
+    FILE *file;
+
+    file = fopen(file_path, "r+");
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#ODBC %s() file[%s] size[%ld]", __func__, file_path, size);
+    if (file == NULL) 
+	{
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#ODBC %s() Error opening file [%s]", __func__, file_path);
+        return FAIL;
+    }
+
+    // 移动文件指针到指定的大小位置
+    if (fseek(file, size, SEEK_SET) != 0) 
+	{
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#ODBC %s() Error seeking in file [%s]", __func__, file_path);
+        fclose(file);
+        return FAIL;
+    }
+
+    // 截断文件到指定的大小
+    if (fflush(file) != 0) 
+	{
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#ODBC %s()Error flushing file [%s]", __func__, file_path);
+        fclose(file);
+        return FAIL;
+    }
+
+    int fd = fileno(file);
+    if (ftruncate(fd, size) != 0) 
+	{
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#ODBC %s() Error truncating file [%s]", __func__, file_path);
+        fclose(file);
+        return FAIL;
+    }
+
+    fclose(file);
+    return SUCCEED;
+}
 #endif	/* HAVE_UNIXODBC */

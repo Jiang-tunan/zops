@@ -1804,6 +1804,7 @@ ssize_t	zbx_tcp_recv_ext(zbx_socket_t *s, int timeout, unsigned char flags)
 
 	zbx_socket_free(s);
 
+	memset(s->buf_stat,0,sizeof(s->buf_stat));
 	s->buf_type = ZBX_BUF_TYPE_STAT;
 	s->buffer = s->buf_stat;
 
@@ -1838,6 +1839,8 @@ ssize_t	zbx_tcp_recv_ext(zbx_socket_t *s, int timeout, unsigned char flags)
 				if (0 != strncmp(s->buf_stat, ZBX_TCP_HEADER_DATA, ZBX_TCP_HEADER_LEN))
 				{
 					/* invalid header, abort receiving */
+					zabbix_log(LOG_LEVEL_WARNING, "invalid header, abort receiving. msg=%s",
+						s->buf_stat);
 					break;
 				}
 
@@ -1858,6 +1861,8 @@ ssize_t	zbx_tcp_recv_ext(zbx_socket_t *s, int timeout, unsigned char flags)
 					protocol_version > (ZBX_TCP_PROTOCOL | ZBX_TCP_COMPRESS | flags))
 			{
 				/* invalid protocol version, abort receiving */
+				zabbix_log(LOG_LEVEL_WARNING, "invalid protocol version, abort receiving. protocol_version=%d, msg=%s",
+						protocol_version,s->buf_stat);
 				break;
 			}
 			s->protocol = protocol_version;
@@ -1900,9 +1905,9 @@ ssize_t	zbx_tcp_recv_ext(zbx_socket_t *s, int timeout, unsigned char flags)
 
 			if (max_len < expected_len)
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "Message size " ZBX_FS_UI64 " from %s exceeds the "
-						"maximum size " ZBX_FS_UI64 " bytes. Message ignored.", expected_len,
-						s->peer, max_len);
+				zabbix_log(LOG_LEVEL_WARNING, "Message size " ZBX_FS_UI64 " from '%s' exceeds the "
+						"maximum size " ZBX_FS_UI64 " bytes. Message ignored. msg=%s", 
+						expected_len, s->peer, max_len, s->buf_stat);
 				nbytes = ZBX_PROTO_ERROR;
 				goto out;
 			}
@@ -1937,7 +1942,8 @@ ssize_t	zbx_tcp_recv_ext(zbx_socket_t *s, int timeout, unsigned char flags)
 				break;
 		}
 	}
-
+	//zabbix_log(LOG_LEVEL_DEBUG, "zbx_tcp_recv_ext. recv request: socket=%d,ip=%s, expect=%d, size=%d, expected_len=%d, ip=%s,msg=%s", 
+	//					s->socket,s->peer,expect,(buf_stat_bytes + buf_dyn_bytes), expected_len, s->peer, s->buf_stat);
 	if (ZBX_TCP_EXPECT_SIZE == expect)
 	{
 		if (buf_stat_bytes + buf_dyn_bytes == expected_len)
@@ -2014,7 +2020,7 @@ ssize_t	zbx_tcp_recv_ext(zbx_socket_t *s, int timeout, unsigned char flags)
 				" Message ignored.", s->peer, protocol_version);
 		nbytes = ZBX_PROTO_ERROR;
 	}
-	else if (0 != buf_stat_bytes)
+	else if (0 != buf_stat_bytes || ZBX_TCP_EXPECT_HEADER == expect)
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "Message from %s is missing header. Message ignored.", s->peer);
 		nbytes = ZBX_PROTO_ERROR;

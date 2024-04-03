@@ -51,7 +51,7 @@ static int	zbx_execute_script_on_agent(const DC_HOST *host, const char *command,
 
 	if (SUCCEED != (ret = DCconfig_get_interface_by_type(&item.interface, host->hostid, INTERFACE_TYPE_AGENT)))
 	{
-		zbx_snprintf(error, max_error_len, "Zops agent interface is not defined for host [%s]", host->host);
+		zbx_snprintf(error, max_error_len, "tognix agent interface is not defined for host [%s]", host->host);
 		goto fail;
 	}
 

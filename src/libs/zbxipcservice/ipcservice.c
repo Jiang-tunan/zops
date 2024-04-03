@@ -94,7 +94,7 @@ static const char	*ipc_get_path(void)
 	return ipc_path;
 }
 
-#define ZBX_IPC_SOCKET_PREFIX	"/zops_"
+#define ZBX_IPC_SOCKET_PREFIX	"/tognix_"
 #define ZBX_IPC_SOCKET_SUFFIX	".sock"
 
 #define ZBX_IPC_CLASS_PREFIX_NONE	""

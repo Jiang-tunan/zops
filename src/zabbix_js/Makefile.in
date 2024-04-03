@@ -88,7 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = zabbix_js$(EXEEXT)
+bin_PROGRAMS = tognix_js$(EXEEXT)
 subdir = src/zabbix_js
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_lib_mysql.m4 \
@@ -115,10 +115,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_zabbix_js_OBJECTS = zabbix_js.$(OBJEXT)
-zabbix_js_OBJECTS = $(am_zabbix_js_OBJECTS)
+am_tognix_js_OBJECTS = zabbix_js.$(OBJEXT)
+tognix_js_OBJECTS = $(am_tognix_js_OBJECTS)
 am__DEPENDENCIES_1 =
-zabbix_js_DEPENDENCIES = $(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
+tognix_js_DEPENDENCIES = $(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
 	$(top_srcdir)/src/libs/zbxembed/libzbxembed.a \
 	$(top_srcdir)/src/libs/zbxjson/libzbxjson.a \
 	$(top_srcdir)/src/libs/zbxregexp/libzbxregexp.a \
@@ -142,7 +142,7 @@ zabbix_js_DEPENDENCIES = $(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
 	$(top_srcdir)/src/libs/zbxtime/libzbxtime.a \
 	$(top_srcdir)/src/libs/zbxcommon/libzbxcommon.a \
 	$(am__DEPENDENCIES_1)
-zabbix_js_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(zabbix_js_LDFLAGS) \
+tognix_js_LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(tognix_js_LDFLAGS) \
 	$(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -172,8 +172,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(zabbix_js_SOURCES)
-DIST_SOURCES = $(zabbix_js_SOURCES)
+SOURCES = $(tognix_js_SOURCES)
+DIST_SOURCES = $(tognix_js_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -315,9 +315,6 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -407,7 +404,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -416,8 +412,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-zabbix_js_SOURCES = zabbix_js.c
-zabbix_js_LDADD = $(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
+tognix_js_SOURCES = zabbix_js.c
+tognix_js_LDADD = $(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
 	$(top_srcdir)/src/libs/zbxembed/libzbxembed.a \
 	$(top_srcdir)/src/libs/zbxjson/libzbxjson.a \
 	$(top_srcdir)/src/libs/zbxregexp/libzbxregexp.a \
@@ -441,7 +437,7 @@ zabbix_js_LDADD = $(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
 	$(top_srcdir)/src/libs/zbxtime/libzbxtime.a \
 	$(top_srcdir)/src/libs/zbxcommon/libzbxcommon.a @ZBXJS_LIBS@ \
 	$(LIBXML2_LIBS)
-zabbix_js_LDFLAGS = @ZBXJS_LDFLAGS@ $(LIBXML2_LDFLAGS)
+tognix_js_LDFLAGS = @ZBXJS_LDFLAGS@ $(LIBXML2_LDFLAGS)
 all: all-am
 
 .SUFFIXES:
@@ -518,9 +514,9 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
-zabbix_js$(EXEEXT): $(zabbix_js_OBJECTS) $(zabbix_js_DEPENDENCIES) $(EXTRA_zabbix_js_DEPENDENCIES) 
-	@rm -f zabbix_js$(EXEEXT)
-	$(AM_V_CCLD)$(zabbix_js_LINK) $(zabbix_js_OBJECTS) $(zabbix_js_LDADD) $(LIBS)
+tognix_js$(EXEEXT): $(tognix_js_OBJECTS) $(tognix_js_DEPENDENCIES) $(EXTRA_tognix_js_DEPENDENCIES) 
+	@rm -f tognix_js$(EXEEXT)
+	$(AM_V_CCLD)$(tognix_js_LINK) $(tognix_js_OBJECTS) $(tognix_js_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

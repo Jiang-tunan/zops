@@ -111,10 +111,9 @@ ZBX_TABLE	tables[] = {
 		{"name_upper",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
 		{"vendor_name",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
 		{"vendor_version",	"",	NULL,	NULL,	32,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
-		{"physical_serial",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
-		{"physical_model",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
-		{"ifphysaddresses",	"",	NULL,	NULL,	256,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
-		{"os",	"",	NULL,	NULL,	32,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
+		{"groupid",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"hstgrpid", "0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"device_type", "0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
 		{0}
 		},
 		NULL
@@ -182,6 +181,7 @@ ZBX_TABLE	tables[] = {
 		{"snmpv3_contextname",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
 		{"host_source",	"1",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL | ZBX_PROXY,	0},
 		{"name_source",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL | ZBX_PROXY,	0},
+		{"credentialid","0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
 		{0}
 		},
 		NULL
@@ -1224,7 +1224,7 @@ ZBX_TABLE	tables[] = {
 		{"druleid",	NULL,	"drules",	"druleid",	0,	ZBX_TYPE_ID,	ZBX_NOTNULL,	ZBX_FK_CASCADE_DELETE},
 		{"ip",	"",	NULL,	NULL,	39,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
 		{"port",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
-		{"value",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
+		{"value",	"",	NULL,	NULL,	ZBX_TYPE_TEXT_LEN,	ZBX_TYPE_TEXT,	ZBX_NOTNULL,	0},
 		{"status",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
 		{"dcheckid",	NULL,	"dchecks",	"dcheckid",	0,	ZBX_TYPE_ID,	0,	ZBX_FK_CASCADE_DELETE},
 		{"dns",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
@@ -1417,80 +1417,44 @@ ZBX_TABLE	tables[] = {
 		},
 		NULL
 	},
-	{"host_inventory",	"hostid",	0,
+	{"host_inventory",	"id",	0,
 		{
-		{"hostid",	NULL,	"hosts",	"hostid",	0,	ZBX_TYPE_ID,	ZBX_NOTNULL,	ZBX_FK_CASCADE_DELETE},
-		{"inventory_mode",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
-		{"type",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"type_full",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"name",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"alias",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"os",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"os_full",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"os_short",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"serialno_a",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"serialno_b",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"tag",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"asset_tag",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"macaddress_a",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"macaddress_b",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"hardware",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"hardware_full",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"software",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"software_full",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"software_app_a",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"software_app_b",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"software_app_c",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"software_app_d",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"software_app_e",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"contact",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"location",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"location_lat",	"",	NULL,	NULL,	16,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"location_lon",	"",	NULL,	NULL,	16,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"notes",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"chassis",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"model",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"hw_arch",	"",	NULL,	NULL,	32,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"vendor",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"contract_number",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"installer_name",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"deployment_status",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"url_a",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"url_b",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"url_c",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"host_networks",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"host_netmask",	"",	NULL,	NULL,	39,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"host_router",	"",	NULL,	NULL,	39,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"oob_ip",	"",	NULL,	NULL,	39,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"oob_netmask",	"",	NULL,	NULL,	39,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"oob_router",	"",	NULL,	NULL,	39,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"date_hw_purchase",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"date_hw_install",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"date_hw_expiry",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"date_hw_decomm",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_address_a",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_address_b",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_address_c",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_city",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_state",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_country",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_zip",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_rack",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"site_notes",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_1_name",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_1_email",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_1_phone_a",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_1_phone_b",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_1_cell",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_1_screen",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_1_notes",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_2_name",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_2_email",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_2_phone_a",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_2_phone_b",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_2_cell",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_2_screen",	"",	NULL,	NULL,	64,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
-		{"poc_2_notes",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_NOTNULL | ZBX_PROXY,	0},
+		{"id",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
+		{"dunique_type",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL | ZBX_PROXY,	0},
+		{"dunique",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL | ZBX_PROXY,	0},
+		{"inventory_mode",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL | ZBX_PROXY,	0},
+		{"hostid",	NULL,	"hosts",	"hostid",	0,	ZBX_TYPE_ID,	ZBX_PROXY,	ZBX_FK_CASCADE_DELETE},
+		{"houseid",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
+		{"inventory_typeid",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
+		{"managerid",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
+		{"hostgroupid",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
+		{"groupid",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
+		{"physical_model",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"physical_model",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"physical_serial",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"chassis",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"chassis_serial",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"board",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"board_serial",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"os_short",	"",	NULL,	NULL,	128,	ZBX_TYPE_CHAR,	0,	0},
+		{"ip",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"name",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"description",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"cpu",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	0,	0},
+		{"memory",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	0,	0},
+		{"disk",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	0,	0},
+		{"network",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	0,	0},
+		{"bios",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	0,	0},
+		{"psu",	"",	NULL,	NULL,	ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	0,	0},
+		{"assets_code",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"purchase_date",	"0",	NULL,	NULL,	0,	ZBX_TYPE_ID,	0,	0},
+		{"purchase_price",	"0",	NULL,	NULL,	0,	ZBX_TYPE_FLOAT,	0,	0},
+		{"purchase_order_no",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	0,	0},
+		{"maint_days",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
+		{"is_updateinfo",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
+		{"status",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
+		{"update_time",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
+		{"create_time",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	0,	0},
 		{0}
 		},
 		NULL
@@ -2588,6 +2552,29 @@ ZBX_TABLE	tables[] = {
 		{0}
 		},
 		NULL
+	},
+	{"credentials",	"id",	0,
+		{
+		{"id",	NULL,	NULL,	NULL,	0,	ZBX_TYPE_ID,	ZBX_NOTNULL,	0},
+		{"name",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"type",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"protocol",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"user",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"password",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"port",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"snmpv3_securitylevel",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"snmpv3_authprotocol",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"snmpv3_authpassphrase",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"snmpv3_privprotocol",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"snmpv3_privpassphrase",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"ssh_privprotocol",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"ssh_privatekey",	"",	NULL,	NULL,   ZBX_TYPE_SHORTTEXT_LEN,	ZBX_TYPE_SHORTTEXT,	ZBX_PROXY,	0},
+		{"timeout",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_PROXY,	0},
+		{"description",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{"extend",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_PROXY,	0},
+		{0}
+		},
+		"name"
 	},
 	{0}
 
@@ -3886,80 +3873,44 @@ ts_delete integer DEFAULT '0' NOT NULL,\n\
 PRIMARY KEY (graphid)\n\
 );\n\
 CREATE INDEX graph_discovery_1 ON graph_discovery (parent_graphid);\n\
-CREATE TABLE host_inventory (\n\
-hostid bigint  NOT NULL REFERENCES hosts (hostid) ON DELETE CASCADE,\n\
-inventory_mode integer DEFAULT '0' NOT NULL,\n\
-type varchar(64) DEFAULT '' NOT NULL,\n\
-type_full varchar(64) DEFAULT '' NOT NULL,\n\
-name varchar(128) DEFAULT '' NOT NULL,\n\
-alias varchar(128) DEFAULT '' NOT NULL,\n\
-os varchar(128) DEFAULT '' NOT NULL,\n\
-os_full varchar(255) DEFAULT '' NOT NULL,\n\
-os_short varchar(128) DEFAULT '' NOT NULL,\n\
-serialno_a varchar(64) DEFAULT '' NOT NULL,\n\
-serialno_b varchar(64) DEFAULT '' NOT NULL,\n\
-tag varchar(64) DEFAULT '' NOT NULL,\n\
-asset_tag varchar(64) DEFAULT '' NOT NULL,\n\
-macaddress_a varchar(64) DEFAULT '' NOT NULL,\n\
-macaddress_b varchar(64) DEFAULT '' NOT NULL,\n\
-hardware varchar(255) DEFAULT '' NOT NULL,\n\
-hardware_full text DEFAULT '' NOT NULL,\n\
-software varchar(255) DEFAULT '' NOT NULL,\n\
-software_full text DEFAULT '' NOT NULL,\n\
-software_app_a varchar(64) DEFAULT '' NOT NULL,\n\
-software_app_b varchar(64) DEFAULT '' NOT NULL,\n\
-software_app_c varchar(64) DEFAULT '' NOT NULL,\n\
-software_app_d varchar(64) DEFAULT '' NOT NULL,\n\
-software_app_e varchar(64) DEFAULT '' NOT NULL,\n\
-contact text DEFAULT '' NOT NULL,\n\
-location text DEFAULT '' NOT NULL,\n\
-location_lat varchar(16) DEFAULT '' NOT NULL,\n\
-location_lon varchar(16) DEFAULT '' NOT NULL,\n\
-notes text DEFAULT '' NOT NULL,\n\
-chassis varchar(64) DEFAULT '' NOT NULL,\n\
-model varchar(64) DEFAULT '' NOT NULL,\n\
-hw_arch varchar(32) DEFAULT '' NOT NULL,\n\
-vendor varchar(64) DEFAULT '' NOT NULL,\n\
-contract_number varchar(64) DEFAULT '' NOT NULL,\n\
-installer_name varchar(64) DEFAULT '' NOT NULL,\n\
-deployment_status varchar(64) DEFAULT '' NOT NULL,\n\
-url_a varchar(255) DEFAULT '' NOT NULL,\n\
-url_b varchar(255) DEFAULT '' NOT NULL,\n\
-url_c varchar(255) DEFAULT '' NOT NULL,\n\
-host_networks text DEFAULT '' NOT NULL,\n\
-host_netmask varchar(39) DEFAULT '' NOT NULL,\n\
-host_router varchar(39) DEFAULT '' NOT NULL,\n\
-oob_ip varchar(39) DEFAULT '' NOT NULL,\n\
-oob_netmask varchar(39) DEFAULT '' NOT NULL,\n\
-oob_router varchar(39) DEFAULT '' NOT NULL,\n\
-date_hw_purchase varchar(64) DEFAULT '' NOT NULL,\n\
-date_hw_install varchar(64) DEFAULT '' NOT NULL,\n\
-date_hw_expiry varchar(64) DEFAULT '' NOT NULL,\n\
-date_hw_decomm varchar(64) DEFAULT '' NOT NULL,\n\
-site_address_a varchar(128) DEFAULT '' NOT NULL,\n\
-site_address_b varchar(128) DEFAULT '' NOT NULL,\n\
-site_address_c varchar(128) DEFAULT '' NOT NULL,\n\
-site_city varchar(128) DEFAULT '' NOT NULL,\n\
-site_state varchar(64) DEFAULT '' NOT NULL,\n\
-site_country varchar(64) DEFAULT '' NOT NULL,\n\
-site_zip varchar(64) DEFAULT '' NOT NULL,\n\
-site_rack varchar(128) DEFAULT '' NOT NULL,\n\
-site_notes text DEFAULT '' NOT NULL,\n\
-poc_1_name varchar(128) DEFAULT '' NOT NULL,\n\
-poc_1_email varchar(128) DEFAULT '' NOT NULL,\n\
-poc_1_phone_a varchar(64) DEFAULT '' NOT NULL,\n\
-poc_1_phone_b varchar(64) DEFAULT '' NOT NULL,\n\
-poc_1_cell varchar(64) DEFAULT '' NOT NULL,\n\
-poc_1_screen varchar(64) DEFAULT '' NOT NULL,\n\
-poc_1_notes text DEFAULT '' NOT NULL,\n\
-poc_2_name varchar(128) DEFAULT '' NOT NULL,\n\
-poc_2_email varchar(128) DEFAULT '' NOT NULL,\n\
-poc_2_phone_a varchar(64) DEFAULT '' NOT NULL,\n\
-poc_2_phone_b varchar(64) DEFAULT '' NOT NULL,\n\
-poc_2_cell varchar(64) DEFAULT '' NOT NULL,\n\
-poc_2_screen varchar(64) DEFAULT '' NOT NULL,\n\
-poc_2_notes text DEFAULT '' NOT NULL,\n\
-PRIMARY KEY (hostid)\n\
+CREATE TABLE `host_inventory`  (\n\
+  `id` int NOT NULL AUTO_INCREMENT,\n\
+  `dunique_type` int NULL DEFAULT NULL,\n\
+  `dunique` varchar(255) NOT NULL,\n\
+  `inventory_mode` int NOT NULL DEFAULT -1,\n\
+  `hostid` int NULL DEFAULT NULL,\n\
+  `houseid` int NULL DEFAULT NULL,\n\
+  `inventory_typeid` int NULL DEFAULT 0,\n\
+  `managerid` int NULL DEFAULT 0,\n\
+  `hostgroupid` int NULL DEFAULT NULL,\n\
+  `groupid` int NULL DEFAULT NULL,\n\
+  `manufacturer` varchar(255) NULL DEFAULT '0',\n\
+  `physical_model` varchar(255) NULL DEFAULT NULL,\n\
+  `physical_serial` varchar(255) NULL DEFAULT NULL,\n\
+  `chassis` varchar(255) NULL DEFAULT NULL,\n\
+  `chassis_serial` varchar(255) NULL DEFAULT NULL,\n\
+  `board` varchar(255) NULL DEFAULT NULL,\n\
+  `board_serial` varchar(255) NULL DEFAULT NULL,\n\
+  `os_short` varchar(128)  NULL DEFAULT NULL,\n\
+  `ip` varchar(255) NULL DEFAULT NULL,\n\
+  `name` varchar(255) NULL DEFAULT NULL,\n\
+  `description` varchar(255)  NULL DEFAULT NULL,\n\
+  `cpu` text NULL,\n\
+  `memory` text NULL,\n\
+  `disk` text NULL ,\n\
+  `network` text NULL,\n\
+  `bios` text NULL,\n\
+  `psu` text NULL,\n\
+  `assets_code` varchar(255) NULL DEFAULT NULL ,\n\
+  `purchase_date` bigint NULL DEFAULT NULL,\n\
+  `purchase_price` decimal(10, 2) NULL DEFAULT NULL ,\n\
+  `purchase_order_no` varchar(255) NULL DEFAULT NULL ,\n\
+  `maint_days` int NULL DEFAULT NULL ,\n\
+  `is_updateinfo` tinyint(1) NOT NULL DEFAULT 0 ,\n\
+  `status` int NOT NULL DEFAULT 0 ,\n\
+  `update_time` int NULL DEFAULT NULL,\n\
+  `create_time` int NULL DEFAULT 0,\n\
+  PRIMARY KEY (`id`) USING BTREE\n\
 );\n\
 CREATE TABLE housekeeper (\n\
 housekeeperid bigint  NOT NULL,\n\
@@ -4869,6 +4820,26 @@ optional integer DEFAULT '0' NOT NULL,\n\
 PRIMARY KEY (dbversionid)\n\
 );\n\
 INSERT INTO dbversion VALUES ('1','6040000','6040001');\n\
+CREATE TABLE `credentials`  (\n\
+  `id` int NOT NULL AUTO_INCREMENT,\n\
+  `name` varchar(255) NULL DEFAULT '' ,\n\
+  `type` varchar(255) NULL DEFAULT '',\n\
+  `protocol` varchar(255) NULL DEFAULT '',\n\
+  `user` varchar(255) NULL DEFAULT '' ,\n\
+  `password` varchar(255) NULL DEFAULT '',\n\
+  `port` int NULL DEFAULT 0,\n\
+  `snmpv3_securitylevel` int NULL DEFAULT 0,\n\
+  `snmpv3_authprotocol` int NULL DEFAULT 0,\n\
+  `snmpv3_authpassphrase` varchar(255) NULL DEFAULT '',\n\
+  `snmpv3_privprotocol` int NULL DEFAULT 0,\n\
+  `snmpv3_privpassphrase` varchar(255) NULL DEFAULT '',\n\
+  `ssh_privprotocol` int NULL DEFAULT 0,\n\
+  `ssh_privatekey` text NULL,\n\
+  `timeout` int NULL DEFAULT 0,\n\
+  `description` varchar(255) NULL DEFAULT '',\n\
+  `extend` varchar(255) NULL DEFAULT '',\n\
+  PRIMARY KEY (`id`) USING BTREE\n\
+);\n\
 create trigger hosts_insert after insert on hosts\n\
 for each row\n\
 begin\n\

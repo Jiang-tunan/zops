@@ -1084,7 +1084,7 @@ static void	am_queue_watchdog_alerts(zbx_am_t *manager, const zbx_config_dbhigh_
 	zbx_am_alertpool_t	*alertpool;
 	zbx_am_alert_t		*alert;
 	zbx_hashset_iter_t	iter;
-	const char		*alert_subject = "Zops database is not available.";
+	const char		*alert_subject = "tognix database is not available.";
 	char			*alert_message;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s() recipients:%d", __func__, manager->watchdog.num_data);
@@ -2336,7 +2336,7 @@ ZBX_THREAD_ENTRY(zbx_alert_manager_thread, args)
 	zbx_setproctitle("%s #%d started", get_process_type_string(process_type), process_num);
 	
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#alert_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#alert_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	while (ZBX_IS_RUNNING() && LIC_IS_SUCCESS())
 	{

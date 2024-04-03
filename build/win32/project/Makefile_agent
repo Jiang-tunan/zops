@@ -4,7 +4,7 @@ CPU=$(PROCESSOR_ARCHITECTURE)
 !ENDIF
 
 !IF "$(CPU)" == "i386" || "$(CPU)" == "x86"
-TARGETDIR = ..\..\..\bin\win32
+TARGETDIR = ..\..\..\bin
 ADD_LFLAGS = /MACHINE:X86
 
 !ELSEIF "$(CPU)" == "AMD64"
@@ -17,7 +17,7 @@ ADD_LFLAGS = /MACHINE:X64
 
 PROJECTNAME = zabbix_agent
 PROJECTDIR = ..\..\..\src\$(PROJECTNAME)
-TARGETNAME = zabbix_agentd
+TARGETNAME = tognix_agentd
 TARGETEXT = exe
 PROGNAME = $(TARGETDIR)\$(TARGETNAME).$(TARGETEXT)
 
@@ -129,7 +129,7 @@ OBJS = \
 	..\..\..\src\libs\zbxwin32\fatal.o \
 	..\..\..\src\libs\zbxwin32\disk.o
 
-LIBS = ws2_32.lib psapi.lib pdh.lib Wldap32.lib advapi32.lib uuid.lib Iphlpapi.lib delayimp.lib wevtapi.lib shlwapi.lib $(LIBS)
+LIBS = ws2_32.lib psapi.lib pdh.lib Wldap32.lib advapi32.lib uuid.lib Iphlpapi.lib delayimp.lib wevtapi.lib shlwapi.lib $(LIBS) msvcrtd.lib
 
 !INCLUDE Makefile_pcre.inc
 !INCLUDE Makefile_tls.inc

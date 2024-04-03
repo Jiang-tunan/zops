@@ -22,7 +22,7 @@
 #include "user_discoverer.h"
 #include "discoverer_single.h"
 #include "discoverer_vmware.h"
-
+#include "discoverer_nutanix.h"
 
 #include "log.h"
 #include "zbxicmpping.h"
@@ -34,6 +34,7 @@
 #include "../poller/checks_agent.h"
 #include "../poller/checks_snmp.h"
 #include "../poller/checks_simple.h"
+#include "../poller/checks_java.h"
 #include "../poller/poller.h"
 #include "../events.h"
 #include "zbxnum.h"
@@ -42,6 +43,8 @@
 #include "zbxsysinfo.h"
 #include "zbx_rtc_constants.h"
 #include "../ipmi/ipmi_discovery.h"
+#include "../poller/checks_db.h"
+#include "zbx_host_constants.h"
 
 #ifdef HAVE_LIBEVENT
 #	include <event.h>
@@ -53,8 +56,8 @@ extern unsigned char			program_type;
 #define ZBX_DISCOVERER_IPRANGE_LIMIT	(1 << 16)
 
 extern zbx_mutex_t		user_discover_lock;
-extern zbx_user_discover_drules_t	*user_discover_g;
-// extern zbx_vector_ptr_t	user_discover_timeout_g;
+extern zbx_user_discover_drules_t	g_user_discover;
+extern int	g_running_program_type;
 
 void	DB_dcheck_free(DB_DCHECK *dcheck)
 {
@@ -71,6 +74,10 @@ void	DB_dcheck_free(DB_DCHECK *dcheck)
 	zbx_free(dcheck->ip);
 	zbx_free(dcheck->user);
 	zbx_free(dcheck->password);
+	zbx_free(dcheck->params);
+	zbx_free(dcheck->database);
+	zbx_free(dcheck->dsn_name);
+	zbx_free(dcheck->driver);
 	zbx_free(dcheck);
 }
 
@@ -113,8 +120,8 @@ static void	proxy_update_host(zbx_uint64_t druleid, const char *ip, const char *
 	ip_esc = zbx_db_dyn_escape_field("proxy_dhistory", "ip", ip);
 	dns_esc = zbx_db_dyn_escape_field("proxy_dhistory", "dns", dns);
 
-	zbx_db_execute("insert into proxy_dhistory (clock,druleid,ip,dns,status)"
-			" values (%d," ZBX_FS_UI64 ",'%s','%s',%d)",
+	zbx_db_execute("insert into proxy_dhistory (clock,druleid,ip,dns,value,status)"
+			" values (%d," ZBX_FS_UI64 ",'%s','%s','',%d)",
 			now, druleid, ip_esc, dns_esc, status);
 
 	zbx_free(dns_esc);
@@ -138,7 +145,7 @@ static void	proxy_update_host(zbx_uint64_t druleid, const char *ip, const char *
  *                                                                            *
  ******************************************************************************/
 //单ip扫描最终是多线程调用这个函数 todo:1 会不会有线程安全问题待定
-int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *ip, int port, 
+int	discover_service(zbx_db_drule *drule, const DB_DCHECK *dcheck, char *ip, int port, 
 	int config_timeout, char **value, size_t *value_alloc)
 {
 
@@ -152,7 +159,6 @@ int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *i
 	int		ret = SUCCEED;
 	const char	*service = NULL;
 	AGENT_RESULT	result;
-  
 	zbx_init_agent_result(&result);
 
 	**value = '\0';
@@ -197,10 +203,17 @@ int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *i
 		case SVC_SNMPv2c:
 		case SVC_SNMPv3:
 		case SVC_ICMPPING:
+		case SVC_ODBC:
 		case SVC_IPMI:
 			break;
 		case SVC_VMWARE:
 			service = "vmware";
+			break;
+		case SVC_JMX:
+			service = "jmx";
+			break;
+		case SVC_NUTANIX:
+			service = "nutanix";
 			break;
 		default:
 			ret = FAIL;
@@ -236,29 +249,86 @@ int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *i
 				if (SUCCEED != zbx_execute_agent_check(key, 0, &result) || NULL ==
 						ZBX_GET_UI64_RESULT(&result) || 0 == result.ui64)
 				{
+					zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s zbx_execute_agent_check fail",
+							__func__, *value);
 					ret = FAIL;
+				}else{
+					pvalue = ZBX_GET_TEXT_RESULT(&result);
+					zbx_strcpy_alloc(value, value_alloc, &value_offset, *pvalue);
+					zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s zbx_execute_agent_check success. value: [%s]",
+							__func__, *value);
 				}
 				break;
 			case SVC_VMWARE:
 				discover_vmware(drule, dcheck, dcheck->key_, dcheck->user, dcheck->password, ip, port);
 				break;
+			case SVC_NUTANIX:
+				discover_nutanix(drule, dcheck, dcheck->key_, dcheck->user, dcheck->password, ip, port);
+				break;
+			case SVC_JMX:
+				memset(&item, 0, sizeof(DC_ITEM));
+				zbx_strscpy(item.key_orig, dcheck->key_); 
+				item.key = item.key_orig;
+				item.username = dcheck->user;
+				item.password = dcheck->password;
+				item.type = ITEM_TYPE_JMX;
+				item.value_type	= ITEM_VALUE_TYPE_STR;
+				item.follow_redirects = 1; 
+				item.state = 1;
+				item.timeout = zbx_strdup(NULL, "3s"); 
+				item.status_codes = zbx_strdup(NULL, "200"); 
+
+				char jmx_endpoint[256];
+				memset(jmx_endpoint, 0, 256);
+				zbx_snprintf(jmx_endpoint, 256, "service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi",ip,port);
+				item.jmx_endpoint=zbx_strdup(NULL,jmx_endpoint);
+
+				zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX%s jmx, ip=%s,port=%d,key=%s,username=%s",
+					__func__, ip,port,item.key,item.username);
+
+				if (SUCCEED == (ret = get_value_java(ZBX_JAVA_GATEWAY_REQUEST_JMX, &item, &result, config_timeout)) &&
+							NULL != (pvalue = ZBX_GET_TEXT_RESULT(&result))){
+					zbx_strcpy_alloc(value, value_alloc, &value_offset, *pvalue);
+				}else{
+					ret = FAIL;
+				}
+					
+				break;
+			case SVC_ODBC:
+			{
+				long file_size;
+				memset(&item, 0, sizeof(DC_ITEM));
+				zbx_strscpy(item.key_orig, dcheck->key_); 
+				item.key = item.key_orig;
+				item.interface.useip = 1;
+				item.interface.addr = ip;
+				item.interface.port = (unsigned short)port;
+				item.username = dcheck->user;
+				item.password = dcheck->password;
+				item.params = dcheck->params;
+				item.value_type	= ITEM_VALUE_TYPE_STR;
+				// zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#ODBC %s() item.username:%s item.params:%s",__func__, item.username,item.params);
+
+				// 写入odbc配置文件
+				if( DEVICE_TYPE_ORACLE != dcheck->devicetype)
+					ret = write_odbc_config(dcheck, &file_size);
+
+				if (SUCCEED == ret )
+					if (SUCCEED == (ret = get_value_db(&item, config_timeout, &result)))
+						zbx_strcpy_alloc(value, value_alloc, &value_offset, result.text);
+
+				// 连接失败 清除写入的配置内容
+				if (ret == NOTSUPPORTED && DEVICE_TYPE_ORACLE != dcheck->devicetype)
+					restore_file_size(ODBCINI_PATH, file_size);
+
+				// zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#ODBC%s msg:%s, text:%s ",__func__, result.msg, result.text);
+				break;
+			}
 			/* agent and SNMP checks */
 			case SVC_AGENT:
 			case SVC_SNMPv1:
 			case SVC_SNMPv2c:
 			case SVC_SNMPv3:
-				/*
-				//先用ping跑一下 如果能ping通再去跑snmp
-				memset(&host, 0, sizeof(host));
-				host.addr = strdup(ip);
-				if (SUCCEED != zbx_ping(&host, 1, 3, 0, 0, 0, error, sizeof(error)) || 0 == host.rcv)
-					ret = FAIL;
-				zbx_free(host.addr);
-				if (FAIL == ret)
-				{
-					break;
-				}
-				*/
 
 				memset(&item, 0, sizeof(DC_ITEM));
 
@@ -297,20 +367,31 @@ int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *i
 				{
 					item.host.tls_connect = ZBX_TCP_SEC_UNENCRYPTED;
 
-					// 增加了一次搜索多个项的值的逻辑，为单ip扫描调用
-					if(0 == strncmp(dcheck->key_, "discovery[", 10) && 
-						SUCCEED == get_value_agent_discovery(&item, &result) &&
-							NULL != (pvalue = ZBX_GET_TEXT_RESULT(&result)))
+					if (SUCCEED == strncmp(dcheck->key_, "discovery[", 10))
 					{
-						zbx_strcpy_alloc(value, value_alloc, &value_offset, *pvalue);
-					}
-					else if (SUCCEED == get_value_agent(&item, &result) &&
-							NULL != (pvalue = ZBX_GET_TEXT_RESULT(&result)))
-					{
-						zbx_strcpy_alloc(value, value_alloc, &value_offset, *pvalue);
+						// 增加了一次搜索多个项的值的逻辑，为单ip扫描调用
+						if ( SUCCEED != get_value_agent_discovery(&item, &result) )
+							ret = FAIL;
+						else
+						{
+							pvalue = ZBX_GET_TEXT_RESULT(&result);
+							zbx_strcpy_alloc(value, value_alloc, &value_offset, *pvalue);
+							ret = SUCCEED;
+						}
 					}
 					else
-						ret = FAIL;
+					{
+						// 单设备添加
+						if ( SUCCEED != get_value_agent_single(&item, &result) )
+							ret = FAIL;
+						else
+						{
+							pvalue = ZBX_GET_TEXT_RESULT(&result);
+							zbx_strcpy_alloc(value, value_alloc, &value_offset, *pvalue);
+							ret = SUCCEED;
+						}
+					}
+
 				}
 				else
 #ifdef HAVE_NETSNMP
@@ -385,9 +466,13 @@ int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *i
 				memset(&host, 0, sizeof(host));
 				host.addr = strdup(ip);
 
-				if (SUCCEED != zbx_ping(&host, 1, 3, 0, 0, 0, error, sizeof(error)) || 0 == host.rcv)
+				if (SUCCEED != zbx_ping(&host, 1, 3, 0, 0, 0, error, sizeof(error)) || 0 == host.rcv){
 					ret = FAIL;
-
+				}else{
+					ret = host.max > 0.0 ? SUCCEED : FAIL;
+				}
+				//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Ping ret=%d,cnt=%d,max=%f,min=%f,rcv=%d,sum=%f,status=%s",
+				//			ret, host.cnt, host.max, host.min,host.rcv,host.sum, host.status);
 				zbx_free(host.addr);
 				break;
 			case SVC_IPMI:
@@ -405,8 +490,8 @@ int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *i
 				// 用户配置信息 dcheck
 				zbx_strlcpy(item.host.ipmi_username, dcheck->user, sizeof(item.host.ipmi_username));
 				zbx_strlcpy(item.host.ipmi_password, dcheck->password, sizeof(item.host.ipmi_password));
-				item.host.ipmi_authtype = 2;
-				item.host.ipmi_privilege = 4;
+				item.host.ipmi_authtype = -1; //账号权限
+				item.host.ipmi_privilege = 2; // 认证类型
 
 				item.interface.useip = 1;
 				item.interface.addr = ip;
@@ -444,7 +529,7 @@ int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *i
  * Purpose: check if service is available and update database                 *
  *                                                                            *
  ******************************************************************************/
-static void	process_check(const zbx_db_drule *drule, const DB_DCHECK *dcheck, int *host_status, char *ip, int now, zbx_vector_ptr_t *services,
+static void	process_check(zbx_db_drule *drule, const DB_DCHECK *dcheck, int *host_status, char *ip, int now, zbx_vector_ptr_t *services,
 		int config_timeout)
 {
 	const char	*start;
@@ -507,63 +592,20 @@ static void	process_check(const zbx_db_drule *drule, const DB_DCHECK *dcheck, in
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 }
 
-static void	process_checks(const zbx_db_drule *drule, int *host_status, char *ip, int unique, int now,
+static void	process_checks(zbx_db_drule *drule, int *host_status, char *ip, int unique, int now,
 		zbx_vector_ptr_t *services, zbx_vector_ptr_t *dchecks, zbx_vector_uint64_t *dcheckids, int config_timeout)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	char		sql[MAX_STRING_LEN];
-	size_t		offset = 0;
-	
-	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset,
-			"SELECT dc.dcheckid, dc.type, dc.key_, cdt.PORT, cdt.USER, cdt.PASSWORD, cdt.snmpv3_securitylevel,cdt.snmpv3_authpassphrase," \
-			"cdt.snmpv3_privpassphrase, cdt.snmpv3_authprotocol, cdt.snmpv3_privprotocol, dr.houseid, dr.managerid, dc.druleid, dc.credentialid " \
-			"FROM dchecks dc LEFT JOIN drules dr ON dc.druleid = dr.druleid LEFT JOIN credentials cdt ON dc.credentialid = cdt.id " \
-			" WHERE dc.druleid=" ZBX_FS_UI64, drule->druleid); 
-	if (0 != drule->unique_dcheckid)
+
+	dc_get_dchecks(drule, unique, dchecks, dcheckids);
+	for(int i = 0; i  < dchecks->values_num; i ++)
 	{
-		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " and dcheckid%s" ZBX_FS_UI64,
-				unique ? "=" : "<>", drule->unique_dcheckid);
-	}
-
-	zbx_snprintf(sql + offset, sizeof(sql) - offset, " order by dcheckid");
-
-	result = zbx_db_select("%s", sql);
-
-	while (NULL != (row = zbx_db_fetch(result)))
-	{
-		DB_DCHECK	*dcheck;
-		dcheck = (DB_DCHECK *)zbx_malloc(NULL, sizeof(DB_DCHECK));
-		memset(dcheck, 0, sizeof(DB_DCHECK)); //必须对dcheck初始化，否则会crash
-		ZBX_STR2UINT64(dcheck->dcheckid, row[0]);
-		dcheck->type = zbx_atoi(row[1]);
-		dcheck->key_ = zbx_strdup(NULL, row[2]);
-		dcheck->ports = zbx_strdup(NULL, row[3]);
-		dcheck->user = zbx_strdup(NULL, row[4]);
-		dcheck->password = zbx_strdup(NULL, row[5]);
-		dcheck->snmpv3_securityname = zbx_strdup(NULL, row[4]);
-		dcheck->snmpv3_contextname = zbx_strdup(NULL, row[5]);
-		dcheck->snmp_community = zbx_strdup(NULL, row[5]);
-		dcheck->snmpv3_securitylevel = (unsigned char)zbx_atoi(row[6]);
-		dcheck->snmpv3_authpassphrase = zbx_strdup(NULL, row[7]);
-		dcheck->snmpv3_privpassphrase = zbx_strdup(NULL, row[8]);
-		dcheck->snmpv3_authprotocol = (unsigned char)zbx_atoi(row[9]);
-		dcheck->snmpv3_privprotocol = (unsigned char)zbx_atoi(row[10]);
-		dcheck->houseid = zbx_atoi(row[11]);
-		dcheck->managerid = zbx_atoi(row[12]);
-		ZBX_STR2UINT64(dcheck->druleid, row[13]);
-		dcheck->credentialid = zbx_atoi(row[14]);
-		zbx_vector_ptr_append(dchecks, dcheck);
-		zbx_vector_uint64_append(dcheckids, dcheck->dcheckid);
-		
+		DB_DCHECK *dcheck = (DB_DCHECK *)dchecks->values[i];
 		//单条check去发现主机
 		process_check(drule, dcheck, host_status, ip, now, services, config_timeout);
-		
 	}
-	zbx_db_free_result(result);
 }
 
-static int	process_services(const zbx_db_drule *drule, zbx_db_dhost *dhost, const char *ip, const char *dns,
+static int	process_services(zbx_db_drule *drule, zbx_db_dhost *dhost, const char *ip, const char *dns,
 		int now, const zbx_vector_ptr_t *services, const zbx_vector_ptr_t *dchecks, zbx_vector_uint64_t *dcheckids)
 {
 	int	i, ret;
@@ -592,7 +634,7 @@ static int	process_services(const zbx_db_drule *drule, zbx_db_dhost *dhost, cons
 		{
 			dcheck = (DB_DCHECK *)dchecks->values[index];
 		}
-		if(SVC_VMWARE != dcheck->type)
+		if(SVC_VMWARE != dcheck->type && SVC_NUTANIX != dcheck->type )
 		{
 			if (0 != (program_type & ZBX_PROGRAM_TYPE_SERVER))
 			{
@@ -612,6 +654,8 @@ fail:
 
 	return ret;
 }
+
+
 
 /******************************************************************************
  *                                                                            *
@@ -742,13 +786,23 @@ static void	process_rule(zbx_db_drule *drule, int config_timeout)
 				proxy_update_host(drule->druleid, ip, dns, host_status, now);
 
 			zbx_db_commit();
-			int next_ip = zbx_iprange_next(&iprange, ipaddress);
-			int next_drule;
-			user_discover_next_ip(drule->druleid, &next_drule);
 
+			// 绑定模板，必须在zbx_db_commit()后执行，否则对导致绑定模板失败(因为hosts表还没有保存数据)
+			discovery_update_other(&dhost);
+
+			int next_ip = zbx_iprange_next(&iprange, ipaddress);
+			int duser_next_ip = user_discover_next_ip(drule->druleid);
 			//没有下一个ip了 || 开始用户的扫描 或者 停止用户的扫描
-			if (SUCCEED != next_ip || next_drule)
+			if (!(SUCCEED == next_ip || SUCCEED == duser_next_ip))
 				break;
+			
+			if(SUCCEED != duser_next_ip){
+				// 如果当前扫描的druleid跟用户激活的druleid不一样，则跳出循环，优先扫描用户激活的druleid
+				int duser_ruleid = 0;
+				user_discover_next_druleid(&duser_ruleid);
+				if(duser_ruleid > 0 && drule->druleid != duser_ruleid)
+					break;
+			}
 		}
 		while (1);
 next:
@@ -885,7 +939,7 @@ out:
 /* 后续如果用户扫描也要跑多线程的话 可以考虑这里作为入口
 int	process_discovery_single_scan(zbx_uint64_t druleid)
 {
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s", __func__);
+	zabbix_log(LOG_LEVEL_DEBUG, "%s", __func__);
 	DB_RESULT		result;
 	DB_ROW			row;
 	result = zbx_db_select(
@@ -921,6 +975,9 @@ static int	process_discovery(time_t *nextcheck, int config_timeout)
 	zbx_uint64_t		druleid;
 	time_t			now;
 	int             is_user_discover=0;
+	
+	char	*sql = NULL;
+	size_t	sql_alloc = 0, sql_offset = 0;
 
 	now = time(NULL);
 
@@ -938,13 +995,18 @@ static int	process_discovery(time_t *nextcheck, int config_timeout)
 
 	do
 	{
-		result = zbx_db_select(
-				"select distinct r.iprange,r.name,c.dcheckid,r.delay"
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,"select distinct r.iprange,r.name,c.dcheckid,r.delay"
 				" from drules r"
 					" left join dchecks c"
 						" on c.druleid=r.druleid"
 							" and c.uniq=1"
 				" where r.druleid=" ZBX_FS_UI64, druleid);
+
+		if(ZBX_PROGRAM_TYPE_SERVER == g_running_program_type){
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset," and (ISNULL(proxy_hostid) or proxy_hostid = 0)");
+		}
+		
+		result = zbx_db_select(sql);
 
 		if (NULL != (row = zbx_db_fetch(result)))
 		{
@@ -1016,7 +1078,7 @@ void notify_discover_thread()
 	pthread_mutex_lock(&g_disc_mutex);
 	pthread_cond_signal(&g_disc_cond);
 	pthread_mutex_unlock(&g_disc_mutex);
-	zabbix_log(LOG_LEVEL_INFORMATION, "#ZOPS#notify_discover_thread");
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#notify_discover_thread");
 }
 
 /**
@@ -1033,7 +1095,7 @@ int wait_discover_thread(int sec)
 	// 最少等待10秒
 	if(sec < 10) sec = 10;
 	
-	long btime = time(NULL);
+	// long btime = time(NULL);
 
 	pthread_mutex_lock(&g_disc_mutex);
     gettimeofday(&now, NULL);
@@ -1042,9 +1104,9 @@ int wait_discover_thread(int sec)
     ret = pthread_cond_timedwait(&g_disc_cond, &g_disc_mutex, &tm); 
     pthread_mutex_unlock(&g_disc_mutex); 
 
-	long etime = time(NULL);
-    long ctime = etime - btime;
-    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#wait_discover_thread after, ret=%d, cost=%d\n", ret, ctime);
+	// long etime = time(NULL);
+    // long ctime = etime - btime;
+    //zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#wait_discover_thread after, ret=%d, cost=%d\n", ret, ctime);
 	return ret;
  
 }
@@ -1092,13 +1154,13 @@ ZBX_THREAD_ENTRY(discoverer_thread, args)
     pthread_mutex_init(&g_disc_mutex, NULL);
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#discoverer init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#discoverer init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 
-	user_discover_g = (zbx_user_discover_drules_t *)zbx_malloc(NULL, sizeof(zbx_user_discover_drules_t));
-	memset(user_discover_g, 0, sizeof(zbx_user_discover_drules_t));
-	user_discover_g->need_scan_druleid_num = 0;
-	zbx_vector_ptr_create(&user_discover_g->drules);
+	memset(&g_user_discover, 0, sizeof(zbx_user_discover_drules_t));
+	zbx_vector_ptr_create(&g_user_discover.drules);
+
+	init_discovery_hosts(1);
 
 	char *error = NULL;
 	if (SUCCEED != zbx_mutex_create(&user_discover_lock, ZBX_MUTEX_USER_DISCOVER, &error))
@@ -1138,7 +1200,7 @@ ZBX_THREAD_ENTRY(discoverer_thread, args)
 					old_total_sec);
 		}
 	     
-		if ((int)sec >= nextcheck || user_discover_g->need_scan_druleid_num > 0)
+		if ((int)sec >= nextcheck || g_user_discover.need_scan_druleid_num > 0)
 		{	//发现主机入口
 			rule_count += process_discovery(&nextcheck, discoverer_args_in->config_timeout);
 			total_sec += zbx_time() - sec;
@@ -1185,6 +1247,7 @@ ZBX_THREAD_ENTRY(discoverer_thread, args)
 	}
 
 	zbx_user_discover_g_free();
+	destroy_discovery_hosts();
 	zbx_mutex_destroy(&user_discover_lock);
 	zbx_setproctitle("%s #%d [terminated]", get_process_type_string(process_type), process_num);
 

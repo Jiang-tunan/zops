@@ -1,11 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 
-bin_PROGRAMS = zops_get
+bin_PROGRAMS = tognix_get
 
-zops_get_SOURCES = \
+tognix_get_SOURCES = \
 	zabbix_get.c
 
-zops_get_LDADD = \
+tognix_get_LDADD = \
 	$(top_builddir)/src/libs/zbxcomms/libzbxcomms.a \
 	$(top_builddir)/src/libs/zbxxml/libzbxxml.a \
 	$(top_builddir)/src/libs/zbxjson/libzbxjson.a \
@@ -28,6 +28,6 @@ zops_get_LDADD = \
 	$(top_builddir)/src/libs/zbxcommon/libzbxcommon.a \
 	$(ZBXGET_LIBS)
 
-zops_get_LDFLAGS = $(ZBXGET_LDFLAGS)
+tognix_get_LDFLAGS = $(ZBXGET_LDFLAGS)
 
-zops_get_CFLAGS = $(TLS_CFLAGS)
+tognix_get_CFLAGS = $(TLS_CFLAGS)

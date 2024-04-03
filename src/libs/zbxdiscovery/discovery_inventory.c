@@ -558,7 +558,14 @@ void discovery_register_host_inventory(DB_HOST_INVENTORY *inventory)
 	DB_ROW row;
 	
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
+	if(NULL == inventory){
+		goto out;
+	}
 
+	if(NULL == inventory->dunique || 0 == strlen(inventory->dunique)){
+		zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s dunique is null. hostid=%d", __func__, inventory->hostid);
+		goto out;
+	}
 	int is_find_inventory = 0, is_insert = 0;
 	char *unique=NULL,*manufacturer=NULL;
 	char *physical_model=NULL,*physical_serial=NULL,*chassis=NULL,*chassis_serial=NULL,*board=NULL,*board_serial=NULL;
@@ -734,7 +741,7 @@ void discovery_register_host_inventory(DB_HOST_INVENTORY *inventory)
 	zbx_free(network);
 	zbx_free(bios);
 	zbx_free(psu);
-
+out:
 	inventory_free(inventory);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);

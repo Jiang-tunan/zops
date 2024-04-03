@@ -1,6 +1,6 @@
 /*
-** Zops
-** Copyright (C) 2001-2023 Zops SIA
+** tognix
+** Copyright (C) 2001-2023 tognix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -77,13 +77,13 @@ static VOID WINAPI	ServiceCtrlHandler(DWORD ctrlCode)
 	switch (ctrlCode)
 	{
 		case SERVICE_CONTROL_STOP:
-			zabbix_log(LOG_LEVEL_INFORMATION, "Zops Agent received stop request.");
+			zabbix_log(LOG_LEVEL_INFORMATION, "tognix Agent received stop request.");
 			break;
 		case SERVICE_CONTROL_SHUTDOWN:
-			zabbix_log(LOG_LEVEL_INFORMATION, "Zops Agent received shutdown request.");
+			zabbix_log(LOG_LEVEL_INFORMATION, "tognix Agent received shutdown request.");
 			break;
 		default:
-			zabbix_log(LOG_LEVEL_DEBUG, "Zops Agent received request:%u.", ctrlCode);
+			zabbix_log(LOG_LEVEL_DEBUG, "tognix Agent received request:%u.", ctrlCode);
 			break;
 	}
 
@@ -164,7 +164,7 @@ void	zbx_service_start(int flags)
 	if (0 == ret)
 	{
 		if (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT == GetLastError())
-			zbx_error("use foreground option to run Zops agent as console application");
+			zbx_error("use foreground option to run tognix agent as console application");
 		else
 			zbx_error("StartServiceCtrlDispatcher() failed: %s", strerror_from_system(GetLastError()));
 	}

@@ -17,8 +17,15 @@
 #include "zbxtime.h"
 #include "zbxcacheconfig.h"
 
+#ifndef FALSE
+#define FALSE 0
+#endif
+
+#ifndef TRUE
+#define TRUE 1
+#endif
+
 #define STR_LINE_LEN            1024
-#define IPMI_TEMPLATEID         16
 
 #define FRU_DEVICE_DESCRIPTION  "FRU Device Description"//组件描述
 
@@ -105,12 +112,12 @@ ipmi_item_info_t;
 typedef struct ipmi_product_info
 {
     zbx_vector_ptr_t builtin_fru;           // 不可更换组件
-    zbx_vector_ptr_t cpus;                  // cpu信息
-    zbx_vector_ptr_t memory;                // 内存信息
-    zbx_vector_ptr_t disks;                 // 磁盘信息
-    zbx_vector_ptr_t networks;              // 网卡信息
-    zbx_vector_ptr_t bios;                  // bios信息
-    zbx_vector_ptr_t psus;                  // 电源信息
+    zbx_vector_ptr_t cpus;                  //cpu信息
+    zbx_vector_ptr_t memory;                //内存信息
+    zbx_vector_ptr_t disks;                 //磁盘信息
+    zbx_vector_ptr_t networks;              //网卡信息
+    zbx_vector_ptr_t bios;                  //bios信息
+    zbx_vector_ptr_t psus;                  //电源信息
 }
 ipmi_product_info_t;
 
@@ -138,18 +145,16 @@ int ipmitool_parsing_key(char *trimmed_key, char **tokens, int *token_len);
 char* extract_value_after_colon(const char *original_value);
 int ipmitool_control(const DC_ITEM *item, ipmitool_option_t *ioption);
 int get_ipmitool_value_by_name(char* ipmitoolcmd, const char* name, ipmitool_option_t *ioption);
+int get_ipmi_inventory_value(ipmitool_option_t *ioption, const char* ip,int port, const char *ipmi_username, const char *ipmi_password);
 int run_ipmitool_cmd(char* cmd, ipmitool_option_t *ioption);
 void create_ipmitool_value_response(ipmitool_option_t *ioption);
 
 int parse_fru_fields(int fru_type, const char *line, ipmi_item_info_t *item);
 
-void extract_json_field(const char *json_str, int num_fields, ...);
+char *extract_json_field(const char *json_str, const char *field_name);
 int extract_memory_capacity(const char *str, char **capacity);
 int extract_speed(const char *str, char **speed);
 int extract_port_count(const char *str, char **port);
-
-void extract_port(const char *str, int *port_total);
-void extract_memory(const char *str, char *memory_str);
 
 void init_ipmitool_option(ipmitool_option_t **option);
 void free_ipmitool_option(ipmitool_option_t *option);

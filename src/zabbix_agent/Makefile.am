@@ -9,7 +9,7 @@ EXTRA_DIST = \
 	perfstat.c \
 	perfstat.h
 
-sbin_PROGRAMS = zops_agentd
+sbin_PROGRAMS = tognix_agentd
 
 noinst_LIBRARIES = libzbxagent.a
 
@@ -38,9 +38,9 @@ libzbxagent_a_CFLAGS = \
 	-DZABBIX_DAEMON \
 	$(TLS_CFLAGS)
 
-zops_agentd_SOURCES = zabbix_agentd.c
+tognix_agentd_SOURCES = zabbix_agentd.c
 
-zops_agentd_LDADD = \
+tognix_agentd_LDADD = \
 	libzbxagent.a \
 	logfiles/libzbxlogfiles.a \
 	$(top_builddir)/src/libs/zbxsysinfo/libzbxagentsysinfo.a \
@@ -80,9 +80,9 @@ zops_agentd_LDADD = \
 	$(top_builddir)/src/libs/zbxexpr/libzbxexpr.a \
 	$(AGENT_LIBS)
 
-zops_agentd_LDFLAGS = $(AGENT_LDFLAGS)
+tognix_agentd_LDFLAGS = $(AGENT_LDFLAGS)
 
-zops_agentd_CFLAGS = \
+tognix_agentd_CFLAGS = \
 	-DZABBIX_DAEMON \
 	-DDEFAULT_CONFIG_FILE="\"$(AGENT_CONFIG_FILE)\"" \
 	-DDEFAULT_LOAD_MODULE_PATH="\"$(LOAD_MODULE_PATH)\"" \
@@ -91,4 +91,4 @@ zops_agentd_CFLAGS = \
 install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(AGENT_CONFIG_FILE).d"
 	$(MKDIR_P) "$(DESTDIR)$(LOAD_MODULE_PATH)"
-	test -f "$(DESTDIR)$(AGENT_CONFIG_FILE)" || cp "../../conf/zops_agentd.conf" "$(DESTDIR)$(AGENT_CONFIG_FILE)"
+	test -f "$(DESTDIR)$(AGENT_CONFIG_FILE)" || cp "../../conf/tognix_agentd.conf" "$(DESTDIR)$(AGENT_CONFIG_FILE)"

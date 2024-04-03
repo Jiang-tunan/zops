@@ -121,7 +121,9 @@ am__v_AR_0 = @echo "  AR      " $@;
 am__v_AR_1 = 
 libzbxdiscovery_a_AR = $(AR) $(ARFLAGS)
 libzbxdiscovery_a_LIBADD =
-am_libzbxdiscovery_a_OBJECTS = libzbxdiscovery_a-discovery.$(OBJEXT)
+am_libzbxdiscovery_a_OBJECTS = libzbxdiscovery_a-discovery.$(OBJEXT) \
+	libzbxdiscovery_a-discovery_inventory.$(OBJEXT) \
+	libzbxdiscovery_a-discovery_comm.$(OBJEXT)
 libzbxdiscovery_a_OBJECTS = $(am_libzbxdiscovery_a_OBJECTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -137,7 +139,9 @@ am__v_at_0 = @
 am__v_at_1 = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/libzbxdiscovery_a-discovery.Po
+am__depfiles_remade = ./$(DEPDIR)/libzbxdiscovery_a-discovery.Po \
+	./$(DEPDIR)/libzbxdiscovery_a-discovery_comm.Po \
+	./$(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -390,7 +394,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -401,7 +404,9 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 noinst_LIBRARIES = libzbxdiscovery.a
 libzbxdiscovery_a_SOURCES = \
-	discovery.c
+	discovery.c \
+	discovery_inventory.c \
+	discovery_comm.c
 
 libzbxdiscovery_a_CFLAGS = \
 	-I$(top_srcdir)/src/zabbix_server/ \
@@ -456,6 +461,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscovery_a-discovery.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscovery_a-discovery_comm.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -492,6 +499,34 @@ libzbxdiscovery_a-discovery.obj: discovery.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discovery.c' object='libzbxdiscovery_a-discovery.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscovery_a-discovery.obj `if test -f 'discovery.c'; then $(CYGPATH_W) 'discovery.c'; else $(CYGPATH_W) '$(srcdir)/discovery.c'; fi`
+
+libzbxdiscovery_a-discovery_inventory.o: discovery_inventory.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -MT libzbxdiscovery_a-discovery_inventory.o -MD -MP -MF $(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Tpo -c -o libzbxdiscovery_a-discovery_inventory.o `test -f 'discovery_inventory.c' || echo '$(srcdir)/'`discovery_inventory.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Tpo $(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discovery_inventory.c' object='libzbxdiscovery_a-discovery_inventory.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscovery_a-discovery_inventory.o `test -f 'discovery_inventory.c' || echo '$(srcdir)/'`discovery_inventory.c
+
+libzbxdiscovery_a-discovery_inventory.obj: discovery_inventory.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -MT libzbxdiscovery_a-discovery_inventory.obj -MD -MP -MF $(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Tpo -c -o libzbxdiscovery_a-discovery_inventory.obj `if test -f 'discovery_inventory.c'; then $(CYGPATH_W) 'discovery_inventory.c'; else $(CYGPATH_W) '$(srcdir)/discovery_inventory.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Tpo $(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discovery_inventory.c' object='libzbxdiscovery_a-discovery_inventory.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscovery_a-discovery_inventory.obj `if test -f 'discovery_inventory.c'; then $(CYGPATH_W) 'discovery_inventory.c'; else $(CYGPATH_W) '$(srcdir)/discovery_inventory.c'; fi`
+
+libzbxdiscovery_a-discovery_comm.o: discovery_comm.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -MT libzbxdiscovery_a-discovery_comm.o -MD -MP -MF $(DEPDIR)/libzbxdiscovery_a-discovery_comm.Tpo -c -o libzbxdiscovery_a-discovery_comm.o `test -f 'discovery_comm.c' || echo '$(srcdir)/'`discovery_comm.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscovery_a-discovery_comm.Tpo $(DEPDIR)/libzbxdiscovery_a-discovery_comm.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discovery_comm.c' object='libzbxdiscovery_a-discovery_comm.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscovery_a-discovery_comm.o `test -f 'discovery_comm.c' || echo '$(srcdir)/'`discovery_comm.c
+
+libzbxdiscovery_a-discovery_comm.obj: discovery_comm.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -MT libzbxdiscovery_a-discovery_comm.obj -MD -MP -MF $(DEPDIR)/libzbxdiscovery_a-discovery_comm.Tpo -c -o libzbxdiscovery_a-discovery_comm.obj `if test -f 'discovery_comm.c'; then $(CYGPATH_W) 'discovery_comm.c'; else $(CYGPATH_W) '$(srcdir)/discovery_comm.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libzbxdiscovery_a-discovery_comm.Tpo $(DEPDIR)/libzbxdiscovery_a-discovery_comm.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='discovery_comm.c' object='libzbxdiscovery_a-discovery_comm.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxdiscovery_a_CFLAGS) $(CFLAGS) -c -o libzbxdiscovery_a-discovery_comm.obj `if test -f 'discovery_comm.c'; then $(CYGPATH_W) 'discovery_comm.c'; else $(CYGPATH_W) '$(srcdir)/discovery_comm.c'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -618,6 +653,8 @@ clean-am: clean-generic clean-noinstLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/libzbxdiscovery_a-discovery.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscovery_a-discovery_comm.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -664,6 +701,8 @@ installcheck-am:
 
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/libzbxdiscovery_a-discovery.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscovery_a-discovery_comm.Po
+	-rm -f ./$(DEPDIR)/libzbxdiscovery_a-discovery_inventory.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

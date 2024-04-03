@@ -89,7 +89,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-sbin_PROGRAMS = zops_agentd$(EXEEXT)
+sbin_PROGRAMS = tognix_agentd$(EXEEXT)
 subdir = src/zabbix_agent
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_lib_mysql.m4 \
@@ -134,10 +134,10 @@ am_libzbxagent_a_OBJECTS = libzbxagent_a-active.$(OBJEXT) \
 	libzbxagent_a-zbxconf.$(OBJEXT) \
 	libzbxagent_a-zbxkstat.$(OBJEXT)
 libzbxagent_a_OBJECTS = $(am_libzbxagent_a_OBJECTS)
-am_zops_agentd_OBJECTS = zops_agentd-zabbix_agentd.$(OBJEXT)
-zops_agentd_OBJECTS = $(am_zops_agentd_OBJECTS)
+am_tognix_agentd_OBJECTS = tognix_agentd-zabbix_agentd.$(OBJEXT)
+tognix_agentd_OBJECTS = $(am_tognix_agentd_OBJECTS)
 am__DEPENDENCIES_1 =
-zops_agentd_DEPENDENCIES = libzbxagent.a logfiles/libzbxlogfiles.a \
+tognix_agentd_DEPENDENCIES = libzbxagent.a logfiles/libzbxlogfiles.a \
 	$(top_builddir)/src/libs/zbxsysinfo/libzbxagentsysinfo.a \
 	$(top_builddir)/src/libs/zbxsysinfo/$(ARCH)/libspecsysinfo.a \
 	$(top_builddir)/src/libs/zbxsysinfo/$(ARCH)/libspechostnamesysinfo.a \
@@ -174,8 +174,8 @@ zops_agentd_DEPENDENCIES = libzbxagent.a logfiles/libzbxlogfiles.a \
 	$(top_builddir)/src/libs/zbxparam/libzbxparam.a \
 	$(top_builddir)/src/libs/zbxexpr/libzbxexpr.a \
 	$(am__DEPENDENCIES_1)
-zops_agentd_LINK = $(CCLD) $(zops_agentd_CFLAGS) $(CFLAGS) \
-	$(zops_agentd_LDFLAGS) $(LDFLAGS) -o $@
+tognix_agentd_LINK = $(CCLD) $(tognix_agentd_CFLAGS) $(CFLAGS) \
+	$(tognix_agentd_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -199,7 +199,7 @@ am__depfiles_remade = ./$(DEPDIR)/libzbxagent_a-active.Po \
 	./$(DEPDIR)/libzbxagent_a-vmstats.Po \
 	./$(DEPDIR)/libzbxagent_a-zbxconf.Po \
 	./$(DEPDIR)/libzbxagent_a-zbxkstat.Po \
-	./$(DEPDIR)/zops_agentd-zabbix_agentd.Po
+	./$(DEPDIR)/tognix_agentd-zabbix_agentd.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -217,8 +217,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libzbxagent_a_SOURCES) $(zops_agentd_SOURCES)
-DIST_SOURCES = $(libzbxagent_a_SOURCES) $(zops_agentd_SOURCES)
+SOURCES = $(libzbxagent_a_SOURCES) $(tognix_agentd_SOURCES)
+DIST_SOURCES = $(libzbxagent_a_SOURCES) $(tognix_agentd_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -402,9 +402,6 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -494,7 +491,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -538,8 +534,8 @@ libzbxagent_a_CFLAGS = \
 	-DZABBIX_DAEMON \
 	$(TLS_CFLAGS)
 
-zops_agentd_SOURCES = zabbix_agentd.c
-zops_agentd_LDADD = \
+tognix_agentd_SOURCES = zabbix_agentd.c
+tognix_agentd_LDADD = \
 	libzbxagent.a \
 	logfiles/libzbxlogfiles.a \
 	$(top_builddir)/src/libs/zbxsysinfo/libzbxagentsysinfo.a \
@@ -579,8 +575,8 @@ zops_agentd_LDADD = \
 	$(top_builddir)/src/libs/zbxexpr/libzbxexpr.a \
 	$(AGENT_LIBS)
 
-zops_agentd_LDFLAGS = $(AGENT_LDFLAGS)
-zops_agentd_CFLAGS = \
+tognix_agentd_LDFLAGS = $(AGENT_LDFLAGS)
+tognix_agentd_CFLAGS = \
 	-DZABBIX_DAEMON \
 	-DDEFAULT_CONFIG_FILE="\"$(AGENT_CONFIG_FILE)\"" \
 	-DDEFAULT_LOAD_MODULE_PATH="\"$(LOAD_MODULE_PATH)\"" \
@@ -670,9 +666,9 @@ libzbxagent.a: $(libzbxagent_a_OBJECTS) $(libzbxagent_a_DEPENDENCIES) $(EXTRA_li
 	$(AM_V_AR)$(libzbxagent_a_AR) libzbxagent.a $(libzbxagent_a_OBJECTS) $(libzbxagent_a_LIBADD)
 	$(AM_V_at)$(RANLIB) libzbxagent.a
 
-zops_agentd$(EXEEXT): $(zops_agentd_OBJECTS) $(zops_agentd_DEPENDENCIES) $(EXTRA_zops_agentd_DEPENDENCIES) 
-	@rm -f zops_agentd$(EXEEXT)
-	$(AM_V_CCLD)$(zops_agentd_LINK) $(zops_agentd_OBJECTS) $(zops_agentd_LDADD) $(LIBS)
+tognix_agentd$(EXEEXT): $(tognix_agentd_OBJECTS) $(tognix_agentd_DEPENDENCIES) $(EXTRA_tognix_agentd_DEPENDENCIES) 
+	@rm -f tognix_agentd$(EXEEXT)
+	$(AM_V_CCLD)$(tognix_agentd_LINK) $(tognix_agentd_OBJECTS) $(tognix_agentd_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -689,7 +685,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxagent_a-vmstats.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxagent_a-zbxconf.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxagent_a-zbxkstat.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/zops_agentd-zabbix_agentd.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tognix_agentd-zabbix_agentd.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -839,19 +835,19 @@ libzbxagent_a-zbxkstat.obj: zbxkstat.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxagent_a_CFLAGS) $(CFLAGS) -c -o libzbxagent_a-zbxkstat.obj `if test -f 'zbxkstat.c'; then $(CYGPATH_W) 'zbxkstat.c'; else $(CYGPATH_W) '$(srcdir)/zbxkstat.c'; fi`
 
-zops_agentd-zabbix_agentd.o: zabbix_agentd.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_agentd_CFLAGS) $(CFLAGS) -MT zops_agentd-zabbix_agentd.o -MD -MP -MF $(DEPDIR)/zops_agentd-zabbix_agentd.Tpo -c -o zops_agentd-zabbix_agentd.o `test -f 'zabbix_agentd.c' || echo '$(srcdir)/'`zabbix_agentd.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_agentd-zabbix_agentd.Tpo $(DEPDIR)/zops_agentd-zabbix_agentd.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_agentd.c' object='zops_agentd-zabbix_agentd.o' libtool=no @AMDEPBACKSLASH@
+tognix_agentd-zabbix_agentd.o: zabbix_agentd.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_agentd_CFLAGS) $(CFLAGS) -MT tognix_agentd-zabbix_agentd.o -MD -MP -MF $(DEPDIR)/tognix_agentd-zabbix_agentd.Tpo -c -o tognix_agentd-zabbix_agentd.o `test -f 'zabbix_agentd.c' || echo '$(srcdir)/'`zabbix_agentd.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_agentd-zabbix_agentd.Tpo $(DEPDIR)/tognix_agentd-zabbix_agentd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_agentd.c' object='tognix_agentd-zabbix_agentd.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_agentd_CFLAGS) $(CFLAGS) -c -o zops_agentd-zabbix_agentd.o `test -f 'zabbix_agentd.c' || echo '$(srcdir)/'`zabbix_agentd.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_agentd_CFLAGS) $(CFLAGS) -c -o tognix_agentd-zabbix_agentd.o `test -f 'zabbix_agentd.c' || echo '$(srcdir)/'`zabbix_agentd.c
 
-zops_agentd-zabbix_agentd.obj: zabbix_agentd.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_agentd_CFLAGS) $(CFLAGS) -MT zops_agentd-zabbix_agentd.obj -MD -MP -MF $(DEPDIR)/zops_agentd-zabbix_agentd.Tpo -c -o zops_agentd-zabbix_agentd.obj `if test -f 'zabbix_agentd.c'; then $(CYGPATH_W) 'zabbix_agentd.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_agentd.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_agentd-zabbix_agentd.Tpo $(DEPDIR)/zops_agentd-zabbix_agentd.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_agentd.c' object='zops_agentd-zabbix_agentd.obj' libtool=no @AMDEPBACKSLASH@
+tognix_agentd-zabbix_agentd.obj: zabbix_agentd.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_agentd_CFLAGS) $(CFLAGS) -MT tognix_agentd-zabbix_agentd.obj -MD -MP -MF $(DEPDIR)/tognix_agentd-zabbix_agentd.Tpo -c -o tognix_agentd-zabbix_agentd.obj `if test -f 'zabbix_agentd.c'; then $(CYGPATH_W) 'zabbix_agentd.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_agentd.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_agentd-zabbix_agentd.Tpo $(DEPDIR)/tognix_agentd-zabbix_agentd.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_agentd.c' object='tognix_agentd-zabbix_agentd.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_agentd_CFLAGS) $(CFLAGS) -c -o zops_agentd-zabbix_agentd.obj `if test -f 'zabbix_agentd.c'; then $(CYGPATH_W) 'zabbix_agentd.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_agentd.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_agentd_CFLAGS) $(CFLAGS) -c -o tognix_agentd-zabbix_agentd.obj `if test -f 'zabbix_agentd.c'; then $(CYGPATH_W) 'zabbix_agentd.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_agentd.c'; fi`
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -1063,7 +1059,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/libzbxagent_a-vmstats.Po
 	-rm -f ./$(DEPDIR)/libzbxagent_a-zbxconf.Po
 	-rm -f ./$(DEPDIR)/libzbxagent_a-zbxkstat.Po
-	-rm -f ./$(DEPDIR)/zops_agentd-zabbix_agentd.Po
+	-rm -f ./$(DEPDIR)/tognix_agentd-zabbix_agentd.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1119,7 +1115,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/libzbxagent_a-vmstats.Po
 	-rm -f ./$(DEPDIR)/libzbxagent_a-zbxconf.Po
 	-rm -f ./$(DEPDIR)/libzbxagent_a-zbxkstat.Po
-	-rm -f ./$(DEPDIR)/zops_agentd-zabbix_agentd.Po
+	-rm -f ./$(DEPDIR)/tognix_agentd-zabbix_agentd.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -1161,7 +1157,7 @@ uninstall-am: uninstall-sbinPROGRAMS
 install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(AGENT_CONFIG_FILE).d"
 	$(MKDIR_P) "$(DESTDIR)$(LOAD_MODULE_PATH)"
-	test -f "$(DESTDIR)$(AGENT_CONFIG_FILE)" || cp "../../conf/zops_agentd.conf" "$(DESTDIR)$(AGENT_CONFIG_FILE)"
+	test -f "$(DESTDIR)$(AGENT_CONFIG_FILE)" || cp "../../conf/tognix_agentd.conf" "$(DESTDIR)$(AGENT_CONFIG_FILE)"
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

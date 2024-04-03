@@ -215,7 +215,7 @@ static int	proxyconfig_validate_table_fields(const zbx_table_data_t *td, struct 
 	{
 		if (i >= td->fields.values_num || 0 != strcmp(buf, td->fields.values[i].field->name))
 		{
-			*error = zbx_dsprintf(*error, "unexpected field \"%s.%s\"", td->table->table, buf);
+			*error = zbx_dsprintf(*error, "unexpected field \"%s.%s != %s\"", td->table->table, buf, td->fields.values[i].field->name);
 			goto out;
 		}
 	}
@@ -229,6 +229,9 @@ static int	proxyconfig_validate_table_fields(const zbx_table_data_t *td, struct 
 
 	ret = SUCCEED;
 out:
+	if(SUCCEED != ret){
+		zabbix_log(LOG_LEVEL_DEBUG, "%s, table=%s, ret=%d, msg=%s",  __func__, td->table->table, ret, *error);
+	}
 	return ret;
 }
 
@@ -247,7 +250,7 @@ out:
 static int	proxyconfig_parse_table_rows(zbx_table_data_t *td, struct zbx_json_parse *jp_table, char **error)
 {
 	const char		*p;
-	int			ret = FAIL;
+	int			ret = FAIL, rowcount = 0;
 	struct zbx_json_parse	jp, jp_row;
 	char			*buf;
 	size_t			buf_alloc = ZBX_KIBIBYTE;
@@ -280,12 +283,14 @@ static int	proxyconfig_parse_table_rows(zbx_table_data_t *td, struct zbx_json_pa
 		row = (zbx_table_row_t *)zbx_hashset_insert(&td->rows, &row_local, sizeof(row_local));
 		row->columns = jp_row;
 		zbx_flags128_init(&row->flags);
+		rowcount ++;
 	}
 
 	ret = SUCCEED;
 out:
 	zbx_free(buf);
-
+	zabbix_log(LOG_LEVEL_DEBUG, "%s, table=%s, ret=%d, rowcount=%d",  __func__, td->table->table, ret, rowcount);
+	
 	return ret;
 }
 
@@ -1206,6 +1211,9 @@ static int	proxyconfig_sync_network_discovery(zbx_vector_table_data_ptr_t *confi
 
 	if (SUCCEED != proxyconfig_sync_table(config_tables, "drules", error))
 		return FAIL;
+	
+	if (SUCCEED != proxyconfig_sync_table(config_tables, "credentials", error))
+		return FAIL;
 
 	if (NULL == dchecks)
 		return SUCCEED;
@@ -2050,7 +2058,7 @@ clean:
 	zbx_vector_table_data_ptr_destroy(&config_tables);
 
 out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s(), ret=%d", __func__,ret);
 
 	return ret;
 }
@@ -2061,7 +2069,7 @@ out:
  *                                                                            *
  ******************************************************************************/
 void	zbx_recv_proxyconfig(zbx_socket_t *sock, const zbx_config_tls_t *config_tls,
-		const zbx_config_vault_t *config_vault, int config_timeout)
+		const zbx_config_vault_t *config_vault, int config_timeout, int icp_timeout)
 {
 	struct zbx_json_parse	jp_config, jp_kvs_paths = {0};
 	int			ret;
@@ -2114,7 +2122,7 @@ void	zbx_recv_proxyconfig(zbx_socket_t *sock, const zbx_config_tls_t *config_tls
 
 	if (SUCCEED == (ret = zbx_proxyconfig_process(sock->peer, &jp_config, &error)))
 	{
-		if (SUCCEED == zbx_rtc_reload_config_cache(&error))
+		if (SUCCEED == zbx_rtc_reload_config_cache(&error, icp_timeout))
 		{
 			if (SUCCEED == zbx_json_brackets_by_name(&jp_config, ZBX_PROTO_TAG_MACRO_SECRETS, &jp_kvs_paths))
 				DCsync_kvs_paths(&jp_kvs_paths, config_vault);

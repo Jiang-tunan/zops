@@ -1,11 +1,11 @@
 ## Process this file with automake to produce Makefile.in
 
-bin_PROGRAMS = zops_sender
+bin_PROGRAMS = tognix_sender
 
-zops_sender_SOURCES = \
+tognix_sender_SOURCES = \
 	zabbix_sender.c
 
-zops_sender_LDADD = \
+tognix_sender_LDADD = \
 	$(top_builddir)/src/libs/zbxjson/libzbxjson.a \
 	$(top_builddir)/src/libs/zbxalgo/libzbxalgo.a \
 	$(top_builddir)/src/libs/zbxregexp/libzbxregexp.a \
@@ -30,8 +30,8 @@ zops_sender_LDADD = \
 	$(top_builddir)/src/libs/zbxip/libzbxip.a \
 	$(SENDER_LIBS)
 
-zops_sender_LDFLAGS = $(SENDER_LDFLAGS)
+tognix_sender_LDFLAGS = $(SENDER_LDFLAGS)
 
-zops_sender_CFLAGS = $(TLS_CFLAGS)
+tognix_sender_CFLAGS = $(TLS_CFLAGS)
 
 EXTRA_DIST = win32

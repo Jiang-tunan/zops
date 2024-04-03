@@ -665,7 +665,7 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #include <grp.h>
 ]], [[
-	char	*user = "zops";
+	char	*user = "tognix";
 	initgroups(user, 0);
 ]])],[AC_DEFINE(HAVE_FUNCTION_INITGROUPS,1,Define to 1 if function 'initgroups' exists.)
 AC_MSG_RESULT(yes)],[AC_MSG_RESULT(no)])
@@ -1803,19 +1803,19 @@ TIMES_CHECK_NULL_ARG([no])
 RANLIB="ranlib"
 AC_SUBST(RANLIB)
 
-SERVER_CONFIG_FILE="${sysconfdir}/zops_server.conf"
-PROXY_CONFIG_FILE="${sysconfdir}/zops_proxy.conf"
-AGENT_CONFIG_FILE="${sysconfdir}/zops_agentd.conf"
-AGENT2_CONFIG_FILE="${sysconfdir}/zops_agent2.conf"
-AGENT2_CONFIG_PATH="${sysconfdir}/zops_agent2.d"
+SERVER_CONFIG_FILE="${sysconfdir}/tognix_server.conf"
+PROXY_CONFIG_FILE="${sysconfdir}/tognix_proxy.conf"
+AGENT_CONFIG_FILE="${sysconfdir}/tognix_agentd.conf"
+AGENT2_CONFIG_FILE="${sysconfdir}/tognix_agent2.conf"
+AGENT2_CONFIG_PATH="${sysconfdir}/tognix_agent2.d"
 AGENT2_CONFIG_PLUGINS_PATH="${AGENT2_CONFIG_PATH}/plugins.d"
-WEBSERVICE_CONFIG_FILE="${sysconfdir}/zops_web_service.conf"
+WEBSERVICE_CONFIG_FILE="${sysconfdir}/tognix_web_service.conf"
 
-EXTERNAL_SCRIPTS_PATH="${datadir}/zops/externalscripts"
-ALERT_SCRIPTS_PATH="${datadir}/zops/alertscripts"
+EXTERNAL_SCRIPTS_PATH="${datadir}/tognix/externalscripts"
+ALERT_SCRIPTS_PATH="${datadir}/tognix/alertscripts"
 
-CURL_SSL_CERT_LOCATION="${datadir}/zops/ssl/certs"
-CURL_SSL_KEY_LOCATION="${datadir}/zops/ssl/keys"
+CURL_SSL_CERT_LOCATION="${datadir}/tognix/ssl/certs"
+CURL_SSL_KEY_LOCATION="${datadir}/tognix/ssl/keys"
 
 LOAD_MODULE_PATH="${libdir}/modules"
 
@@ -2316,7 +2316,7 @@ echo
 echo "***********************************************************"
 echo "*            Now run '${am_make} install'                       *"
 echo "*                                                         *"
-echo "*            Thank you for using ZOps!                  *"
-echo "*              <http://www.zeroops.cn>                    *"
+echo "*            Thank you for using tognix!                  *"
+echo "*              <http://www.tognix.cn>                    *"
 echo "***********************************************************"
 echo

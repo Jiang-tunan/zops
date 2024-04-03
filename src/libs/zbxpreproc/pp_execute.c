@@ -1038,10 +1038,10 @@ void	pp_execute(zbx_pp_context_t *ctx, zbx_pp_item_preproc_t *preproc, zbx_pp_ca
 	int			quote_error, results_num, action;
 	zbx_variant_t		value_raw;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s(): value:%s type:%s", __func__,
-			zbx_variant_value_desc(NULL == cache ? value_in : &cache->value),
-			zbx_variant_type_desc(NULL == cache ? value_in : &cache->value));
-
+	// zabbix_log(LOG_LEVEL_DEBUG, "In %s(): value:%s type:%s", __func__,
+	// 		zbx_variant_value_desc(NULL == cache ? value_in : &cache->value),
+	// 		zbx_variant_type_desc(NULL == cache ? value_in : &cache->value));
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
 	if (NULL == preproc || 0 == preproc->steps_num)
 	{
 		zbx_variant_copy(value_out, NULL != cache ? &cache->value : value_in);

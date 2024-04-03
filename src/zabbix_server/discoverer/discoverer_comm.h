@@ -34,20 +34,24 @@ typedef struct
 	int hstgrpid;
 }discover_hosts;
 
-void free_discover_hstgrp_ptr(discover_hstgrp *p_hstgrp);
-void free_discover_hosts_ptr(discover_hosts *p_host);
+void free_discover_hstgrp(zbx_vector_ptr_t *v_hstgrps);
+void free_discover_hosts(zbx_vector_ptr_t *v_host);
 
 int	dc_compare_hstgrp(const void *d1, const void *d2);
 int	dc_compare_hstgrp_uuid(const void *d1, const void *d2);
 int	dc_compare_hosts(const void *d1, const void *d2);
 
 int update_discover_hv_groupid(zbx_vector_ptr_t *v_hstgrps, int type, int hostid, char *uuid, char *name, int fgroupid);
-int get_discover_vc_groupid(int type, char *ip);
+int get_discover_vc_groupid(int type, char *ip, int proxy_hostid);
 void get_discover_hosts(zbx_vector_ptr_t *v_hosts);
 
-int pack_bind_templateid_json_req(int hostid, int templateid,int groupid,int status,int id,char *auth,char* buf);
+void dc_get_dchecks(zbx_db_drule *drule,  int unique, zbx_vector_ptr_t *dchecks, zbx_vector_uint64_t *dcheckids);
 
+void copy_original_json(struct zbx_json_parse *jp, struct zbx_json *json_dest, int depth, zbx_map_t *map);
+int copy_original_json2(zbx_json_type_t type, struct zbx_json_parse *jp, struct zbx_json *json_dest, int depth, zbx_map_t *map);
 
-int bind_templateid_http_req_rsp(char* json_body_str,char **out_value, DB_DCHECK *dcheck, int maxTry);
+// proxy程序处理server的请求后返回应答
+char *proxy_build_single_resp_json(char *request, zbx_vector_ptr_t *dchecks);
 
+char *print_content(char *json);
 #endif

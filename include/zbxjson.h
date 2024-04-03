@@ -206,6 +206,8 @@
 #define ZBX_PROTO_TAG_REMOVED_MACRO_HOSTIDS	"del_macro_hostids"
 #define ZBX_PROTO_TAG_ACKNOWLEDGEID		"acknowledgeid"
 
+#define ZBX_PROTO_TAG_PROXYHOSTID		"proxyhostid"
+
 #define ZBX_PROTO_VALUE_FAILED		"failed"
 #define ZBX_PROTO_VALUE_SUCCESS		"success"
 
@@ -249,16 +251,21 @@
 #define ZBX_PROTO_VALUE_SUPPRESSION_UNSUPPRESS	"unsuppress"
 
 /*zhul content*/
-#define DISCOVERY_RULES_PROGRESS	"discovery_rules_progress"
-#define DISCOVERY_RULES_ACTIVATE	"discovery_rules_activate"
-#define DISCOVERY_RULES_STOP		"discovery_rules_stop"
-#define DISCOVERY_RULES_SINGLE_SCAN "discovery_rules_single_scan"
-#define LICENSE_GET_PRODUCTKEY		"license_get_productkey"
-#define LICENSE_VERIFY				"license_verify"
-#define LICENSE_QUERY				"license_query"
+#define DISCOVERY_RULES_PROGRESS		"discovery_rules_progress"
+#define DISCOVERY_RULES_ACTIVATE		"discovery_rules_activate"
+#define DISCOVERY_RULES_STOP			"discovery_rules_stop"
+#define DISCOVERY_RULES_SINGLE_SCAN 	"discovery_rules_single_scan"
+#define LICENSE_GET_PRODUCTKEY			"license_get_productkey"
+#define LICENSE_VERIFY					"license_verify"
+#define LICENSE_QUERY					"license_query"
 /*zhul content* END */
 
+#define COMMON_CHECK_IP_CONNECT			"common_check_ip_connect"
+#define DISCOVERY_CHECK_PROXY_SERVER	"discovery_check_proxy_server" // 检测代理是否可用
 
+// 服务器和代理之间的内部协议
+#define PROXY_CHECK_PROXY_SERVER		"proxy.check_proxy_server"
+#define PROXY_DISCOVERY_RULES_RESP		"proxy.discovery_rules_resp"  
 typedef enum
 {
 	ZBX_JSON_TYPE_UNKNOWN = 0,

@@ -124,7 +124,8 @@ libipmi_a_LIBADD =
 am_libipmi_a_OBJECTS = libipmi_a-checks_ipmi.$(OBJEXT) \
 	libipmi_a-ipmi.$(OBJEXT) libipmi_a-ipmi_manager.$(OBJEXT) \
 	libipmi_a-ipmi_poller.$(OBJEXT) \
-	libipmi_a-ipmi_protocol.$(OBJEXT)
+	libipmi_a-ipmi_protocol.$(OBJEXT) \
+	libipmi_a-ipmi_discovery.$(OBJEXT)
 libipmi_a_OBJECTS = $(am_libipmi_a_OBJECTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -142,6 +143,7 @@ depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
 am__depfiles_remade = ./$(DEPDIR)/libipmi_a-checks_ipmi.Po \
 	./$(DEPDIR)/libipmi_a-ipmi.Po \
+	./$(DEPDIR)/libipmi_a-ipmi_discovery.Po \
 	./$(DEPDIR)/libipmi_a-ipmi_manager.Po \
 	./$(DEPDIR)/libipmi_a-ipmi_poller.Po \
 	./$(DEPDIR)/libipmi_a-ipmi_protocol.Po
@@ -305,9 +307,6 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -397,7 +396,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -417,7 +415,9 @@ libipmi_a_SOURCES = \
 	ipmi_poller.c \
 	ipmi_poller.h \
 	ipmi_protocol.c \
-	ipmi_protocol.h
+	ipmi_protocol.h \
+	ipmi_discovery.h \
+	ipmi_discovery.c
 
 libipmi_a_CFLAGS = \
 	$(OPENIPMI_CFLAGS) \
@@ -473,6 +473,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libipmi_a-checks_ipmi.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libipmi_a-ipmi.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libipmi_a-ipmi_discovery.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libipmi_a-ipmi_manager.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libipmi_a-ipmi_poller.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libipmi_a-ipmi_protocol.Po@am__quote@ # am--include-marker
@@ -568,6 +569,20 @@ libipmi_a-ipmi_protocol.obj: ipmi_protocol.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ipmi_protocol.c' object='libipmi_a-ipmi_protocol.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libipmi_a_CFLAGS) $(CFLAGS) -c -o libipmi_a-ipmi_protocol.obj `if test -f 'ipmi_protocol.c'; then $(CYGPATH_W) 'ipmi_protocol.c'; else $(CYGPATH_W) '$(srcdir)/ipmi_protocol.c'; fi`
+
+libipmi_a-ipmi_discovery.o: ipmi_discovery.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libipmi_a_CFLAGS) $(CFLAGS) -MT libipmi_a-ipmi_discovery.o -MD -MP -MF $(DEPDIR)/libipmi_a-ipmi_discovery.Tpo -c -o libipmi_a-ipmi_discovery.o `test -f 'ipmi_discovery.c' || echo '$(srcdir)/'`ipmi_discovery.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libipmi_a-ipmi_discovery.Tpo $(DEPDIR)/libipmi_a-ipmi_discovery.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ipmi_discovery.c' object='libipmi_a-ipmi_discovery.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libipmi_a_CFLAGS) $(CFLAGS) -c -o libipmi_a-ipmi_discovery.o `test -f 'ipmi_discovery.c' || echo '$(srcdir)/'`ipmi_discovery.c
+
+libipmi_a-ipmi_discovery.obj: ipmi_discovery.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libipmi_a_CFLAGS) $(CFLAGS) -MT libipmi_a-ipmi_discovery.obj -MD -MP -MF $(DEPDIR)/libipmi_a-ipmi_discovery.Tpo -c -o libipmi_a-ipmi_discovery.obj `if test -f 'ipmi_discovery.c'; then $(CYGPATH_W) 'ipmi_discovery.c'; else $(CYGPATH_W) '$(srcdir)/ipmi_discovery.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libipmi_a-ipmi_discovery.Tpo $(DEPDIR)/libipmi_a-ipmi_discovery.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='ipmi_discovery.c' object='libipmi_a-ipmi_discovery.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libipmi_a_CFLAGS) $(CFLAGS) -c -o libipmi_a-ipmi_discovery.obj `if test -f 'ipmi_discovery.c'; then $(CYGPATH_W) 'ipmi_discovery.c'; else $(CYGPATH_W) '$(srcdir)/ipmi_discovery.c'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -695,6 +710,7 @@ clean-am: clean-generic clean-noinstLIBRARIES mostlyclean-am
 distclean: distclean-am
 		-rm -f ./$(DEPDIR)/libipmi_a-checks_ipmi.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi.Po
+	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_discovery.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_manager.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_poller.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_protocol.Po
@@ -745,6 +761,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 		-rm -f ./$(DEPDIR)/libipmi_a-checks_ipmi.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi.Po
+	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_discovery.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_manager.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_poller.Po
 	-rm -f ./$(DEPDIR)/libipmi_a-ipmi_protocol.Po

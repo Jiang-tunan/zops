@@ -6,7 +6,7 @@ cd `dirname $0`
 if [ -n "$PID_FILE" -a -f "$PID_FILE" ]; then
 	PID=`cat "$PID_FILE"`
 	if ps -p "$PID" > /dev/null 2>&1; then
-		echo "Zabbix Java Gateway is already running"
+		echo "Tognix Java Gateway is already running"
 		exit 1
 	fi
 	rm -f "$PID_FILE"
@@ -24,30 +24,30 @@ for jar in lib/*.jar bin/*.jar; do
 	CLASSPATH="$CLASSPATH:$jar"
 done
 
-ZABBIX_OPTIONS=""
+TOGNIX_OPTIONS=""
 if [ -n "$PID_FILE" ]; then
-	ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.pidFile=$PID_FILE"
+	TOGNIX_OPTIONS="$TOGNIX_OPTIONS -DpidFile=$PID_FILE"
 fi
 if [ -n "$LISTEN_IP" ]; then
-	ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.listenIP=$LISTEN_IP"
+	TOGNIX_OPTIONS="$TOGNIX_OPTIONS -DlistenIP=$LISTEN_IP"
 fi
 if [ -n "$LISTEN_PORT" ]; then
-	ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.listenPort=$LISTEN_PORT"
+	TOGNIX_OPTIONS="$TOGNIX_OPTIONS -DlistenPort=$LISTEN_PORT"
 fi
 if [ -n "$START_POLLERS" ]; then
-	ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.startPollers=$START_POLLERS"
+	TOGNIX_OPTIONS="$TOGNIX_OPTIONS -DstartPollers=$START_POLLERS"
 fi
 if [ -n "$TIMEOUT" ]; then
-	ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.timeout=$TIMEOUT"
+	TOGNIX_OPTIONS="$TOGNIX_OPTIONS -Dtimeout=$TIMEOUT"
 fi
 if [ -n "$PROPERTIES_FILE" ]; then
-	ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dzabbix.propertiesFile=$PROPERTIES_FILE"
+	TOGNIX_OPTIONS="$TOGNIX_OPTIONS -DpropertiesFile=$PROPERTIES_FILE"
 fi
 
 tcp_timeout=${TIMEOUT:=3}000
-ZABBIX_OPTIONS="$ZABBIX_OPTIONS -Dsun.rmi.transport.tcp.responseTimeout=$tcp_timeout"
+TOGNIX_OPTIONS="$TOGNIX_OPTIONS -Dsun.rmi.transport.tcp.responseTimeout=$tcp_timeout"
 
-COMMAND_LINE="$JAVA $JAVA_OPTIONS -classpath $CLASSPATH $ZABBIX_OPTIONS com.zabbix.gateway.JavaGateway"
+COMMAND_LINE="$JAVA $JAVA_OPTIONS -classpath $CLASSPATH $TOGNIX_OPTIONS com.tognix.gateway.JavaGateway"
 
 if [ -n "$PID_FILE" ]; then
 
@@ -55,7 +55,7 @@ if [ -n "$PID_FILE" ]; then
 
 	touch "$PID_FILE"
 	if [ $? -ne 0 ]; then
-		echo "Zabbix Java Gateway did not start: cannot create PID file"
+		echo "Tognix Java Gateway did not start: cannot create PID file"
 		exit 1
 	fi
 
@@ -71,7 +71,7 @@ if [ -n "$PID_FILE" ]; then
 	PID=`cat "$PID_FILE"`
 	ps -p "$PID" > /dev/null 2>&1
 	if [ $? -ne 0 ]; then
-		echo "Zabbix Java Gateway did not start"
+		echo "Tognix Java Gateway did not start"
 		rm -f "$PID_FILE"
 		exit 1
 	fi

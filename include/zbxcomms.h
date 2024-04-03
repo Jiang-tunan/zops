@@ -21,6 +21,7 @@
 #define ZABBIX_ZBXCOMMS_H
 
 #include "zbxalgo.h"
+#include "zbxipcservice.h"
 
 #define ZBX_IPV4_MAX_CIDR_PREFIX	32	/* max number of bits in IPv4 CIDR prefix */
 #define ZBX_IPV6_MAX_CIDR_PREFIX	128	/* max number of bits in IPv6 CIDR prefix */
@@ -146,6 +147,8 @@ typedef struct
 	/* TLS connection may be shut down at any time and it will not be possible to get peer IP address anymore. */
 	char				peer[ZBX_MAX_DNSNAME_LEN + 1];
 	int				protocol;
+
+	zbx_ipc_async_socket_t	*rtc;
 }
 zbx_socket_t;
 

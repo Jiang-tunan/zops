@@ -1718,7 +1718,7 @@ static void	add_message_alert(const zbx_db_event *event, const zbx_db_event *r_e
 					" and m.mediatypeid=" ZBX_FS_UI64,
 				userid, mediatypeid);
 	}
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#add_message_alert userid:%d, mediatypeid:%d", userid, mediatypeid);
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#add_message_alert userid:%d, mediatypeid:%d", userid, mediatypeid);
 	mediatypeid = 0;
 	if (EVENT_SOURCE_TRIGGERS == event->source)
 	{
@@ -1747,7 +1747,7 @@ static void	add_message_alert(const zbx_db_event *event, const zbx_db_event *r_e
 		zbx_substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 				&period, MACRO_TYPE_COMMON, NULL, 0);
 
-		zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#add_message_alert severity:%d, media severity:%d, period:'%s', userid:" ZBX_FS_UI64,
+		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#add_message_alert severity:%d, media severity:%d, period:'%s', userid:" ZBX_FS_UI64,
 				priority, severity, period, userid);
 
 		if (MEDIA_STATUS_DISABLED == atoi(row[5]))
@@ -3619,7 +3619,7 @@ ZBX_THREAD_ENTRY(escalator_thread, args)
 	zbx_db_connect(ZBX_DB_CONNECT_NORMAL);
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#escalator init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#escalator init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	while (ZBX_IS_RUNNING() && LIC_IS_SUCCESS())
 	{

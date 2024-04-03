@@ -68,7 +68,7 @@ int ipmitool_control(const DC_ITEM *item, ipmitool_option_t *ioption)
 
     char command[MAX_STRING_LEN];
 
-    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() addr:%s port:%hu authtype:%d privilege:%d username:%s ",
+    zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#IPMI %s() addr:%s port:%hu authtype:%d privilege:%d username:%s ",
                                 __func__, ioption->addr, ioption->port, ioption->authtype, ioption->privilege, ioption->username);
     /* 构建 ipmitool 认证命令 */
     zbx_snprintf(command, sizeof(command), "ipmitool -I lanplus -H %s -p %u -U %s -P %s",
@@ -101,26 +101,18 @@ int ipmitool_control(const DC_ITEM *item, ipmitool_option_t *ioption)
             char *tokens[20] = {0};
             char *trimmed_key = strdup(item->key);
             char cmd[MAX_STRING_LEN];
+
             if (SUCCEED != ipmitool_parsing_key(trimmed_key, tokens, &token_len)) 
             {
                 // 处理失败
-                zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() Failed to parse key.", __func__);
+                zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() Failed to parse key.", __func__);
                 return FAIL;
             }
 
             // 获取 mac 地址
             get_ipmitool_value_by_name(command, MAC_ADDRESSS, ioption);
-
-            // 获取资产信息
-            zbx_snprintf(cmd, sizeof(cmd), "%s fru printf", command);
-            if(SUCCEED != run_ipmitool_cmd(cmd, ioption))
-            {
-                zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() run_ipmitool_cmd failed", __func__);
-                return FAIL;
-            }
             create_ipmitool_value_response(ioption);
 
-            zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() value=%s ",__func__, ioption->json);
             zbx_free(trimmed_key);
         }
         
@@ -137,7 +129,7 @@ int get_ipmitool_value_by_name(char* ipmitoolcmd, const char* name, ipmitool_opt
 {
     char cmd[MAX_STRING_LEN];
 
-    // zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() name =[%s]", __func__, name);
+    // zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#IPMI %s() name =[%s]", __func__, name);
     if(strcmp(name, CHASSSIS_TYPE) == SUCCEED)
     {
         zbx_snprintf(cmd, sizeof(cmd), "%s fru | grep \"Chassis Type\"", ipmitoolcmd);  
@@ -213,7 +205,7 @@ int get_ipmitool_value_by_name(char* ipmitoolcmd, const char* name, ipmitool_opt
     } 
     else 
     {
-        zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() unknow name=[%s]", __func__, name);
+        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() unknow name=[%s]", __func__, name);
         return FAIL;
     }
     return SUCCEED; // 成功
@@ -231,6 +223,8 @@ void create_ipmitool_value_response(ipmitool_option_t *ioption)
     zbx_json_addstring(&j, "ipmi_password", ioption->password, ZBX_JSON_TYPE_STRING);
     zbx_json_addint64(&j, "ipmi_privilege", ioption->privilege);
     zbx_json_addint64(&j, "ipmi_authtype", ioption->authtype);
+    zbx_json_addstring(&j, ZBX_DSERVICE_KEY_IFPHYSADDRESS, ioption->mac_address_value, ZBX_JSON_TYPE_STRING);
+    zbx_json_addstring(&j, ZBX_DSERVICE_KEY_SYSNAME, ioption->addr, ZBX_JSON_TYPE_STRING);
 
     // 系统硬件信息
     if(ioption->i_pro->builtin_fru.values_num > 0)
@@ -243,14 +237,11 @@ void create_ipmitool_value_response(ipmitool_option_t *ioption)
         // 主板信息
         zbx_json_addstring(&j, "board", builtin->boardpart_value, ZBX_JSON_TYPE_STRING);
         zbx_json_addstring(&j, "board_serial", builtin->board_serial_value, ZBX_JSON_TYPE_STRING);
-
-        zbx_json_addstring(&j, ZBX_DSERVICE_KEY_SYSNAME, ioption->addr, ZBX_JSON_TYPE_STRING);
         zbx_json_addstring(&j, ZBX_DSERVICE_KEY_SYSDESC, builtin->mf, ZBX_JSON_TYPE_STRING);
-        zbx_json_addstring(&j, ZBX_DSERVICE_KEY_IFPHYSADDRESS, ioption->mac_address_value, ZBX_JSON_TYPE_STRING);
         zbx_json_addstring(&j, ZBX_DSERVICE_KEY_ENTPHYSICALSERIALNUM, builtin->serial, ZBX_JSON_TYPE_STRING);
         zbx_json_addstring(&j, ZBX_DSERVICE_KEY_ENTPHYSICALMODELNAME, builtin->model, ZBX_JSON_TYPE_STRING);
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() cccccccccc", __func__);
+
     // 封装CPU信息
     if (ioption->i_pro->cpus.values_num > 0)
     {
@@ -261,32 +252,16 @@ void create_ipmitool_value_response(ipmitool_option_t *ioption)
         zbx_json_addstring(&j, "name", cpu->name, ZBX_JSON_TYPE_STRING);
         zbx_json_close(&j);
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() 11111111111", __func__);
+
     // 封装内存信息
     if (ioption->i_pro->memory.values_num > 0)
     {
-        // char memory_capacity[10] = "0G";
-        // char *memory_capacity_tmp = NULL;
         int ret;
-
-        // for (int i = 0; i < ioption->i_pro->memory.values_num; i++)
-        // {
-        //     ipmi_item_info_t *memory = (ipmi_item_info_t *)ioption->i_pro->memory.values[i];
-        //     if(NULL == memory->serial) continue;
-
-        //     if(NULL != memory->model)
-        //     {
-        //         ret = extract_memory_capacity(memory->model, &memory_capacity_tmp);
-        //         extract_memory(memory->capacity, memory_capacity);
-        //         zbx_free(memory_capacity_tmp);
-        //     }
-        // }
-        // zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() memory_capacity=%s", __func__,memory_capacity);
         zbx_json_addobject(&j, "memory");
 
         zbx_json_addstring(&j, "capacity", "", ZBX_JSON_TYPE_STRING);
         zbx_json_addarray(&j, "memory");
-        
+
         for (int i = 0; i < ioption->i_pro->memory.values_num; i++)
         {
             ipmi_item_info_t *memory = (ipmi_item_info_t *)ioption->i_pro->memory.values[i];
@@ -307,7 +282,7 @@ void create_ipmitool_value_response(ipmitool_option_t *ioption)
         zbx_json_close(&j);
         zbx_json_close(&j);
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() 22222222222", __func__);
+
     // 封装磁盘信息
     if (ioption->i_pro->disks.values_num > 0)
     {
@@ -330,32 +305,17 @@ void create_ipmitool_value_response(ipmitool_option_t *ioption)
         zbx_json_close(&j);
         zbx_json_close(&j);
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() 333333333333333", __func__);
+
     // 封装网络信息
     if (ioption->i_pro->networks.values_num > 0)
     {
         char *port_num_str = NULL;
         int port_num = 0;
         int ethernet_num = 0;
-
-        // for (int i = 0; i < ioption->i_pro->networks.values_num; i++)
-        // {
-        //     int ret;
-        //     ipmi_item_info_t *network = (ipmi_item_info_t *)ioption->i_pro->networks.values[i];
-        //     if(SUCCEED  == strcmp(network->name, "Empty"))  continue;
-        //     if(NULL != network->name)
-        //     {
-        //         ret = extract_port_count(network->name, &port_num_str);
-        //         extract_port(port_num_str, &port_num);
-        //         ethernet_num++;
-        //     }
-        // }
-
         zbx_json_addobject(&j, "network");
-        zbx_json_addint64(&j, "port_num", port_num);
+        zbx_json_addstring(&j, "port_num", "", ZBX_JSON_TYPE_STRING);
         zbx_json_addint64(&j, "ethernet_num", ioption->i_pro->networks.values_num);
         zbx_json_addarray(&j, "ethernet");
-
         for (int i = 0; i < ioption->i_pro->networks.values_num; i++)
         {
             int ret;
@@ -366,7 +326,7 @@ void create_ipmitool_value_response(ipmitool_option_t *ioption)
             if(NULL != network->name)
             {
                 ret = extract_speed(network->name, &network->netspeed);
-                ret = extract_port_count(network->name, &port_num);
+                ret = extract_port_count(network->name, &network->port_num);
             }
 
             struct zbx_json j_network;
@@ -378,10 +338,8 @@ void create_ipmitool_value_response(ipmitool_option_t *ioption)
         }
         zbx_json_close(&j);
         zbx_json_close(&j);
-
-        zbx_free(port_num);
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() 44444444444", __func__);
+
     // 封装 bios 信息
     if (ioption->i_pro->bios.values_num > 0)
     {
@@ -458,7 +416,7 @@ void bind_template_to_host(uint64_t hostid)
     uint64_t max_hosttemplateid = 0;
     uint64_t max_hostgroupid = 0;
     int status;
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() hostid=%d",__func__, hostid);
+    zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() hostid=%d",__func__, hostid);
     // 查询 "Chassis by IPMI" 的 hostid 和 status
     zbx_snprintf(sql, sizeof(sql), "SELECT hostid, status FROM hosts WHERE host='Chassis by IPMI'");
     result = zbx_db_select(sql);
@@ -469,17 +427,17 @@ void bind_template_to_host(uint64_t hostid)
 
         if (3 != status)
         {
-            zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s()Template 'Chassis by IPMI' is not in the correct status",__func__);
+            zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s()Template 'Chassis by IPMI' is not in the correct status",__func__);
             zbx_db_free_result(result);
             return;
         }
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() status=%d template_hostid= %d",__func__, status, template_hostid);
+    zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() status=%d template_hostid= %d",__func__, status, template_hostid);
     zbx_db_free_result(result);
 
     if (0 == template_hostid)
     {
-        zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s()Template 'Chassis by IPMI' not found",__func__);
+        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s()Template 'Chassis by IPMI' not found",__func__);
         return;
     }
 
@@ -497,7 +455,7 @@ void bind_template_to_host(uint64_t hostid)
         max_hosttemplateid = zbx_db_get_maxid("hosts_templates");
         zbx_snprintf(sql, sizeof(sql), "INSERT INTO hosts_templates (hosttemplateid, hostid, templateid) VALUES (" ZBX_FS_UI64 "," ZBX_FS_UI64 "," ZBX_FS_UI64 ")", max_hosttemplateid, hostid, template_hostid);
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() max_hosttemplateid = %d",__func__, max_hosttemplateid);
+    zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() max_hosttemplateid = %d",__func__, max_hosttemplateid);
     zbx_db_free_result(result);
     zbx_db_execute(sql);
 
@@ -515,7 +473,7 @@ void bind_template_to_host(uint64_t hostid)
         max_hostgroupid = zbx_db_get_maxid("hosts_groups");
         zbx_snprintf(sql, sizeof(sql), "INSERT INTO hosts_groups (hostgroupid, hostid, groupid) VALUES (" ZBX_FS_UI64 ", " ZBX_FS_UI64 ", 3)", max_hostgroupid, hostid);
     }
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() max_hostgroupid = %d",__func__, max_hostgroupid);
+    zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() max_hostgroupid = %d",__func__, max_hostgroupid);
     zbx_db_free_result(result);
     zbx_db_execute(sql);
 }
@@ -619,33 +577,47 @@ int parse_fru_fields(int fru_type, const char *line, ipmi_item_info_t *item)
 
             break;
         default:
-            zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s()  unknow frutype=%d",__func__, fru_type);
+            zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s()  unknow frutype=%d",__func__, fru_type);
             break;
     }
     return SUCCEED;
 }
 
 // 执行 ipmitool 命令
+
 int run_ipmitool_cmd(char* cmd, ipmitool_option_t *ioption) 
 {
     FILE *fp;
     char line[STR_LINE_LEN];
     int fru_type = FRU_UNKNOWN; // 当前FRU设备类型
-    int ret;
     ipmi_item_info_t *item = NULL;
+    int ret = SUCCEED;
 
-    //zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() begin",__func__);
+    // 打开命令流
     fp = popen(cmd, "r");
     if (fp == NULL)
     {
-        zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s()  ipmitool run failed",__func__);
+        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() ipmitool run failed", __func__);
         return FAIL;
-
     }
 
-    while (fgets(line, sizeof(line), fp) != NULL) 
+    while (1) 
     {
-        // zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI %s() line=%s ",__func__, line);
+        if (fgets(line, sizeof(line), fp) == NULL)
+        {
+            // 检查是否到达文件结束或发生错误
+            if (feof(fp))
+            {
+                zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() fgets reached EOF", __func__);
+            }
+            else if (ferror(fp))
+            {
+                zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() fgets error", __func__);
+                ret = FAIL;
+            }
+            break; // 跳出循环
+        }
+
         // 去除开头的空格
         char *start = line;
         while (*start != '\0' && isspace((unsigned char)*start)) 
@@ -654,7 +626,7 @@ int run_ipmitool_cmd(char* cmd, ipmitool_option_t *ioption)
         // 如果去除空格后的行为空，则不处理
         if (*start == '\0') 
             continue;
-        
+
         if (strstr(start, FRU_DEVICE_DESCRIPTION) != NULL) 
         {
             // 处理之前的item
@@ -683,7 +655,7 @@ int run_ipmitool_cmd(char* cmd, ipmitool_option_t *ioption)
                         zbx_vector_ptr_append(&ioption->i_pro->builtin_fru, item);
                         break;
                     default:
-                        zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s()  unknow frutype=%d",__func__, fru_type);
+                        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s()  unknow frutype=%d",__func__, fru_type);
                         break;
                 }
             }
@@ -744,16 +716,15 @@ int run_ipmitool_cmd(char* cmd, ipmitool_option_t *ioption)
                 zbx_vector_ptr_append(&ioption->i_pro->builtin_fru, item);
                 break;
             default:
-                zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s()  unknow frutype=%d",__func__, fru_type);
+                zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s()  unknow frutype=%d",__func__, fru_type);
                 break;
         }
     }
 
     pclose(fp);
-    zabbix_log(LOG_LEVEL_ERR, "#ZOPS#IPMI %s() aaaaaa", __func__);
-    return SUCCEED;
+    zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#IPMI end of %s()", __func__);
+    return ret;
 }
-
 
 
 void init_ipmitool_option(ipmitool_option_t **option) {
@@ -812,53 +783,48 @@ void free_ipmitool_option(ipmitool_option_t *option) {
     zbx_free(option);
 }
 
-void extract_json_field(const char *json_str, int num_fields, ...) 
+
+char *extract_json_field(const char *json_str, const char *field_name) 
 {
-    struct zbx_json_parse jp;
-    const char *p = NULL;
+    struct zbx_json_parse jp, jp_data;
+    char *extracted_json_str = NULL;
+    int len;
 
-    if (SUCCEED != zbx_json_open(json_str, &jp)) 
-    {
-        zabbix_log(LOG_LEVEL_WARNING, "#ZOPS#IPMI %s() Unable to parse JSON", __func__);
-        return;
+    // 去掉开头的 '[' 和结尾的 ']'
+    char *trimmed_json_str = strdup(json_str);
+    if (trimmed_json_str[0] == '[') {
+        trimmed_json_str++; 
+    }
+    int trimmed_json_str_len = strlen(trimmed_json_str);
+    if (trimmed_json_str[trimmed_json_str_len - 1] == ']') {
+        trimmed_json_str[trimmed_json_str_len - 1] = '\0'; 
     }
 
-    va_list args;
-    va_start(args, num_fields); // 初始化可变参数列表
-    
-    struct zbx_json_parse jp_data;
-    // 遍历 JSON 数组
-    while (NULL != (p = zbx_json_next(&jp, p))) 
-    {
-        if (SUCCEED == zbx_json_brackets_open(p, &jp_data))
-        { 
-            for (int i = 0; i < num_fields; i++) 
-            {
-                char *field_name = va_arg(args, char *);
-                struct zbx_json_parse jp_field;
-                if (SUCCEED == zbx_json_brackets_by_name(&jp_data, field_name, &jp_field)) 
-                {
-                    int len = jp_field.end - jp_field.start + 1; // 加 1 包括 null 结尾
+    if (SUCCEED != zbx_json_open(trimmed_json_str, &jp)) {
+        zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#IPMI %s() Unable to parse JSON", __func__);
+        trimmed_json_str--;
+        zbx_free(trimmed_json_str);
+        return NULL;
+    }
 
-                    char **field_ptr = va_arg(args, char **);
-                    *field_ptr = zbx_malloc(NULL, len + 2);
-                    if (*field_ptr != NULL) 
-                    {
-                        zbx_strlcpy(*field_ptr, jp_field.start, len + 1);
-                        (*field_ptr)[len + 1] = '\0'; // 确保字符串以 null 结尾
-                    }
-                }
-            }
-            
-            // 重置可变参数列表，以便下一次迭代
-            va_end(args);
-            va_start(args, num_fields);
+    if (SUCCEED == zbx_json_brackets_by_name(&jp, field_name, &jp_data)) 
+    {
+        // 计算需要的字符串长度，包括结束的大括号
+        len = jp_data.end - jp_data.start + 2; // 加 2 包括大括号和 null 结尾
+
+        extracted_json_str = zbx_malloc(NULL, len + 1);
+        if (extracted_json_str != NULL) {
+            zbx_strlcpy(extracted_json_str, jp_data.start, len);
+            extracted_json_str[len] = '\0'; // 确保字符串以 null 结尾
         }
+    } else {
+        zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#IPMI %s() '%s' not found", __func__, field_name);
     }
 
-    va_end(args); // 清理可变参数列表
+    trimmed_json_str--;
+    zbx_free(trimmed_json_str); 
+    return extracted_json_str; // 这里返回的字符串需要在外部释放
 }
-
 
 void update_ipmi_hostmacro(int hostid, char *ipmi_user, char *ipmi_password)
 {
@@ -867,7 +833,7 @@ void update_ipmi_hostmacro(int hostid, char *ipmi_user, char *ipmi_password)
     int password_id = 0, user_id = 0, sensor_matches_id = 0, sensor_not_matches_id = 0;
 
 
-    zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#IPMI#%s() hostid:%d", __func__, hostid);
+    zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#IPMI#%s() hostid:%d", __func__, hostid);
 
     // 查询数据库以获取宏的当前ID
     result = zbx_db_select("SELECT hostmacroid, macro FROM hostmacro WHERE hostid=" ZBX_FS_UI64, hostid);
@@ -896,7 +862,6 @@ void update_ipmi_hostmacro(int hostid, char *ipmi_user, char *ipmi_password)
     zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 }
 
-
 int extract_memory_capacity(const char *str, char **capacity) 
 {
     regex_t regex;
@@ -905,7 +870,7 @@ int extract_memory_capacity(const char *str, char **capacity)
 
     if (SUCCEED != regcomp(&regex, "\\b([0-9]+G)\\b", REG_EXTENDED)) 
     {
-        zabbix_log(LOG_LEVEL_DEBUG,"#ZOPS#IPMI %s()Could not compile regex",__func__);
+        zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#IPMI %s()Could not compile regex",__func__);
         regfree(&regex);
         return FAIL;
     }
@@ -923,12 +888,13 @@ int extract_memory_capacity(const char *str, char **capacity)
     } 
     else 
     {
-        zabbix_log(LOG_LEVEL_DEBUG,"#ZOPS#IPMI %s()Not found memory capacity",__func__);
+        zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#IPMI %s()Not found memory capacity",__func__);
         regfree(&regex);
         return FAIL;
     }
 
     regfree(&regex);
+    zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#IPMI %s()end",__func__);
     return SUCCEED;
 }
 
@@ -940,7 +906,7 @@ int extract_speed(const char *str, char **speed)
     size_t alloc_len = 0, offset = 0;
     if (regcomp(&regex, "\\b([0-9]+Gb)\\b", REG_EXTENDED) != 0) 
     {
-        zabbix_log(LOG_LEVEL_DEBUG,"#ZOPS#IPMI %s()Could not compile regex",__func__);
+        zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#IPMI %s()Could not compile regex",__func__);
         regfree(&regex);
         return FAIL;
     }
@@ -958,7 +924,7 @@ int extract_speed(const char *str, char **speed)
     } 
     else 
     {
-        zabbix_log(LOG_LEVEL_DEBUG,"#ZOPS#IPMI %s()Not found memory",__func__);
+        zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#IPMI %s()Not found memory",__func__);
         regfree(&regex);
         return FAIL;
     }
@@ -973,7 +939,7 @@ int extract_port_count(const char *str, char **port)
 
     if (SUCCEED != regcomp(&regex, "\\b([0-9]+)-port\\b", REG_EXTENDED)) 
     {
-        zabbix_log(LOG_LEVEL_DEBUG,"#ZOPS#IPMI %s()Could not compile regex",__func__);
+        zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#IPMI %s()Could not compile regex",__func__);
         regfree(&regex);
         return FAIL;
     }
@@ -991,7 +957,7 @@ int extract_port_count(const char *str, char **port)
     } 
     else 
     {
-        zabbix_log(LOG_LEVEL_DEBUG,"#ZOPS#IPMI %s()Not found port",__func__);
+        zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#IPMI %s()Not found port",__func__);
         regfree(&regex);
         return FAIL;
     }
@@ -999,64 +965,34 @@ int extract_port_count(const char *str, char **port)
 }
 
 
-// void extract_port(const char *str, int *port_total) 
-// {
-//     regex_t regex;
-//     regmatch_t match;
+int get_ipmi_inventory_value(ipmitool_option_t *ioption, const char* ip,int port, const char *ipmi_username, const char *ipmi_password)
+{
+    const int max_retries = 3; // 设置最大重试次数
+    int retries = 0;
+    int result;
+    char command[MAX_STRING_LEN];
 
-//     // 匹配端口数量（如 "4-port"）
-//     if (SUCCEED == regcomp(&regex, "(\\d+)-port", REG_EXTENDED)) 
-//     {
-//         if (SUCCEED == regexec(&regex, str, 1, &match, 0)) 
-//         {
-//             char *temp_str = strndup(str + match.rm_so, match.rm_eo - match.rm_so);
-//             if (temp_str != NULL)
-//             {
-//                 *port_total += zbx_atoi(temp_str);
-//                 free(temp_str);
-//             }
-//         }
-//         regfree(&regex);
-//     }
-// }
+    zbx_snprintf(command, sizeof(command), "ipmitool -I lanplus -H %s -p %u -U %s -P %s fru",
+                                            ip, port, ipmi_username, ipmi_password);
+    // 增加重试机制
+    while (retries < max_retries)
+    {
+        result = run_ipmitool_cmd(command, ioption);
+        if (result == SUCCEED) 
+        {
+            break; 
+        }
 
-// void extract_memory(const char *str, char *memory_str) 
-// {
-//     regex_t regex;
-//     regmatch_t match;
-//     int memory_value = 0;
-//     int memory_total = 0;
+        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() run_ipmitool_cmd failed, retry %d", __func__, retries + 1);
+        retries++;
+    }
 
-//     // 匹配内存大小（如 "12G"）
-//     if (SUCCEED == regcomp(&regex, "(\\d+)G", REG_EXTENDED)) 
-//     {
-//         if (SUCCEED == regexec(&regex, str, 1, &match, 0)) 
-//         {
-//             char *temp_str = strndup(str + match.rm_so, match.rm_eo - match.rm_so);
-//             if (temp_str != NULL) 
-//             {
-//                 memory_value = zbx_atoi(temp_str);
-//                 free(temp_str);
-//             }
-//         }
-//         regfree(&regex);
-//     }
-
-//     if (SUCCEED == regcomp(&regex, "(\\d+)G", REG_EXTENDED)) 
-//     {
-//         if (SUCCEED == regexec(&regex, memory_str, 1, &match, 0)) 
-//         {
-//             char *temp_str = strndup(memory_str + match.rm_so, match.rm_eo - match.rm_so);
-//             if (temp_str != NULL) 
-//             {
-//                 memory_total = zbx_atoi(temp_str);
-//                 free(temp_str);  
-//             }
-//         }
-//         regfree(&regex);
-//     }
-
-//     zbx_snprintf(memory_str, 10, "%dG", memory_total + memory_value);
-// }
-
+    if (result != SUCCEED)
+    {
+        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#IPMI %s() run_ipmitool_cmd failed after retries", __func__);
+        return FAIL;
+    }
+    create_ipmitool_value_response(ioption);
+    return SUCCEED;
+}
 #endif

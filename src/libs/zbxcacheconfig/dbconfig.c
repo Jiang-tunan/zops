@@ -646,6 +646,7 @@ const char	*dc_strpool_acquire(const char *str)
 
 int	dc_strpool_replace(int found, const char **curr, const char *new_str)
 {
+	//zabbix_log(LOG_LEVEL_DEBUG, "In %s() found=%d, new_str=%s", __func__,found, new_str);
 	if (1 == found)
 	{
 		if (0 == zbx_strcmp_null(*curr, new_str))
@@ -653,9 +654,9 @@ int	dc_strpool_replace(int found, const char **curr, const char *new_str)
 
 		dc_strpool_release(*curr);
 	}
-
+	//zabbix_log(LOG_LEVEL_DEBUG, "%s dc_strpool_intern", __func__);
 	*curr = dc_strpool_intern(new_str);
-
+	//zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 	return SUCCEED;	/* indicate that the string has been replaced */
 }
 
@@ -820,7 +821,7 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 		config->revision.config_table = revision;
 	}
 
-	if (config->config->default_inventory_mode != (value_int = atoi(row[25])))
+	if (config->config->default_inventory_mode != (value_int = zbx_atoi(row[25])))
 	{
 		config->config->default_inventory_mode = value_int;
 		config->revision.config_table = revision;
@@ -876,7 +877,7 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 #endif
 
 	/* read housekeeper configuration */
-	if (ZBX_HK_OPTION_ENABLED == (value_int = atoi(row[8])) &&
+	if (ZBX_HK_OPTION_ENABLED == (value_int = zbx_atoi(row[8])) &&
 			(SUCCEED != set_hk_opt(&config->config->hk.events_trigger, 1, SEC_PER_DAY, row[9], revision) ||
 			SUCCEED != set_hk_opt(&config->config->hk.events_internal, 1, SEC_PER_DAY, row[10], revision) ||
 			SUCCEED != set_hk_opt(&config->config->hk.events_discovery, 1, SEC_PER_DAY, row[11], revision) ||
@@ -893,7 +894,7 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 		config->revision.config_table = revision;
 	}
 
-	if (ZBX_HK_OPTION_ENABLED == (value_int = atoi(row[13])) &&
+	if (ZBX_HK_OPTION_ENABLED == (value_int = zbx_atoi(row[13])) &&
 			SUCCEED != set_hk_opt(&config->config->hk.services, 1, SEC_PER_DAY, row[14], revision))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "IT services data housekeeping will be disabled due to invalid"
@@ -906,7 +907,7 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 		config->revision.config_table = revision;
 	}
 
-	if (ZBX_HK_OPTION_ENABLED == (value_int = atoi(row[15])) &&
+	if (ZBX_HK_OPTION_ENABLED == (value_int = zbx_atoi(row[15])) &&
 			SUCCEED != set_hk_opt(&config->config->hk.audit, 1, SEC_PER_DAY, row[16], revision))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "audit data housekeeping will be disabled due to invalid"
@@ -919,7 +920,7 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 		config->revision.config_table = revision;
 	}
 
-	if (ZBX_HK_OPTION_ENABLED == (value_int = atoi(row[17])) &&
+	if (ZBX_HK_OPTION_ENABLED == (value_int = zbx_atoi(row[17])) &&
 			SUCCEED != set_hk_opt(&config->config->hk.sessions, 1, SEC_PER_DAY, row[18], revision))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "user sessions data housekeeping will be disabled due to invalid"
@@ -932,13 +933,13 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 		config->revision.config_table = revision;
 	}
 
-	if (config->config->hk.history_mode != (value_int = atoi(row[19])))
+	if (config->config->hk.history_mode != (value_int = zbx_atoi(row[19])))
 	{
 		config->config->hk.history_mode = value_int;
 		config->revision.config_table = revision;
 	}
 
-	if (ZBX_HK_OPTION_ENABLED == (value_int = atoi(row[20])) &&
+	if (ZBX_HK_OPTION_ENABLED == (value_int = zbx_atoi(row[20])) &&
 			SUCCEED != set_hk_opt(&config->config->hk.history, 0, ZBX_HK_HISTORY_MIN, row[21], revision))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "history data housekeeping will be disabled and all items will"
@@ -974,13 +975,13 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 	}
 #endif
 
-	if (config->config->hk.trends_mode != (value_int = atoi(row[22])))
+	if (config->config->hk.trends_mode != (value_int = zbx_atoi(row[22])))
 	{
 		config->config->hk.trends_mode = value_int;
 		config->revision.config_table = revision;
 	}
 
-	if (ZBX_HK_OPTION_ENABLED == (value_int = atoi(row[23])) &&
+	if (ZBX_HK_OPTION_ENABLED == (value_int = zbx_atoi(row[23])) &&
 			SUCCEED != set_hk_opt(&config->config->hk.trends, 0, ZBX_HK_TRENDS_MIN, row[24], revision))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "trends data housekeeping will be disabled and all numeric items"
@@ -1021,7 +1022,7 @@ static int	DCsync_config(zbx_dbsync_t *sync, zbx_uint64_t revision, int *flags)
 		config->revision.config_table = revision;
 	}
 
-	if (config->config->auditlog_enabled != (value_int = atoi(row[33])))
+	if (config->config->auditlog_enabled != (value_int = zbx_atoi(row[33])))
 	{
 		config->config->auditlog_enabled = value_int;
 		config->revision.config_table = revision;
@@ -1122,8 +1123,8 @@ static void	DCsync_autoreg_host(zbx_dbsync_t *sync)
 		dc_strpool_replace(found, &autoreg_host->listen_ip, row[1]);
 		dc_strpool_replace(found, &autoreg_host->listen_dns, row[2]);
 		dc_strpool_replace(found, &autoreg_host->host_metadata, row[3]);
-		autoreg_host->flags = atoi(row[4]);
-		autoreg_host->listen_port = atoi(row[5]);
+		autoreg_host->flags = zbx_atoi(row[4]);
+		autoreg_host->listen_port = zbx_atoi(row[5]);
 		autoreg_host->timestamp = 0;
 	}
 
@@ -1485,7 +1486,7 @@ done:
 		{
 			if (NULL != config_vault->token || NULL != config_vault->name)
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "connection with Zops proxy \"%s\" should not be"
+				zabbix_log(LOG_LEVEL_WARNING, "connection with tognix proxy \"%s\" should not be"
 						" unencrypted when using Vault", host->host);
 			}
 		}
@@ -1493,9 +1494,9 @@ done:
 		if (0 == found)
 		{
 			ZBX_DBROW2UINT64(host->maintenanceid, row[17 + ZBX_HOST_TLS_OFFSET]);
-			host->maintenance_status = (unsigned char)atoi(row[7]);
-			host->maintenance_type = (unsigned char)atoi(row[8]);
-			host->maintenance_from = atoi(row[9]);
+			host->maintenance_status = (unsigned char)zbx_atoi(row[7]);
+			host->maintenance_type = (unsigned char)zbx_atoi(row[8]);
+			host->maintenance_from = zbx_atoi(row[9]);
 			host->data_expected_from = now;
 
 			zbx_vector_ptr_create_ext(&host->interfaces_v, __config_shmem_malloc_func,
@@ -1593,8 +1594,8 @@ done:
 
 		/* IPMI hosts */
 
-		ipmi_authtype = (signed char)atoi(row[3]);
-		ipmi_privilege = (unsigned char)atoi(row[4]);
+		ipmi_authtype = (signed char)zbx_atoi(row[3]);
+		ipmi_privilege = (unsigned char)zbx_atoi(row[4]);
 
 		if (ZBX_IPMI_DEFAULT_AUTHTYPE != ipmi_authtype || ZBX_IPMI_DEFAULT_PRIVILEGE != ipmi_privilege ||
 				'\0' != *row[5] || '\0' != *row[6])	/* useipmi */
@@ -1631,7 +1632,7 @@ done:
 				proxy->version_int = ZBX_COMPONENT_VERSION_UNDEFINED;
 				proxy->version_str = dc_strpool_intern(ZBX_VERSION_UNDEFINED_STR);
 				proxy->compatibility = ZBX_PROXY_VERSION_UNDEFINED;
-				proxy->lastaccess = atoi(row[12]);
+				proxy->lastaccess = zbx_atoi(row[12]);
 				proxy->last_cfg_error_time = 0;
 				proxy->proxy_delay = 0;
 				proxy->nodata_win.flags = ZBX_PROXY_SUPPRESS_DISABLE;
@@ -1644,7 +1645,7 @@ done:
 						__config_shmem_realloc_func, __config_shmem_free_func);
 			}
 
-			proxy->auto_compress = atoi(row[16 + ZBX_HOST_TLS_OFFSET]);
+			proxy->auto_compress = zbx_atoi(row[16 + ZBX_HOST_TLS_OFFSET]);
 			dc_strpool_replace(found, &proxy->proxy_address, row[15 + ZBX_HOST_TLS_OFFSET]);
 
 			if (HOST_STATUS_PROXY_PASSIVE == status && (0 == found || status != host->status))
@@ -2138,13 +2139,17 @@ static void	DCsync_interfaces(zbx_dbsync_t *sync, zbx_uint64_t revision)
 		ZBX_STR2UCHAR(main_, row[3]);
 		ZBX_STR2UCHAR(useip, row[4]);
 
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, interfaceid=%llu", __func__, interfaceid);
 		/* If there is no host for this interface, skip it. */
 		/* This may be possible if the host was added after we synced config for hosts. */
 		if (NULL == (host = (ZBX_DC_HOST *)zbx_hashset_search(&config->hosts, &hostid)))
 			continue;
 
-		interface = (ZBX_DC_INTERFACE *)DCfind_id(&config->interfaces, interfaceid, sizeof(ZBX_DC_INTERFACE),
-				&found);
+		if (NULL == (interface = (ZBX_DC_INTERFACE *)DCfind_id(&config->interfaces, interfaceid, sizeof(ZBX_DC_INTERFACE), &found))){
+			zabbix_log(LOG_LEVEL_WARNING, "%s, interfaceid=%llu, interface is null.", __func__, interfaceid);
+			continue;
+		}
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, interfaces begin", __func__);	
 		zbx_vector_ptr_append(&interfaces, interface);
 
 		/* remove old address->interfaceid index */
@@ -2154,7 +2159,7 @@ static void	DCsync_interfaces(zbx_dbsync_t *sync, zbx_uint64_t revision)
 		/* see whether we should and can update interfaces_ht index at this point */
 
 		update_index = 0;
-
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, interfaces_ht update1", __func__);
 		if (0 == found || interface->hostid != hostid || interface->type != type || interface->main != main_)
 		{
 			if (1 == found && 1 == interface->main)
@@ -2184,7 +2189,7 @@ static void	DCsync_interfaces(zbx_dbsync_t *sync, zbx_uint64_t revision)
 					update_index = 1;
 			}
 		}
-
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, information store,found=%d", __func__,found);
 		/* store new information in interface structure */
 
 		reset_snmp_stats = (0 == found || interface->hostid != hostid || interface->type != type ||
@@ -2194,23 +2199,24 @@ static void	DCsync_interfaces(zbx_dbsync_t *sync, zbx_uint64_t revision)
 		interface->type = type;
 		interface->main = main_;
 		interface->useip = useip;
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, information store replace,found=%d", __func__,found);
 		reset_snmp_stats |= (SUCCEED == dc_strpool_replace(found, &interface->ip, row[5]));
 		reset_snmp_stats |= (SUCCEED == dc_strpool_replace(found, &interface->dns, row[6]));
 		reset_snmp_stats |= (SUCCEED == dc_strpool_replace(found, &interface->port, row[7]));
-		reset_snmp_stats |= (SUCCEED == dc_strpool_replace(found, &interface->error, row[10]));
 
 		if (0 == found)
 		{
-			interface->errors_from = atoi(row[11]);
-			interface->available = (unsigned char)atoi(row[8]);
-			interface->disable_until = atoi(row[9]);
+			interface->errors_from = zbx_atoi(row[11]);
+			interface->available = (unsigned char)zbx_atoi(row[8]);
+			interface->disable_until = zbx_atoi(row[9]);
 			interface->availability_ts = time(NULL);
 			interface->reset_availability = 0;
 			interface->items_num = 0;
+			reset_snmp_stats |= (SUCCEED == dc_strpool_replace(found, &interface->error, row[10]));
 		}
 
 		/* update interfaces_ht index using new data, if not done already */
-
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, interfaces_ht update2", __func__);
 		if (1 == update_index)
 		{
 			interface_ht_local.hostid = interface->hostid;
@@ -2218,7 +2224,7 @@ static void	DCsync_interfaces(zbx_dbsync_t *sync, zbx_uint64_t revision)
 			interface_ht_local.interface_ptr = interface;
 			zbx_hashset_insert(&config->interfaces_ht, &interface_ht_local, sizeof(ZBX_DC_INTERFACE_HT));
 		}
-
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, interface snmp. interfaceid=%llu", __func__, interfaceid);
 		/* update interface_snmpaddrs for SNMP traps or reset bulk request statistics */
 
 		if (INTERFACE_TYPE_SNMP == interface->type)
@@ -2250,8 +2256,12 @@ static void	DCsync_interfaces(zbx_dbsync_t *sync, zbx_uint64_t revision)
 			if (FAIL == zbx_db_is_null(row[12]))
 			{
 				snmp = dc_interface_snmp_set(interfaceid, (const char **)row, &bulk_changed);
+				
+				if(NULL == snmp){ 
+					zabbix_log(LOG_LEVEL_WARNING, "%s, interfaceid=%llu, interface_snmp is null.", __func__, interfaceid);
+				}
 
-				if (1 == reset_snmp_stats || 0 != bulk_changed)
+				if (NULL != snmp && (1 == reset_snmp_stats || 0 != bulk_changed))
 				{
 					snmp->max_succeed = 0;
 					snmp->min_fail = MAX_SNMP_ITEMS + 1;
@@ -2292,6 +2302,8 @@ static void	DCsync_interfaces(zbx_dbsync_t *sync, zbx_uint64_t revision)
 
 		dc_host_update_revision(host, revision);
 	}
+
+	//zabbix_log(LOG_LEVEL_DEBUG, "%s, host interface macros. interfaceid=%llu", __func__, interfaceid);
 
 	/* resolve macros in other interfaces */
 
@@ -2451,7 +2463,12 @@ static void	dc_interface_update_agent_stats(ZBX_DC_INTERFACE *interface, unsigne
 			(ITEM_TYPE_SNMP == type && INTERFACE_TYPE_SNMP == interface->type) ||
 			(ITEM_TYPE_JMX == type && INTERFACE_TYPE_JMX == interface->type) ||
 			(ITEM_TYPE_IPMI == type && INTERFACE_TYPE_IPMI == interface->type) ||
-			(ITEM_TYPE_SIMPLE == type && INTERFACE_TYPE_VMWARE == interface->type)))
+			(ITEM_TYPE_SIMPLE == type && INTERFACE_TYPE_VMWARE == interface->type) ||
+			(ITEM_TYPE_SIMPLE == type && INTERFACE_TYPE_HTTP == interface->type) ||
+			(ITEM_TYPE_SIMPLE == type && INTERFACE_TYPE_ICMP == interface->type) ||
+			(ITEM_TYPE_HTTPAGENT == type && INTERFACE_TYPE_NUTANIX == interface->type) ||
+			(ITEM_TYPE_SIMPLE == type && INTERFACE_TYPE_ODBC == interface->type) ||
+			(ITEM_TYPE_HTTPAGENT == type && INTERFACE_TYPE_HTTP == interface->type)  ))
 		interface->items_num += num;
 }
 
@@ -2594,7 +2611,7 @@ static void	DCsync_items(zbx_dbsync_t *sync, zbx_uint64_t revision, int flags, z
 		/* store new information in item structure */
 
 		item->hostid = hostid;
-		item->flags = (unsigned char)atoi(row[18]);
+		item->flags = (unsigned char)zbx_atoi(row[18]);
 		ZBX_DBROW2UINT64(interfaceid, row[19]);
 
 		dc_strpool_replace(found, &item->history_period, row[22]);
@@ -2615,9 +2632,9 @@ static void	DCsync_items(zbx_dbsync_t *sync, zbx_uint64_t revision, int flags, z
 			item->triggers = NULL;
 			item->update_triggers = 0;
 			item->nextcheck = 0;
-			item->state = (unsigned char)atoi(row[12]);
+			item->state = (unsigned char)zbx_atoi(row[12]);
 			ZBX_STR2UINT64(item->lastlogsize, row[20]);
-			item->mtime = atoi(row[21]);
+			item->mtime = zbx_atoi(row[21]);
 			dc_strpool_replace(found, &item->error, row[27]);
 			item->data_expected_from = now;
 			item->location = ZBX_LOC_NOWHERE;
@@ -2836,7 +2853,7 @@ static void	DCsync_items(zbx_dbsync_t *sync, zbx_uint64_t revision, int flags, z
 			sshitem = (ZBX_DC_SSHITEM *)DCfind_id(&config->sshitems, itemid, sizeof(ZBX_DC_SSHITEM),
 					&found);
 
-			sshitem->authtype = (unsigned short)atoi(row[13]);
+			sshitem->authtype = (unsigned short)zbx_atoi(row[13]);
 			dc_strpool_replace(found, &sshitem->username, row[14]);
 			dc_strpool_replace(found, &sshitem->password, row[15]);
 			dc_strpool_replace(found, &sshitem->publickey, row[16]);
@@ -2974,21 +2991,21 @@ static void	DCsync_items(zbx_dbsync_t *sync, zbx_uint64_t revision, int flags, z
 			dc_strpool_replace(found, &httpitem->query_fields, row[32]);
 			dc_strpool_replace(found, &httpitem->posts, row[33]);
 			dc_strpool_replace(found, &httpitem->status_codes, row[34]);
-			httpitem->follow_redirects = (unsigned char)atoi(row[35]);
-			httpitem->post_type = (unsigned char)atoi(row[36]);
+			httpitem->follow_redirects = (unsigned char)zbx_atoi(row[35]);
+			httpitem->post_type = (unsigned char)zbx_atoi(row[36]);
 			dc_strpool_replace(found, &httpitem->http_proxy, row[37]);
 			dc_strpool_replace(found, &httpitem->headers, row[38]);
-			httpitem->retrieve_mode = (unsigned char)atoi(row[39]);
-			httpitem->request_method = (unsigned char)atoi(row[40]);
-			httpitem->output_format = (unsigned char)atoi(row[41]);
+			httpitem->retrieve_mode = (unsigned char)zbx_atoi(row[39]);
+			httpitem->request_method = (unsigned char)zbx_atoi(row[40]);
+			httpitem->output_format = (unsigned char)zbx_atoi(row[41]);
 			dc_strpool_replace(found, &httpitem->ssl_cert_file, row[42]);
 			dc_strpool_replace(found, &httpitem->ssl_key_file, row[43]);
 			dc_strpool_replace(found, &httpitem->ssl_key_password, row[44]);
-			httpitem->verify_peer = (unsigned char)atoi(row[45]);
-			httpitem->verify_host = (unsigned char)atoi(row[46]);
-			httpitem->allow_traps = (unsigned char)atoi(row[47]);
+			httpitem->verify_peer = (unsigned char)zbx_atoi(row[45]);
+			httpitem->verify_host = (unsigned char)zbx_atoi(row[46]);
+			httpitem->allow_traps = (unsigned char)zbx_atoi(row[47]);
 
-			httpitem->authtype = (unsigned char)atoi(row[13]);
+			httpitem->authtype = (unsigned char)zbx_atoi(row[13]);
 			dc_strpool_replace(found, &httpitem->username, row[14]);
 			dc_strpool_replace(found, &httpitem->password, row[15]);
 			dc_strpool_replace(found, &httpitem->trapper_hosts, row[9]);
@@ -3515,7 +3532,7 @@ static void	DCsync_triggers(zbx_dbsync_t *sync, zbx_uint64_t revision)
 			dc_strpool_replace(found, &trigger->error, row[3]);
 			ZBX_STR2UCHAR(trigger->value, row[6]);
 			ZBX_STR2UCHAR(trigger->state, row[7]);
-			trigger->lastchange = atoi(row[8]);
+			trigger->lastchange = zbx_atoi(row[8]);
 			trigger->locked = 0;
 			trigger->timer_revision = 0;
 
@@ -3534,7 +3551,7 @@ static void	DCsync_triggers(zbx_dbsync_t *sync, zbx_uint64_t revision)
 
 		trigger->expression_bin = config_decode_serialized_expression(row[16]);
 		trigger->recovery_expression_bin = config_decode_serialized_expression(row[17]);
-		trigger->timer = atoi(row[18]);
+		trigger->timer = zbx_atoi(row[18]);
 		trigger->revision = revision;
 	}
 
@@ -4373,7 +4390,7 @@ static void	DCsync_action_ops(zbx_dbsync_t *sync)
 		if (NULL == (action = (zbx_dc_action_t *)zbx_hashset_search(&config->actions, &actionid)))
 			continue;
 
-		action->opflags = atoi(row[1]);
+		action->opflags = zbx_atoi(row[1]);
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
@@ -5332,8 +5349,8 @@ static void	DCsync_item_preproc(zbx_dbsync_t *sync, zbx_uint64_t revision)
 
 		ZBX_STR2UCHAR(op->type, row[2]);
 		dc_strpool_replace(found, &op->params, row[3]);
-		op->step = atoi(row[4]);
-		op->error_handler = atoi(row[5]);
+		op->step = zbx_atoi(row[4]);
+		op->error_handler = zbx_atoi(row[5]);
 		dc_strpool_replace(found, &op->error_handler_params, row[6]);
 
 		if (0 == found)
@@ -6438,7 +6455,7 @@ static void	dc_load_trigger_queue(zbx_hashset_t *trend_functions)
 	{
 		zbx_trigger_timer_t	timer_local, *timer;
 
-		if (ZBX_TRIGGER_TIMER_FUNCTION_TREND != atoi(row[1]))
+		if (ZBX_TRIGGER_TIMER_FUNCTION_TREND != zbx_atoi(row[1]))
 		{
 			THIS_SHOULD_NEVER_HAPPEN;
 			continue;
@@ -6446,8 +6463,8 @@ static void	dc_load_trigger_queue(zbx_hashset_t *trend_functions)
 
 		ZBX_STR2UINT64(timer_local.objectid, row[0]);
 
-		timer_local.eval_ts.sec = atoi(row[2]);
-		timer_local.eval_ts.ns =  atoi(row[3]);
+		timer_local.eval_ts.sec = zbx_atoi(row[2]);
+		timer_local.eval_ts.ns =  zbx_atoi(row[3]);
 		timer = zbx_hashset_insert(trend_functions, &timer_local, sizeof(timer_local));
 
 		/* in the case function was scheduled multiple times use the latest data */
@@ -6514,8 +6531,8 @@ static void	DCsync_connectors(zbx_dbsync_t *sync, zbx_uint64_t revision)
 		ZBX_STR2UCHAR(connector->protocol, row[1]);
 		ZBX_STR2UCHAR(connector->data_type, row[2]);
 		dc_strpool_replace(found, &connector->url, row[3]);
-		connector->max_records = atoi(row[4]);
-		connector->max_senders = atoi(row[5]);
+		connector->max_records = zbx_atoi(row[4]);
+		connector->max_senders = zbx_atoi(row[5]);
 		dc_strpool_replace(found, &connector->timeout, row[6]);
 		ZBX_STR2UCHAR(connector->max_attempts, row[7]);
 		dc_strpool_replace(found, &connector->token, row[8]);
@@ -6921,6 +6938,10 @@ void	DCsync_configuration(unsigned char mode, zbx_synced_new_config_t synced, zb
 	zbx_vector_uint64_create(&active_avail_diff);
 	DCsync_hosts(&hosts_sync, new_revision, &active_avail_diff, &activated_hosts, config_vault);
 	zbx_dbsync_clear_user_macros();
+	
+	// 初始化discovery的hosts表的缓存
+	// init_discovery_hosts();
+
 	hsec2 = zbx_time() - sec;
 
 	sec = zbx_time();
@@ -8567,7 +8588,7 @@ void	DCconfig_delete_autoreg_host(const zbx_vector_ptr_t *autoreg_hosts)
 	}
 	UNLOCK_CACHE;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "moved:%d hosts from Zops server to Zops proxy", cached);
+	zabbix_log(LOG_LEVEL_DEBUG, "moved:%d hosts from tognix server to tognix proxy", cached);
 
 	if (0 == cached)
 		return;
@@ -14938,6 +14959,14 @@ void	zbx_get_host_interfaces_availability(zbx_uint64_t hostid, zbx_agent_availab
 			i = ZBX_AGENT_SNMP;
 		else if (INTERFACE_TYPE_VMWARE == interface->type)
 			i = ZBX_AGENT_VMWARE;
+		else if (INTERFACE_TYPE_HTTP == interface->type)
+			i = ZBX_AGENT_HTTP;
+		else if (INTERFACE_TYPE_ICMP == interface->type)
+			i = ZBX_AGENT_ICMP;
+		else if (INTERFACE_TYPE_NUTANIX == interface->type)
+			i = ZBX_AGENT_NUTANIX;
+		else if (INTERFACE_TYPE_ODBC == interface->type)
+			i = ZBX_AGENT_ODBC;
 		if (ZBX_AGENT_UNKNOWN != i)
 			DCinterface_get_agent_availability(interface, &agents[i]);
 	}

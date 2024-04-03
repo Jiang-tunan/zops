@@ -28,6 +28,8 @@
 #include "zbx_host_constants.h"
 #include "zbx_trigger_constants.h"
 #include "zbx_dbversion_constants.h"
+#include "zbxdiscovery.h"
+#include "zbxstr.h"
 
 #define ZBX_DB_WAIT_DOWN	10
 
@@ -915,7 +917,7 @@ int	zbx_db_check_version_info(struct zbx_db_version_info_t *info, int allow_unsu
 		if (0 == allow_unsupported || 0 != server_db_deprecated)
 		{
 			zabbix_log(LOG_LEVEL_ERR, " ");
-			zabbix_log(LOG_LEVEL_ERR, "Unable to start Zops %s due to unsupported %s database"
+			zabbix_log(LOG_LEVEL_ERR, "Unable to start tognix %s due to unsupported %s database"
 					" version (%s).", program_type_s, info->database,
 					info->friendly_current_version);
 
@@ -2608,7 +2610,7 @@ int	zbx_db_execute_multiple_query(const char *query, const char *field_name, zbx
 #if defined(HAVE_MYSQL) || defined(HAVE_POSTGRESQL)
 static void	zbx_warn_char_set(const char *db_name, const char *char_set)
 {
-	zabbix_log(LOG_LEVEL_WARNING, "Zops supports only \"" ZBX_SUPPORTED_DB_CHARACTER_SET "\" character set(s)."
+	zabbix_log(LOG_LEVEL_WARNING, "tognix supports only \"" ZBX_SUPPORTED_DB_CHARACTER_SET "\" character set(s)."
 			" Database \"%s\" has default character set \"%s\"", db_name, char_set);
 }
 #endif
@@ -2668,7 +2670,7 @@ void	zbx_db_check_character_set(void)
 
 		if (SUCCEED != zbx_str_in_list(ZBX_SUPPORTED_DB_COLLATION, collation, ZBX_DB_STRLIST_DELIM))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "Zops supports only \"%s\" collation(s)."
+			zabbix_log(LOG_LEVEL_WARNING, "tognix supports only \"%s\" collation(s)."
 					" Database \"%s\" has default collation \"%s\"", ZBX_SUPPORTED_DB_COLLATION,
 					zbx_cfg_dbhigh->config_dbname, collation);
 		}
@@ -2697,7 +2699,7 @@ void	zbx_db_check_character_set(void)
 	}
 	else if (0 != strcmp("0", row[0]))
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "character set name or collation name that is not supported by Zops"
+		zabbix_log(LOG_LEVEL_WARNING, "character set name or collation name that is not supported by tognix"
 				" found in %s column(s) of database \"%s\"", row[0], zbx_cfg_dbhigh->config_dbname);
 		zabbix_log(LOG_LEVEL_WARNING, "only character set(s) \"%s\" and corresponding collation(s) \"%s\""
 				" should be used in database", ZBX_SUPPORTED_DB_CHARACTER_SET,
@@ -2739,7 +2741,7 @@ void	zbx_db_check_character_set(void)
 						0 != strcasecmp(ZBX_ORACLE_CESU8_CHARSET, value))
 				{
 					zabbix_log(LOG_LEVEL_WARNING, "database \"%s\" parameter \"%s\" has value"
-							" \"%s\". Zops supports only \"%s\" or \"%s\" character sets",
+							" \"%s\". tognix supports only \"%s\" or \"%s\" character sets",
 							zbx_cfg_dbhigh->config_dbname, parameter, value,
 							ZBX_ORACLE_UTF8_CHARSET, ZBX_ORACLE_CESU8_CHARSET);
 				}
@@ -2816,7 +2818,7 @@ void	zbx_db_check_character_set(void)
 	}
 	else if (0 != strcmp("0", row[0]))
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "database has %s fields with unsupported character set. Zops supports"
+		zabbix_log(LOG_LEVEL_WARNING, "database has %s fields with unsupported character set. tognix supports"
 				" only \"%s\" character set", row[0], ZBX_SUPPORTED_DB_CHARACTER_SET);
 	}
 
@@ -2831,7 +2833,7 @@ void	zbx_db_check_character_set(void)
 	}
 	else if (0 != strcasecmp(row[0], ZBX_SUPPORTED_DB_CHARACTER_SET))
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "client_encoding for database \"%s\" is \"%s\". Zops supports only"
+		zabbix_log(LOG_LEVEL_WARNING, "client_encoding for database \"%s\" is \"%s\". tognix supports only"
 				" \"%s\"", zbx_cfg_dbhigh->config_dbname, row[0], ZBX_SUPPORTED_DB_CHARACTER_SET);
 	}
 
@@ -2846,7 +2848,7 @@ void	zbx_db_check_character_set(void)
 	}
 	else if (0 != strcasecmp(row[0], ZBX_SUPPORTED_DB_CHARACTER_SET))
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "server_encoding for database \"%s\" is \"%s\". Zops supports only"
+		zabbix_log(LOG_LEVEL_WARNING, "server_encoding for database \"%s\" is \"%s\". tognix supports only"
 				" \"%s\"", zbx_cfg_dbhigh->config_dbname, row[0], ZBX_SUPPORTED_DB_CHARACTER_SET);
 	}
 out:
@@ -3810,6 +3812,93 @@ int	zbx_db_check_instanceid(void)
 	zbx_db_close();
 
 	return ret;
+}
+
+
+
+static void zbx_db_update_template(int templateid)
+{
+	zbx_db_execute("update items set templateid=%d where hostid > 1000 and templateid=%d",templateid, templateid+4);
+	zbx_db_execute("update hosts set templateid=%d where hostid > 1000 and templateid=%d",templateid, templateid+4);
+	zbx_db_execute("update group_prototype set templateid=%d where hostid > 1000 and templateid=%d",templateid, templateid+4);
+	zbx_db_execute("update hosts_templates set templateid=%d where hostid > 1000 and templateid=%d",templateid, templateid+4);
+
+	zbx_db_execute("update optemplate set templateid=%d where templateid=%d",templateid, templateid+4);
+	zbx_db_execute("update triggers set templateid=%d where templateid=%d",templateid, templateid+4);
+	zbx_db_execute("update lld_override_optemplate set templateid=%d where templateid=%d",templateid, templateid+4);
+}
+
+static int	zbx_db_check_proxy(void)
+{
+	int		ret = SUCCEED;
+
+	// 获得代理许可的数量
+	int proxy_nodes = get_monitor_nodes("proxy");
+
+	// 启动的时候，初始化以前存在的证书数据，防止代理同步数据失败
+	zbx_db_execute("UPDATE `credentials` set snmpv3_securitylevel=0 WHERE ISNULL(snmpv3_securitylevel)");
+	zbx_db_execute("UPDATE `credentials` set snmpv3_authprotocol=0 WHERE ISNULL(snmpv3_authprotocol)");
+	zbx_db_execute("UPDATE `credentials` set snmpv3_privprotocol=0 WHERE ISNULL(snmpv3_privprotocol)");
+	zbx_db_execute("UPDATE `credentials` set ssh_privprotocol=0 WHERE ISNULL(ssh_privprotocol)");
+	zbx_db_execute("UPDATE `credentials` set timeout=0 WHERE ISNULL(timeout)");
+	zbx_db_execute("UPDATE `credentials` set port=0 WHERE ISNULL(port)");
+
+ 	// 检测代理的数量，如果超过代理许可数量，则设置maintenance_status值为禁止
+	if (ZBX_DB_OK > zbx_db_execute("UPDATE `hosts` set maintenance_status=%d WHERE (status= 5 or status=6 )  AND hostid > 0 and hostid NOT IN ( " \
+			" SELECT *  FROM ( SELECT hostid FROM `hosts` WHERE (status= 5 or status= 6 )  ORDER BY hostid LIMIT %d ) kproxy)", 
+			HOST_MAINTENANCE_STATUS_FORBIDED, proxy_nodes))
+	{
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s update database fail! proxy_nodes=%d", __func__, proxy_nodes);
+		ret = FAIL;
+	}
+
+	return ret;
+}
+
+int zbx_db_check_tognix(void)
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+	
+	int		ret = SUCCEED, iversion = 0;
+	zbx_db_connect(ZBX_DB_CONNECT_NORMAL);
+
+	result = zbx_db_select("select version,db_version from dbversion");
+	if (NULL != (row = zbx_db_fetch(result)))
+	{
+		char *tmp_ver = zbx_strdup(NULL, row[0]);
+		iversion = get_version(tmp_ver);
+		zbx_free(tmp_ver);
+	}
+	zbx_db_free_result(result);
+
+	if(iversion <= 10300 && iversion > 0)
+	{
+		zbx_db_update_template(TEMPLATEID_SERVER_LINUX_BY_AGENT);
+		zbx_db_update_template(TEMPLATEID_SERVER_LINUX_BY_SNMP);
+		zbx_db_update_template(TEMPLATEID_SERVER_WINDOWS_BY_AGENT);
+		zbx_db_update_template(TEMPLATEID_SERVER_WINDOWS_BY_SNMP);
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s  update template, iversion=%d", __func__, iversion);
+	}
+	
+	zbx_db_check_proxy();
+
+	// 删除无用的interface数据
+	zbx_db_execute("DELETE FROM interface WHERE hostid not in (	select * from (SELECT a.hostid  FROM interface a JOIN `hosts` b ON a.hostid = b.hostid) ihostid)");
+
+	// 删除无用的hostmacro数据
+	zbx_db_execute("DELETE FROM hostmacro WHERE hostid > 1000 and hostid not in (select * from (SELECT a.hostid  FROM interface a JOIN `hosts` b ON a.hostid = b.hostid) ihostid)");
+
+	// 删除无用的资产数据
+	zbx_db_execute("DELETE FROM host_inventory WHERE hostid = 0 AND name='' AND (dunique='(null)' or ISNULL(dunique))");
+
+	// 删除无用的图像数据，原生zabbix才有用到
+	zbx_db_execute("truncate table  graphs");
+	zbx_db_execute("truncate table  graphs_items");
+	zbx_db_execute("truncate table  dashboard");
+ 
+	zbx_db_close();
+	zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s check database success.", __func__);
 }
 
 #if defined(HAVE_POSTGRESQL)

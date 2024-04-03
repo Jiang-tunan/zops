@@ -1,6 +1,6 @@
 /*
-** Zops
-** Copyright (C) 2001-2023 Zops SIA
+** tognix
+** Copyright (C) 2001-2023 tognix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ static void	db_register_host(const char *host, const char *ip, unsigned short po
 
 	now = time(NULL);
 
-	/* update before changing database in case Zops proxy also changed database and then deleted from cache */
+	/* update before changing database in case tognix proxy also changed database and then deleted from cache */
 	DCconfig_update_autoreg_host(host, p_ip, p_dns, port, host_metadata, flag, now);
 
 	do

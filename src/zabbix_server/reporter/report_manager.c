@@ -2320,7 +2320,7 @@ ZBX_THREAD_ENTRY(report_manager_thread, args)
 	zbx_db_connect(ZBX_DB_CONNECT_NORMAL);
 
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#report_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#report_manager init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	/* initialize statistics */
 	time_stat = zbx_time();

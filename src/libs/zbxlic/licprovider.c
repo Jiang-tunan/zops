@@ -12,10 +12,10 @@ int g_provider_init = 0;
 
 #define load_customer_publickey_memory()                           \
     {                                                       \
-        customer_publickey = get_zops_customer_publickey(); \
+        customer_publickey = get_tognix_customer_publickey(); \
     }
 
-RSA *get_zops_customer_publickey()
+RSA *get_tognix_customer_publickey()
 {
     BIO *bp = NULL;
     RSA *rc = NULL;
@@ -53,10 +53,10 @@ H1lumzd+mJHb2aXVj+ECbmFznTeWQ2T3zwIDAQAB\n\
 }
 #define load_provider_privatekey_memory()                               \
     {                                                            \
-        provider_privatekey = get_zops_provider_RSAPrivateKey(); \
+        provider_privatekey = get_tognix_provider_RSAPrivateKey(); \
     }
 
-RSA *get_zops_provider_RSAPrivateKey()
+RSA *get_tognix_provider_RSAPrivateKey()
 {
     BIO *bp = NULL;
     char *chPrivateKey = "-----BEGIN RSA PRIVATE KEY-----\n\
@@ -231,7 +231,7 @@ void write_licese(const char *company, char *enc_session_key, char *enc_license,
 {
     // char *buffer = malloc(strlen(enc_session_key)+strlen(license_buffer)+1);
  
-    char file_path[256] = {"zops_"};
+    char file_path[256] = {"tognix_"};
       
     strcat(file_path, company);
     strcat(file_path, ".lic");

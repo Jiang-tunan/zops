@@ -446,7 +446,7 @@ ZBX_THREAD_ENTRY(report_writer_thread, args)
 	zbx_update_selfmon_counter(info, ZBX_PROCESS_STATE_BUSY);
 	
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#report_writer init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#report_writer init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 
 	zbx_setproctitle("%s #%d started", get_process_type_string(process_type), process_num);

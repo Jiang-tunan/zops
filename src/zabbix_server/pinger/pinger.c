@@ -31,6 +31,9 @@
 #include "zbx_item_constants.h"
 #include "zbx_host_constants.h"
 
+#include "../poller/poller.h"
+#include "../../libs/zbxcacheconfig/dbconfig.h"
+
 /* defines for `fping' and `fping6' to successfully process pings */
 #define MIN_COUNT	1
 #define MAX_COUNT	10000
@@ -98,15 +101,15 @@ clean:
  * Purpose: process new item values                                           *
  *                                                                            *
  ******************************************************************************/
-static void	process_values(icmpitem_t *items, int first_index, int last_index, ZBX_FPING_HOST *hosts,
+static int	process_values(icmpitem_t *items, int first_index, int last_index, ZBX_FPING_HOST *hosts,
 		int hosts_count, zbx_timespec_t *ts, int ping_result, char *error)
 {
 	int		i, h;
 	zbx_uint64_t	value_uint64;
 	double		value_dbl;
-
+	int ret = FAIL;
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
-
+	const icmpitem_t	*citem = &items[first_index];
 	for (h = 0; h < hosts_count; h++)
 	{
 		const ZBX_FPING_HOST	*host = &hosts[h];
@@ -120,6 +123,12 @@ static void	process_values(icmpitem_t *items, int first_index, int last_index, Z
 			zabbix_log(LOG_LEVEL_DEBUG, "host [%s] cnt=%d rcv=%d"
 					" min=" ZBX_FS_DBL " max=" ZBX_FS_DBL " sum=" ZBX_FS_DBL,
 					host->addr, host->cnt, host->rcv, host->min, host->max, host->sum);
+		}
+
+		//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Ping# item_addr=%s, host_addr=%s, rcv=%d", 
+		//	citem->addr, host->addr, host->rcv);
+		if(0 == zbx_strcmp_null(citem->addr,host->addr) && 0 < host->rcv){
+			ret = SUCCEED;
 		}
 
 		for (i = first_index; i < last_index; i++)
@@ -178,6 +187,7 @@ static void	process_values(icmpitem_t *items, int first_index, int last_index, Z
 	zbx_preprocessor_flush();
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
+	return ret;
 }
 
 static int	zbx_parse_key_params(const char *key, const char *host_addr, icmpping_t *icmpping, char **addr,
@@ -379,6 +389,85 @@ static void	add_icmpping_item(icmpitem_t **items, int *items_alloc, int *items_c
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 }
 
+static int	check_interface_activate(zbx_uint64_t interfaceid, zbx_agent_availability_t *agent)
+{
+	int			ret = FAIL;
+	ZBX_DC_HOST		*dc_host;
+	ZBX_DC_INTERFACE	*dc_interface;
+ 
+	WRLOCK_CACHE;
+
+	if (NULL == (dc_interface = (ZBX_DC_INTERFACE *)zbx_hashset_search(&config->interfaces, &interfaceid)))
+		goto unlock;
+
+	if (NULL == (dc_host = (ZBX_DC_HOST *)zbx_hashset_search(&config->hosts, &dc_interface->hostid)))
+		goto unlock;
+
+	/* Don't try activating interface if:                */
+	/* - (server, proxy) host is not monitored any more; */
+	/* - (server) host is monitored by proxy.            */
+	if (HOST_STATUS_MONITORED != dc_host->status)
+	{
+		goto unlock;
+	} 
+	//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Ping#%s hostid=%d, interfacid=%d, bavailable=%d, aavailable=%d"
+	//		, __func__,dc_host->hostid, interfaceid,dc_interface->available, agent->available);
+	
+	// 这次available和上次一样，则不需要修改interface表的available值
+	if (dc_interface->available == agent->available)
+	{
+		goto unlock;
+	} 
+
+	// dc_interface->flags = agent->flags; 
+	dc_interface->available = agent->available;
+	dc_interface->error = zbx_strdup(NULL, agent->error);
+	dc_interface->errors_from = agent->errors_from;
+	dc_interface->disable_until = agent->disable_until;
+  
+	ret = SUCCEED;
+unlock:
+	UNLOCK_CACHE;
+out:
+	return ret;
+}
+static void	ping_activate_interface(DC_ITEM	 *item, zbx_timespec_t *ts)
+{
+	if(INTERFACE_TYPE_ICMP != item->interface.type) return;
+ 
+	unsigned char	*data = NULL;
+	size_t		data_alloc = 0, data_offset = 0;
+
+	zbx_interface_availability_t	av;
+	memset(&av, 0, sizeof(zbx_interface_availability_t));
+	zbx_agent_availability_t	*agent = &av.agent;
+
+	agent->flags = ZBX_FLAGS_AGENT_STATUS; 
+	agent->available = item->interface.available;
+	agent->error = zbx_strdup(NULL, item->interface.error);
+	agent->errors_from = item->interface.errors_from;
+	agent->disable_until = item->interface.disable_until;
+
+	av.interfaceid = item->interface.interfaceid;
+	if(FAIL == check_interface_activate(av.interfaceid, agent)){
+		//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Ping#%s repeat. hostid=%d, interfacid=%d, interfactype=%d, available=%d"
+		//	, __func__,item->host.hostid, item->interface.interfaceid, item->interface.type, item->interface.available);
+		return;
+	}
+
+	zbx_availability_serialize_interface(&data, &data_alloc, &data_offset, &av);
+
+	if (NULL != data)
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "%s send. hostid=%d, interfacid=%d, interfactype=%d, available=%d"
+			, __func__,item->host.hostid, item->interface.interfaceid, item->interface.type, item->interface.available);
+	
+		zbx_availability_send(ZBX_IPC_AVAILABILITY_REQUEST, data, data_offset, NULL);
+		zbx_free(data);
+	}
+	zbx_free(agent->error);
+}
+
 /******************************************************************************
  *                                                                            *
  * Purpose: creates buffer which contains list of hosts to ping               *
@@ -387,10 +476,9 @@ static void	add_icmpping_item(icmpitem_t **items, int *items_alloc, int *items_c
  *               FAIL - otherwise                                             *
  *                                                                            *
  ******************************************************************************/
-static void	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int *icmp_items_count,
-		int config_timeout)
+static int	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int *icmp_items_count,
+		int config_timeout, DC_ITEM	**items)
 {
-	DC_ITEM			item, *items;
 	int			i, num, count, interval, size, timeout, rc, errcode = SUCCEED;
 	char			error[MAX_STRING_LEN], *addr = NULL;
 	icmpping_t		icmpping;
@@ -400,26 +488,25 @@ static void	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
 
 	um_handle = zbx_dc_open_user_macros();
-
-	items = &item;
-	num = DCconfig_get_poller_items(ZBX_POLLER_TYPE_PINGER, config_timeout, &items);
+ 
+	num = DCconfig_get_poller_items(ZBX_POLLER_TYPE_PINGER, config_timeout, items);
 
 	for (i = 0; i < num; i++)
 	{
-		ZBX_STRDUP(items[i].key, items[i].key_orig);
-		rc = zbx_substitute_key_macros(&items[i].key, NULL, &items[i], NULL, NULL, MACRO_TYPE_ITEM_KEY, error,
+		DC_ITEM	 *item = &(*items)[i];
+		ZBX_STRDUP(item->key, item->key_orig);
+		rc = zbx_substitute_key_macros(&item->key, NULL, &item, NULL, NULL, MACRO_TYPE_ITEM_KEY, error,
 				sizeof(error));
-
 		if (SUCCEED == rc)
 		{
-			rc = zbx_parse_key_params(items[i].key, items[i].interface.addr, &icmpping, &addr, &count,
+			rc = zbx_parse_key_params(item->key, item->interface.addr, &icmpping, &addr, &count,
 					&interval, &size, &timeout, &type, error, sizeof(error));
 		}
 
 		if (SUCCEED == rc)
 		{
 			add_icmpping_item(icmp_items, icmp_items_alloc, icmp_items_count, count, interval, size,
-				timeout, items[i].itemid, addr, icmpping, type);
+				timeout, item->itemid, addr, icmpping, type);
 		}
 		else
 		{
@@ -427,26 +514,26 @@ static void	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int
 
 			zbx_timespec(&ts);
 
-			items[i].state = ITEM_STATE_NOTSUPPORTED;
-			zbx_preprocess_item_value(items[i].itemid, items[i].host.hostid, items[i].value_type,
-					items[i].flags, NULL, &ts, items[i].state, error);
+			item->state = ITEM_STATE_NOTSUPPORTED;
+			zbx_preprocess_item_value(item->itemid, item->host.hostid, item->value_type,
+					item->flags, NULL, &ts, item->state, error);
 
-			DCrequeue_items(&items[i].itemid, &ts.sec, &errcode, 1);
+			DCrequeue_items(&item->itemid, &ts.sec, &errcode, 1);
 		}
 
-		zbx_free(items[i].key);
+		// zbx_free(item.key);
 	}
 
-	DCconfig_clean_items(items, NULL, num);
-
-	if (items != &item)
-		zbx_free(items);
+	// DCconfig_clean_items(items, NULL, num);
+	// if (items != &item)
+	// 	zbx_free(items);
 
 	zbx_preprocessor_flush();
 
 	zbx_dc_close_user_macros(um_handle);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%d", __func__, *icmp_items_count);
+	return num;
 }
 
 static void	free_hosts(icmpitem_t **items, int *items_count)
@@ -489,9 +576,9 @@ static void	add_pinger_host(ZBX_FPING_HOST **hosts, int *hosts_alloc, int *hosts
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 }
 
-static void	process_pinger_hosts(icmpitem_t *items, int items_count, int process_num, int process_type)
+static void	process_pinger_hosts(icmpitem_t *items, int items_count, int process_num, int process_type, DC_ITEM	*m_items)
 {
-	int			i, first_index = 0, ping_result;
+	int			i, first_index = 0, ping_result, result;
 	char			error[ZBX_ITEM_ERROR_LEN_MAX];
 	static ZBX_FPING_HOST	*hosts = NULL;
 	static int		hosts_alloc = 4;
@@ -517,9 +604,20 @@ static void	process_pinger_hosts(icmpitem_t *items, int items_count, int process
 			ping_result = zbx_ping(hosts, hosts_count,
 						items[i].count, items[i].interval, items[i].size, items[i].timeout,
 						error, sizeof(error));
-
+			result = FAIL;
 			if (FAIL != ping_result)
-				process_values(items, first_index, i + 1, hosts, hosts_count, &ts, ping_result, error);
+				result = process_values(items, first_index, i + 1, hosts, hosts_count, &ts, ping_result, error);
+
+			
+			// 新加入的激活interface available的逻辑
+			if(SUCCEED == ping_result && SUCCEED == result){
+				m_items[i].interface.available = 1;
+			}else{
+				m_items[i].interface.available = 0;
+			}
+			ping_activate_interface(&m_items[i], &ts);
+
+			zbx_free(m_items[i].key);
 
 			hosts_count = 0;
 			first_index = i + 1;
@@ -554,7 +652,7 @@ ZBX_THREAD_ENTRY(pinger_thread, args)
 	zbx_update_selfmon_counter(info, ZBX_PROCESS_STATE_BUSY);
 	
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#pinger init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#pinger init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	if (NULL == items)
 		items = (icmpitem_t *)zbx_malloc(items, sizeof(icmpitem_t) * items_alloc);
@@ -566,8 +664,17 @@ ZBX_THREAD_ENTRY(pinger_thread, args)
 
 		zbx_setproctitle("%s #%d [getting values]", get_process_type_string(process_type), process_num);
 
-		get_pinger_hosts(&items, &items_alloc, &items_count, pinger_args_in->config_timeout);
-		process_pinger_hosts(items, items_count, process_num, process_type);
+		DC_ITEM	m_item, *m_items = NULL; 
+		m_items = &m_item;
+
+		int num = get_pinger_hosts(&items, &items_alloc, &items_count, pinger_args_in->config_timeout, &m_items);
+
+		process_pinger_hosts(items, items_count, process_num, process_type, m_items);
+
+		DCconfig_clean_items(m_items, NULL, num);
+		if (m_items != &m_item)
+			zbx_free(m_items);
+
 		sec = zbx_time() - sec;
 		itc = items_count;
 

@@ -89,7 +89,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-sbin_PROGRAMS = zops_server$(EXEEXT)
+sbin_PROGRAMS = tognix_server$(EXEEXT)
 @HAVE_IPMI_TRUE@am__append_1 = ipmi/libipmi.a
 subdir = src/zabbix_server
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -131,10 +131,10 @@ am_libzbxserver_a_OBJECTS = libzbxserver_a-actions.$(OBJEXT) \
 	libzbxserver_a-operations.$(OBJEXT) \
 	libzbxserver_a-postinit.$(OBJEXT)
 libzbxserver_a_OBJECTS = $(am_libzbxserver_a_OBJECTS)
-am_zops_server_OBJECTS = zops_server-server.$(OBJEXT)
-zops_server_OBJECTS = $(am_zops_server_OBJECTS)
+am_tognix_server_OBJECTS = tognix_server-server.$(OBJEXT)
+tognix_server_OBJECTS = $(am_tognix_server_OBJECTS)
 am__DEPENDENCIES_1 =
-zops_server_DEPENDENCIES = dbsyncer/libzbxdbsyncer.a \
+tognix_server_DEPENDENCIES = dbsyncer/libzbxdbsyncer.a \
 	dbconfig/libzbxdbconfig.a diag/libzbxdiag_server.a \
 	alerter/libzbxalerter.a discoverer/libzbxdiscoverer.a \
 	pinger/libzbxpinger.a poller/libzbxpoller.a \
@@ -227,8 +227,8 @@ zops_server_DEPENDENCIES = dbsyncer/libzbxdbsyncer.a \
 	$(top_builddir)/src/libs/zbxversion/libzbxversion.a \
 	$(top_builddir)/src/libs/zbxlic/libzbxlic.a $(am__append_1) \
 	$(am__DEPENDENCIES_1)
-zops_server_LINK = $(CCLD) $(zops_server_CFLAGS) $(CFLAGS) \
-	$(zops_server_LDFLAGS) $(LDFLAGS) -o $@
+tognix_server_LINK = $(CCLD) $(tognix_server_CFLAGS) $(CFLAGS) \
+	$(tognix_server_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -247,7 +247,7 @@ am__depfiles_remade = ./$(DEPDIR)/libzbxserver_a-actions.Po \
 	./$(DEPDIR)/libzbxserver_a-events.Po \
 	./$(DEPDIR)/libzbxserver_a-operations.Po \
 	./$(DEPDIR)/libzbxserver_a-postinit.Po \
-	./$(DEPDIR)/zops_server-server.Po
+	./$(DEPDIR)/tognix_server-server.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -265,8 +265,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libzbxserver_a_SOURCES) $(zops_server_SOURCES)
-DIST_SOURCES = $(libzbxserver_a_SOURCES) $(zops_server_SOURCES)
+SOURCES = $(libzbxserver_a_SOURCES) $(tognix_server_SOURCES)
+DIST_SOURCES = $(libzbxserver_a_SOURCES) $(tognix_server_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -598,11 +598,11 @@ libzbxserver_a_CFLAGS = \
 	-I$(top_srcdir)/src/libs/zbxcachevalue \
 	$(TLS_CFLAGS)
 
-zops_server_SOURCES = \
+tognix_server_SOURCES = \
 	server.h \
 	server.c
 
-zops_server_LDADD = dbsyncer/libzbxdbsyncer.a \
+tognix_server_LDADD = dbsyncer/libzbxdbsyncer.a \
 	dbconfig/libzbxdbconfig.a diag/libzbxdiag_server.a \
 	alerter/libzbxalerter.a discoverer/libzbxdiscoverer.a \
 	pinger/libzbxpinger.a poller/libzbxpoller.a \
@@ -695,8 +695,8 @@ zops_server_LDADD = dbsyncer/libzbxdbsyncer.a \
 	$(top_builddir)/src/libs/zbxversion/libzbxversion.a \
 	$(top_builddir)/src/libs/zbxlic/libzbxlic.a $(am__append_1) \
 	$(SERVER_LIBS)
-zops_server_LDFLAGS = $(SERVER_LDFLAGS)
-zops_server_CFLAGS = \
+tognix_server_LDFLAGS = $(SERVER_LDFLAGS)
+tognix_server_CFLAGS = \
 	-DDEFAULT_SSL_CERT_LOCATION="\"$(CURL_SSL_CERT_LOCATION)\"" \
 	-DDEFAULT_SSL_KEY_LOCATION="\"$(CURL_SSL_KEY_LOCATION)\"" \
 	-DDEFAULT_CONFIG_FILE="\"$(SERVER_CONFIG_FILE)\"" \
@@ -789,9 +789,9 @@ libzbxserver.a: $(libzbxserver_a_OBJECTS) $(libzbxserver_a_DEPENDENCIES) $(EXTRA
 	$(AM_V_AR)$(libzbxserver_a_AR) libzbxserver.a $(libzbxserver_a_OBJECTS) $(libzbxserver_a_LIBADD)
 	$(AM_V_at)$(RANLIB) libzbxserver.a
 
-zops_server$(EXEEXT): $(zops_server_OBJECTS) $(zops_server_DEPENDENCIES) $(EXTRA_zops_server_DEPENDENCIES) 
-	@rm -f zops_server$(EXEEXT)
-	$(AM_V_CCLD)$(zops_server_LINK) $(zops_server_OBJECTS) $(zops_server_LDADD) $(LIBS)
+tognix_server$(EXEEXT): $(tognix_server_OBJECTS) $(tognix_server_DEPENDENCIES) $(EXTRA_tognix_server_DEPENDENCIES) 
+	@rm -f tognix_server$(EXEEXT)
+	$(AM_V_CCLD)$(tognix_server_LINK) $(tognix_server_OBJECTS) $(tognix_server_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -803,7 +803,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxserver_a-events.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxserver_a-operations.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libzbxserver_a-postinit.Po@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/zops_server-server.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tognix_server-server.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -883,19 +883,19 @@ libzbxserver_a-postinit.obj: postinit.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libzbxserver_a_CFLAGS) $(CFLAGS) -c -o libzbxserver_a-postinit.obj `if test -f 'postinit.c'; then $(CYGPATH_W) 'postinit.c'; else $(CYGPATH_W) '$(srcdir)/postinit.c'; fi`
 
-zops_server-server.o: server.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_server_CFLAGS) $(CFLAGS) -MT zops_server-server.o -MD -MP -MF $(DEPDIR)/zops_server-server.Tpo -c -o zops_server-server.o `test -f 'server.c' || echo '$(srcdir)/'`server.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_server-server.Tpo $(DEPDIR)/zops_server-server.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='server.c' object='zops_server-server.o' libtool=no @AMDEPBACKSLASH@
+tognix_server-server.o: server.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_server_CFLAGS) $(CFLAGS) -MT tognix_server-server.o -MD -MP -MF $(DEPDIR)/tognix_server-server.Tpo -c -o tognix_server-server.o `test -f 'server.c' || echo '$(srcdir)/'`server.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_server-server.Tpo $(DEPDIR)/tognix_server-server.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='server.c' object='tognix_server-server.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_server_CFLAGS) $(CFLAGS) -c -o zops_server-server.o `test -f 'server.c' || echo '$(srcdir)/'`server.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_server_CFLAGS) $(CFLAGS) -c -o tognix_server-server.o `test -f 'server.c' || echo '$(srcdir)/'`server.c
 
-zops_server-server.obj: server.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_server_CFLAGS) $(CFLAGS) -MT zops_server-server.obj -MD -MP -MF $(DEPDIR)/zops_server-server.Tpo -c -o zops_server-server.obj `if test -f 'server.c'; then $(CYGPATH_W) 'server.c'; else $(CYGPATH_W) '$(srcdir)/server.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_server-server.Tpo $(DEPDIR)/zops_server-server.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='server.c' object='zops_server-server.obj' libtool=no @AMDEPBACKSLASH@
+tognix_server-server.obj: server.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_server_CFLAGS) $(CFLAGS) -MT tognix_server-server.obj -MD -MP -MF $(DEPDIR)/tognix_server-server.Tpo -c -o tognix_server-server.obj `if test -f 'server.c'; then $(CYGPATH_W) 'server.c'; else $(CYGPATH_W) '$(srcdir)/server.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_server-server.Tpo $(DEPDIR)/tognix_server-server.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='server.c' object='tognix_server-server.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_server_CFLAGS) $(CFLAGS) -c -o zops_server-server.obj `if test -f 'server.c'; then $(CYGPATH_W) 'server.c'; else $(CYGPATH_W) '$(srcdir)/server.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_server_CFLAGS) $(CFLAGS) -c -o tognix_server-server.obj `if test -f 'server.c'; then $(CYGPATH_W) 'server.c'; else $(CYGPATH_W) '$(srcdir)/server.c'; fi`
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -1102,7 +1102,7 @@ distclean: distclean-recursive
 	-rm -f ./$(DEPDIR)/libzbxserver_a-events.Po
 	-rm -f ./$(DEPDIR)/libzbxserver_a-operations.Po
 	-rm -f ./$(DEPDIR)/libzbxserver_a-postinit.Po
-	-rm -f ./$(DEPDIR)/zops_server-server.Po
+	-rm -f ./$(DEPDIR)/tognix_server-server.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -1153,7 +1153,7 @@ maintainer-clean: maintainer-clean-recursive
 	-rm -f ./$(DEPDIR)/libzbxserver_a-events.Po
 	-rm -f ./$(DEPDIR)/libzbxserver_a-operations.Po
 	-rm -f ./$(DEPDIR)/libzbxserver_a-postinit.Po
-	-rm -f ./$(DEPDIR)/zops_server-server.Po
+	-rm -f ./$(DEPDIR)/tognix_server-server.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -1197,7 +1197,7 @@ install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(EXTERNAL_SCRIPTS_PATH)"
 	$(MKDIR_P) "$(DESTDIR)$(ALERT_SCRIPTS_PATH)"
 	$(MKDIR_P) "$(DESTDIR)$(LOAD_MODULE_PATH)"
-	test -f "$(DESTDIR)$(SERVER_CONFIG_FILE)" || cp "../../conf/zops_server.conf" "$(DESTDIR)$(SERVER_CONFIG_FILE)"
+	test -f "$(DESTDIR)$(SERVER_CONFIG_FILE)" || cp "../../conf/tognix_server.conf" "$(DESTDIR)$(SERVER_CONFIG_FILE)"
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

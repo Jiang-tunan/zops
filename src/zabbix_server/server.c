@@ -1,6 +1,6 @@
 /*
-** ZOps
-** Copyright (C) 2001-2023 ZOps SIA
+** tognix
+** Copyright (C) 2001-2023 tognix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #include "config.h"
 
 #ifdef HAVE_SQLITE3
-#	error SQLite is not supported as a main ZOps database backend.
+#	error SQLite is not supported as a main tognix database backend.
 #endif
 
 #include "zbxexport.h"
@@ -104,12 +104,12 @@ const char	*usage_message[] = {
 };
 
 const char	*help_message[] = {
-	"The core daemon of ZOps software.",
+	"The core daemon of tognix software.",
 	"",
 	"Options:",
 	"  -c --config config-file        Path to the configuration file",
 	"                                 (default: \"" DEFAULT_CONFIG_FILE "\")",
-	"  -f --foreground                Run ZOps server in foreground",
+	"  -f --foreground                Run tognix server in foreground",
 	"  -R --runtime-control runtime-option   Perform administrative functions",
 	"",
 	"    Runtime control options:",
@@ -370,7 +370,7 @@ char	*CONFIG_SSH_KEY_LOCATION	= NULL;
 
 int	CONFIG_LOG_SLOW_QUERIES		= 0;	/* ms; 0 - disable */
 
-/* how often ZOps server sends configuration data to passive proxy, in seconds */
+/* how often tognix server sends configuration data to passive proxy, in seconds */
 int	CONFIG_PROXYCONFIG_FREQUENCY	= 10;
 int	CONFIG_PROXYDATA_FREQUENCY	= 1;	/* 1s */
 
@@ -406,6 +406,13 @@ int	CONFIG_DOUBLE_PRECISION		= ZBX_DB_DBL_PRECISION_ENABLED;
 char	*CONFIG_WEBSERVICE_URL	= NULL;
 
 int	CONFIG_SERVICEMAN_SYNC_FREQUENCY	= 60;
+
+char	*CONFIG_HOSTNAME = NULL;
+
+int	g_running_program_type = ZBX_PROGRAM_TYPE_SERVER; //当前运行程序的类型
+
+extern int	OPEN_CORE_FILE_FLAG;
+
 
 static char	*config_file		= NULL;
 static int	config_allow_root	= 0;
@@ -674,7 +681,7 @@ static void	zbx_set_defaults(void)
 		CONFIG_FORKS[ZBX_PROCESS_TYPE_CONNECTORMANAGER] = 1;
 		
 	if (NULL == CONFIG_LICENSE_FILE)
-		CONFIG_LICENSE_FILE = zbx_strdup(CONFIG_LICENSE_FILE, "/usr/local/zops-server/etc/zops.lic");
+		CONFIG_LICENSE_FILE = zbx_strdup(CONFIG_LICENSE_FILE, "/usr/local/tognix/etc/tognix.lic");
 }
 
 /******************************************************************************
@@ -1052,13 +1059,18 @@ static void	zbx_load_config(ZBX_TASK_EX *task)
 		{"StartConnectors",		&CONFIG_FORKS[ZBX_PROCESS_TYPE_CONNECTORWORKER],	TYPE_INT,
 			PARM_OPT,	0,			1000},
 		{"LicenseFile",			&CONFIG_LICENSE_FILE,			TYPE_STRING,
-			PARM_OPT,	0,			0},
+			PARM_OPT,	0,			0},		
+		{"OpenCoreFileFlag",	&OPEN_CORE_FILE_FLAG,	TYPE_INT,
+			PARM_OPT,	0,			1},		
+			
 		{NULL}
 	};
 
 	/* initialize multistrings */
 	zbx_strarr_init(&CONFIG_LOAD_MODULE);
 	parse_cfg_file(config_file, cfg, ZBX_CFG_FILE_REQUIRED, ZBX_CFG_STRICT, ZBX_CFG_EXIT_FAILURE);
+	//printf("OPEN_CORE_FILE_FLAG:%d \n",OPEN_CORE_FILE_FLAG);
+	
 	
 	lic_decrypt_pwd(config_dbpassword, &zbx_config_dbhigh->config_dbpassword);
 
@@ -1144,7 +1156,7 @@ static void	zbx_on_exit(int ret)
 
 	zbx_unload_modules();
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "ZOps Server stopped. ZOps %s (revision %s).",
+	zabbix_log(LOG_LEVEL_INFORMATION, "tognix Server stopped. tognix %s (revision %s).",
 			ZABBIX_VERSION, ZABBIX_REVISION);
 
 	zabbix_close_log();
@@ -1385,7 +1397,7 @@ static void	zbx_check_db(void)
 out:
 	if (SUCCEED != result)
 	{
-		zabbix_log(LOG_LEVEL_INFORMATION, "ZOps Server stopped. ZOps %s (revision %s).",
+		zabbix_log(LOG_LEVEL_INFORMATION, "tognix Server stopped. tognix %s (revision %s).",
 				ZABBIX_VERSION, ZABBIX_REVISION);
 		zbx_db_version_info_clear(&db_version_info);
 		exit(EXIT_FAILURE);
@@ -1394,7 +1406,7 @@ out:
 
 /******************************************************************************
  *                                                                            *
- * Purpose: save ZOps server status to database                             *
+ * Purpose: save tognix server status to database                             *
  *                                                                            *
  ******************************************************************************/
 static void	zbx_db_save_server_status(void)
@@ -1512,7 +1524,7 @@ static int	server_startup(zbx_socket_t *listen_sock, int *ha_stat, int *ha_failo
 		}
 	}
 
-	zabbix_log(LOG_LEVEL_CRIT, "#ZOPS#init_license, result=%d", LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_CRIT, "#TOGNIX#init_license, result=%d", LIC_IS_SUCCESS());
  
 
 	for (threads_num = 0, i = 0; i < ZBX_PROCESS_TYPE_COUNT; i++)
@@ -1893,7 +1905,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 
 	if (0 != (flags & ZBX_TASK_FLAG_FOREGROUND))
 	{
-		printf("Starting ZOps Server. ZOps %s (revision %s).\nPress Ctrl+C to exit.\n\n",
+		printf("Starting tognix Server. tognix %s (revision %s).\nPress Ctrl+C to exit.\n\n",
 				ZABBIX_VERSION, ZABBIX_REVISION);
 	}
 
@@ -1966,7 +1978,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 #	define TLS_FEATURE_STATUS	" NO"
 #endif
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Starting ZOps Server. ZOps %s (revision %s).",
+	zabbix_log(LOG_LEVEL_INFORMATION, "Starting tognix Server. tognix %s (revision %s).",
 			ZABBIX_VERSION, ZABBIX_REVISION);
 
 	zabbix_log(LOG_LEVEL_INFORMATION, "****** Enabled features ******");
@@ -1984,11 +1996,20 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 	zabbix_log(LOG_LEVEL_INFORMATION, "using configuration file: %s", config_file);
 
 #if defined(HAVE_GNUTLS) || defined(HAVE_OPENSSL)
-	if (SUCCEED != zbx_coredump_disable())
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "cannot disable core dump, exiting...");
-		exit(EXIT_FAILURE);
+	if (0 == OPEN_CORE_FILE_FLAG) 
+	{	
+		zabbix_log(LOG_LEVEL_DEBUG, "disable core dump,call zbx_coredump_disable");
+		if (SUCCEED != zbx_coredump_disable())
+		{
+			zabbix_log(LOG_LEVEL_CRIT, "cannot disable core dump, exiting...");
+			exit(EXIT_FAILURE);
+		}		
 	}
+	else
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "need core dump,can not call zbx_coredump_disable");
+	}
+	
 #endif
 	zbx_initialize_events();
 
@@ -2038,14 +2059,14 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 
 	if (ZBX_DB_UNKNOWN == (db_type = zbx_db_get_database_type()))
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "cannot use database \"%s\": database is not a ZOps database",
+		zabbix_log(LOG_LEVEL_CRIT, "cannot use database \"%s\": database is not a tognix database",
 				zbx_config_dbhigh->config_dbname);
 		exit(EXIT_FAILURE);
 	}
 	else if (ZBX_DB_SERVER != db_type)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "cannot use database \"%s\": its \"users\" table is empty (is this the"
-				" ZOps proxy database?)", zbx_config_dbhigh->config_dbname);
+				" tognix proxy database?)", zbx_config_dbhigh->config_dbname);
 		exit(EXIT_FAILURE);
 	}
 
@@ -2070,6 +2091,8 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 
 	if (SUCCEED != zbx_db_check_instanceid())
 		exit(EXIT_FAILURE);
+	
+	zbx_db_check_tognix(); // tognix内部的一些数据库检查、升级等
 
 	if (FAIL == zbx_init_library_export(&zbx_config_export, &error))
 	{

@@ -132,6 +132,18 @@ static int	zbx_host_interfaces_discovery(zbx_uint64_t hostid, struct zbx_json *j
 			case INTERFACE_TYPE_VMWARE:
 				p = "WMWare";
 				break;
+			case INTERFACE_TYPE_HTTP:
+				p = "HTTP";
+				break;
+			case INTERFACE_TYPE_ICMP:
+				p = "ICMP";
+				break;
+			case INTERFACE_TYPE_NUTANIX:
+				p = "NUTANIX";
+				break;
+			case INTERFACE_TYPE_ODBC:
+				p = "ODBC";
+				break;
 			case INTERFACE_TYPE_UNKNOWN:
 			default:
 				p = "UNKNOWN";

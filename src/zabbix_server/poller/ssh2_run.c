@@ -25,6 +25,9 @@
 #include "log.h"
 #include "zbxnum.h"
 
+
+
+
 #if !defined(HAVE_LIBSSH2_METHOD_KEX) && !defined(HAVE_LIBSSH2_METHOD_HOSTKEY) && \
 		!defined(HAVE_LIBSSH2_METHOD_CRYPT_CS) && !defined(HAVE_LIBSSH2_METHOD_CRYPT_SC) && \
 		!defined(HAVE_LIBSSH2_METHOD_MAC_CS) && !defined(HAVE_LIBSSH2_METHOD_MAC_SC)

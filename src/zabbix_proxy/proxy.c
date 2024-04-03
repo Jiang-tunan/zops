@@ -1,6 +1,6 @@
 /*
-** Zops
-** Copyright (C) 2001-2023 Zops SIA
+** tognix
+** Copyright (C) 2001-2023 tognix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -83,13 +83,13 @@ const char	*usage_message[] = {
 };
 
 const char	*help_message[] = {
-	"A Zops daemon that collects monitoring data from devices and sends it to",
-	"Zops server.",
+	"A tognix daemon that collects monitoring data from devices and sends it to",
+	"tognix server.",
 	"",
 	"Options:",
 	"  -c --config config-file        Path to the configuration file",
 	"                                 (default: \"" DEFAULT_CONFIG_FILE "\")",
-	"  -f --foreground                Run Zops proxy in foreground",
+	"  -f --foreground                Run tognix proxy in foreground",
 	"  -R --runtime-control runtime-option   Perform administrative functions",
 	"",
 	"    Runtime control options:",
@@ -170,6 +170,7 @@ int		threads_num = 0;
 pid_t		*threads = NULL;
 static int	*threads_flags;
 static char	*CONFIG_PID_FILE = NULL;
+static char	*CONFIG_LICENSE_FILE = NULL;
 
 unsigned char			program_type	= ZBX_PROGRAM_TYPE_PROXY_ACTIVE;
 static unsigned char	get_program_type(void)
@@ -274,7 +275,7 @@ int	CONFIG_PROXY_OFFLINE_BUFFER	= 1;
 
 int	CONFIG_HEARTBEAT_FREQUENCY	= -1;
 
-/* how often active Zops proxy requests configuration data from server, in seconds */
+/* how often active tognix proxy requests configuration data from server, in seconds */
 int	CONFIG_PROXYCONFIG_FREQUENCY	= 0;	/* will be set to default 5 seconds if not configured */
 int	CONFIG_PROXYDATA_FREQUENCY	= 1;
 
@@ -340,6 +341,8 @@ int	CONFIG_TCP_MAX_BACKLOG_SIZE	= SOMAXCONN;
 
 int	CONFIG_DOUBLE_PRECISION		= ZBX_DB_DBL_PRECISION_ENABLED;
 
+int	g_running_program_type = ZBX_PROGRAM_TYPE_PROXY; // 当前运行程序的类型
+
 static char	*config_file		= NULL;
 static int	config_allow_root	= 0;
 
@@ -360,13 +363,13 @@ int	get_process_info_by_thread(int local_server_num, unsigned char *local_proces
 	}
 	else if (local_server_num <= (server_count += CONFIG_FORKS[ZBX_PROCESS_TYPE_CONFSYNCER]))
 	{
-		/* make initial configuration sync before worker processes are forked on active Zops proxy */
+		/* make initial configuration sync before worker processes are forked on active tognix proxy */
 		*local_process_type = ZBX_PROCESS_TYPE_CONFSYNCER;
 		*local_process_num = local_server_num - server_count + CONFIG_FORKS[ZBX_PROCESS_TYPE_CONFSYNCER];
 	}
 	else if (local_server_num <= (server_count += CONFIG_FORKS[ZBX_PROCESS_TYPE_TRAPPER]))
 	{
-		/* make initial configuration sync before worker processes are forked on passive Zops proxy */
+		/* make initial configuration sync before worker processes are forked on passive tognix proxy */
 		*local_process_type = ZBX_PROCESS_TYPE_TRAPPER;
 		*local_process_num = local_server_num - server_count + CONFIG_FORKS[ZBX_PROCESS_TYPE_TRAPPER];
 	}
@@ -568,6 +571,9 @@ static void	zbx_set_defaults(void)
 		zabbix_log(LOG_LEVEL_WARNING, "ServerPort parameter is deprecated,"
 					" please specify port in Server parameter separated by ':' instead");
 	}
+
+	if (NULL == CONFIG_LICENSE_FILE)
+		CONFIG_LICENSE_FILE = zbx_strdup(CONFIG_LICENSE_FILE, "/usr/local/tognix/etc/tognix.lic");
 }
 
 /******************************************************************************
@@ -738,6 +744,7 @@ static int	proxy_add_serveractive_host_cb(const zbx_vector_ptr_t *addrs, zbx_vec
  ******************************************************************************/
 static void	zbx_load_config(ZBX_TASK_EX *task)
 {
+	char *config_dbpassword = NULL;
 	struct cfg_line	cfg[] =
 	{
 		/* PARAMETER,			VAR,					TYPE,
@@ -840,7 +847,7 @@ static void	zbx_load_config(ZBX_TASK_EX *task)
 			PARM_OPT,	0,			0},
 		{"DBUser",			&(zbx_config_dbhigh->config_dbuser),	TYPE_STRING,
 			PARM_OPT,	0,			0},
-		{"DBPassword",			&(zbx_config_dbhigh->config_dbpassword),	TYPE_STRING,
+		{"DBPassword",			&config_dbpassword,	TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"VaultToken",			&zbx_config_vault.token,			TYPE_STRING,
 			PARM_OPT,	0,			0},
@@ -946,6 +953,8 @@ static void	zbx_load_config(ZBX_TASK_EX *task)
 			PARM_OPT,	0,			INT_MAX},
 		{"StartODBCPollers",		&CONFIG_FORKS[ZBX_PROCESS_TYPE_ODBCPOLLER],		TYPE_INT,
 			PARM_OPT,	0,			1000},
+		{"LicenseFile",			&CONFIG_LICENSE_FILE,			TYPE_STRING,
+			PARM_OPT,	0,			0},	
 		{NULL}
 	};
 
@@ -953,6 +962,8 @@ static void	zbx_load_config(ZBX_TASK_EX *task)
 	zbx_strarr_init(&CONFIG_LOAD_MODULE);
 
 	parse_cfg_file(config_file, cfg, ZBX_CFG_FILE_REQUIRED, ZBX_CFG_STRICT, ZBX_CFG_EXIT_FAILURE);
+
+	lic_decrypt_pwd(config_dbpassword, &zbx_config_dbhigh->config_dbpassword);
 
 	zbx_set_defaults();
 
@@ -1034,7 +1045,7 @@ static void	zbx_on_exit(int ret)
 
 	zbx_unload_modules();
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Zops Proxy stopped. Zops %s (revision %s).",
+	zabbix_log(LOG_LEVEL_INFORMATION, "tognix Proxy stopped. tognix %s (revision %s).",
 			ZABBIX_VERSION, ZABBIX_REVISION);
 
 	zabbix_close_log();
@@ -1161,6 +1172,15 @@ int	main(int argc, char **argv)
 	zbx_init_library_stats(get_program_type);
 	zbx_init_library_dbhigh(zbx_config_dbhigh);
 
+	int lic_result = init_license(CONFIG_LICENSE_FILE);
+	if(!LIC_IS_SUCCESS())
+	{
+		unsigned char productkey[128];
+		create_productkey(productkey);
+		zbx_error("软件许可证非法或过期,请把产品密钥提交给厂商生成新的许可证。result:%d,is_success:%d \n产品密钥:%s", 
+			lic_result, LIC_IS_SUCCESS(), productkey);
+	}
+
 	if (ZBX_TASK_RUNTIME_CONTROL == t.task)
 	{
 		int	ret;
@@ -1218,14 +1238,14 @@ static void	proxy_db_init(void)
 
 	if (ZBX_DB_UNKNOWN == (db_type = zbx_db_get_database_type()))
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "cannot use database \"%s\": database is not a Zops database",
+		zabbix_log(LOG_LEVEL_CRIT, "cannot use database \"%s\": database is not a tognix database",
 				zbx_config_dbhigh->config_dbname);
 		exit(EXIT_FAILURE);
 	}
 	else if (ZBX_DB_PROXY != db_type)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "cannot use database \"%s\": Zops proxy cannot work with a"
-				" Zops server database", zbx_config_dbhigh->config_dbname);
+		zabbix_log(LOG_LEVEL_CRIT, "cannot use database \"%s\": tognix proxy cannot work with a"
+				" tognix server database", zbx_config_dbhigh->config_dbname);
 		exit(EXIT_FAILURE);
 	}
 
@@ -1297,7 +1317,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 
 	if (0 != (flags & ZBX_TASK_FLAG_FOREGROUND))
 	{
-		printf("Starting Zops Proxy (%s) [%s]. Zops %s (revision %s).\nPress Ctrl+C to exit.\n\n",
+		printf("Starting tognix Proxy (%s) [%s]. tognix %s (revision %s).\nPress Ctrl+C to exit.\n\n",
 				ZBX_PROXYMODE_PASSIVE == config_proxymode ? "passive" : "active",
 				CONFIG_HOSTNAME, ZABBIX_VERSION, ZABBIX_REVISION);
 	}
@@ -1364,7 +1384,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 #	define TLS_FEATURE_STATUS	" NO"
 #endif
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Starting Zops Proxy (%s) [%s]. Zops %s (revision %s).",
+	zabbix_log(LOG_LEVEL_INFORMATION, "Starting tognix Proxy (%s) [%s]. tognix %s (revision %s).",
 			ZBX_PROXYMODE_PASSIVE == config_proxymode ? "passive" : "active",
 			CONFIG_HOSTNAME, ZABBIX_VERSION, ZABBIX_REVISION);
 
@@ -1496,6 +1516,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 	zbx_diag_init(diag_add_section_info);
 
 	thread_args.info.program_type = program_type;
+	zbx_strlcpy(thread_args.info.lic_file, CONFIG_LICENSE_FILE, 128);
 
 	if (ZBX_PROXYMODE_PASSIVE == config_proxymode)
 		rtc_process_request_func = rtc_process_request_ex_passive;

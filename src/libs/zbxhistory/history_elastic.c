@@ -304,7 +304,7 @@ static int	elastic_is_error_present(zbx_httppage_t *page, char **err)
 
 	*err = zbx_dsprintf(NULL,"index:%s status:%s type:%s reason:%s%s", ZBX_NULL2EMPTY_STR(index),
 			ZBX_NULL2EMPTY_STR(status), ZBX_NULL2EMPTY_STR(type), ZBX_NULL2EMPTY_STR(reason),
-			FAIL == rc_js ? " / elasticsearch version is not fully compatible with Zops server" : "");
+			FAIL == rc_js ? " / elasticsearch version is not fully compatible with tognix server" : "");
 
 	zbx_free(status);
 	zbx_free(type);
@@ -771,7 +771,7 @@ static int	elastic_get_values(zbx_history_iface_t *hist, zbx_uint64_t itemid, in
 		/* get the scroll id immediately, for being used in subsequent queries */
 		if (SUCCEED != zbx_json_value_by_name_dyn(&jp_values, "_scroll_id", &scroll_id, &id_alloc, NULL))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "elasticsearch version is not compatible with zops server. "
+			zabbix_log(LOG_LEVEL_WARNING, "elasticsearch version is not compatible with tognix server. "
 					"_scroll_id tag is absent");
 		}
 
@@ -1135,7 +1135,7 @@ out:
 		if (0 == CONFIG_ALLOW_UNSUPPORTED_DB_VERSIONS)
 		{
 			zabbix_log(LOG_LEVEL_ERR, " ");
-			zabbix_log(LOG_LEVEL_ERR, "Unable to start Zops server due to unsupported %s database server"
+			zabbix_log(LOG_LEVEL_ERR, "Unable to start tognix server due to unsupported %s database server"
 					" version (%s).", db_version_info.database,
 					db_version_info.friendly_current_version);
 
@@ -1144,7 +1144,7 @@ out:
 
 			zabbix_log(LOG_LEVEL_ERR, "Use of supported database version is highly recommended.");
 			zabbix_log(LOG_LEVEL_ERR, "Override by setting AllowUnsupportedDBVersions=1"
-					" in Zops server configuration file at your own risk.");
+					" in tognix server configuration file at your own risk.");
 			zabbix_log(LOG_LEVEL_ERR, " ");
 
 			db_version_info.flag = DB_VERSION_HIGHER_THAN_MAXIMUM_ERROR;

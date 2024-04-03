@@ -10,7 +10,7 @@ SUBDIRS = \
 	taskmanager \
 	proxyconfigwrite
 
-sbin_PROGRAMS = zops_proxy
+sbin_PROGRAMS = tognix_proxy
 
 noinst_LIBRARIES = libzbxproxy.a
 
@@ -22,9 +22,9 @@ libzbxproxy_a_CFLAGS = \
 	-DZABBIX_DAEMON \
 	$(TLS_CFLAGS)
 
-zops_proxy_SOURCES = proxy.c
+tognix_proxy_SOURCES = proxy.c
 
-zops_proxy_LDADD = \
+tognix_proxy_LDADD = \
 	diag/libzbxdiag_proxy.a \
 	$(top_builddir)/src/zabbix_server/dbsyncer/libzbxdbsyncer.a \
 	$(top_builddir)/src/zabbix_server/discoverer/libzbxdiscoverer.a \
@@ -116,19 +116,20 @@ zops_proxy_LDADD = \
 	$(top_builddir)/src/libs/zbxcommon/libzbxcommon.a \
 	$(top_builddir)/src/libs/zbxversion/libzbxversion.a \
 	$(top_builddir)/src/libs/zbxlic/libzbxlic.a \
+	$(top_builddir)/src/zabbix_server/proxyconfigread/libzbxproxyconfigread.a \
 	libzbxproxy.a
 
-zops_proxy_LDADD += $(top_builddir)/src/libs/zbxalgo/libzbxalgo.a
+tognix_proxy_LDADD += $(top_builddir)/src/libs/zbxalgo/libzbxalgo.a
 
 if HAVE_IPMI
-zops_proxy_LDADD += $(top_builddir)/src/zabbix_server/ipmi/libipmi.a
+tognix_proxy_LDADD += $(top_builddir)/src/zabbix_server/ipmi/libipmi.a
 endif
 
-zops_proxy_LDADD += $(PROXY_LIBS)
+tognix_proxy_LDADD += $(PROXY_LIBS)
 
-zops_proxy_LDFLAGS = $(PROXY_LDFLAGS)
+tognix_proxy_LDFLAGS = $(PROXY_LDFLAGS)
 
-zops_proxy_CFLAGS = \
+tognix_proxy_CFLAGS = \
 	-DDEFAULT_SSL_CERT_LOCATION="\"$(CURL_SSL_CERT_LOCATION)\"" \
 	-DDEFAULT_SSL_KEY_LOCATION="\"$(URL_SSL_KEY_LOCATION)\"" \
 	-DDEFAULT_CONFIG_FILE="\"$(PROXY_CONFIG_FILE)\"" \
@@ -140,4 +141,4 @@ install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(PROXY_CONFIG_FILE).d"
 	$(MKDIR_P) "$(DESTDIR)$(EXTERNAL_SCRIPTS_PATH)"
 	$(MKDIR_P) "$(DESTDIR)$(LOAD_MODULE_PATH)"
-	test -f "$(DESTDIR)$(PROXY_CONFIG_FILE)" || cp "../../conf/zops_proxy.conf" "$(DESTDIR)$(PROXY_CONFIG_FILE)"
+	test -f "$(DESTDIR)$(PROXY_CONFIG_FILE)" || cp "../../conf/tognix_proxy.conf" "$(DESTDIR)$(PROXY_CONFIG_FILE)"

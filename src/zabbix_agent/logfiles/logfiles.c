@@ -2124,7 +2124,7 @@ static int	zbx_read2(int fd, unsigned char flags, struct st_logfile *logfile, zb
 
 					zabbix_log(LOG_LEVEL_WARNING, "Logfile contains a large record: \"%.64s\""
 							" (showing only the first 64 characters). Only the first 256 kB"
-							" will be analyzed, the rest will be ignored while Zabbix agent"
+							" will be analyzed, the rest will be ignored while  tognix agent"
 							" is running.", value);
 
 					processed_size = (size_t)offset + (size_t)nbytes;

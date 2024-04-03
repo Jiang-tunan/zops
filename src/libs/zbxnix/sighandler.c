@@ -29,6 +29,10 @@
 #define ZBX_EXIT_SUCCESS	1
 #define ZBX_EXIT_FAILURE	2
 
+int	OPEN_CORE_FILE_FLAG		= 0;
+
+
+
 typedef struct
 {
 	int	sig;
@@ -270,9 +274,19 @@ void	zbx_set_common_signal_handlers(zbx_on_exit_t zbx_on_exit_cb_arg)
 
 	phan.sa_sigaction = fatal_signal_handler;
 	sigaction(SIGILL, &phan, NULL);
-	sigaction(SIGFPE, &phan, NULL);
-	sigaction(SIGSEGV, &phan, NULL);
+	sigaction(SIGFPE, &phan, NULL);	
 	sigaction(SIGBUS, &phan, NULL);
+	if (0 == OPEN_CORE_FILE_FLAG) 
+	{
+		sigaction(SIGSEGV, &phan, NULL);		
+		zabbix_log(LOG_LEVEL_DEBUG, "zbx_set_common_signal_handlers set SIGSEGV,can not create core file");
+		printf("zbx_set_common_signal_handlers set SIGSEGV,can not create core file \n");
+	}
+	else
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "zbx_set_common_signal_handlers not set SIGSEGV,can create core file");
+		printf("zbx_set_common_signal_handlers not set SIGSEGV,can create core file \n");
+	}
 
 	phan.sa_sigaction = alarm_signal_handler;
 	sigaction(SIGALRM, &phan, NULL);
@@ -338,8 +352,19 @@ void 	zbx_set_metric_thread_signal_handler(void)
 
 	phan.sa_sigaction = metric_thread_signal_handler;
 	sigaction(SIGILL, &phan, NULL);
-	sigaction(SIGFPE, &phan, NULL);
-	sigaction(SIGSEGV, &phan, NULL);
+	sigaction(SIGFPE, &phan, NULL);	
+	if (0 == OPEN_CORE_FILE_FLAG) 
+	{
+		sigaction(SIGSEGV, &phan, NULL);		
+		zabbix_log(LOG_LEVEL_DEBUG, "zbx_set_metric_thread_signal_handler set SIGSEGV,can not create core file");
+		printf("zbx_set_metric_thread_signal_handler set SIGSEGV,can not create core file \n");
+		
+	}
+	else
+	{		
+		zabbix_log(LOG_LEVEL_DEBUG, "zbx_set_metric_thread_signal_handler not set SIGSEGV,can create core file");	
+		printf("zbx_set_metric_thread_signal_handler not set SIGSEGV,can create core file \n");
+	}
 	sigaction(SIGBUS, &phan, NULL);
 }
 

@@ -143,6 +143,12 @@ void	zbx_recv_proxy_data(zbx_socket_t *sock, struct zbx_json_parse *jp, zbx_time
 				sock->peer, error);
 		goto out;
 	}
+	
+	// 校验主动模式的代理是否允许被使用
+	if (SUCCEED != (status = zbx_proxy_check_allow_permissions(&proxy)))
+	{
+		goto out;
+	}
 
 	if (SUCCEED != (status = zbx_proxy_check_permissions(&proxy, sock, &error)))
 	{
@@ -181,7 +187,7 @@ void	zbx_recv_proxy_data(zbx_socket_t *sock, struct zbx_json_parse *jp, zbx_time
 
 	if (!ZBX_IS_RUNNING())
 	{
-		error = zbx_strdup(error, "Zops server shutdown in progress");
+		error = zbx_strdup(error, "tognix server shutdown in progress");
 		zabbix_log(LOG_LEVEL_WARNING, "cannot process proxy data from active proxy at \"%s\": %s",
 				sock->peer, error);
 		ret = FAIL;

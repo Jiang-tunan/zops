@@ -135,7 +135,12 @@ static int	interface_availability_by_item_type(unsigned char item_type, unsigned
 			(ITEM_TYPE_SNMP == item_type && INTERFACE_TYPE_SNMP == interface_type) ||
 			(ITEM_TYPE_JMX == item_type && INTERFACE_TYPE_JMX == interface_type) ||
 			(ITEM_TYPE_IPMI == item_type && INTERFACE_TYPE_IPMI == interface_type) ||
-			(ITEM_TYPE_SIMPLE == item_type && INTERFACE_TYPE_VMWARE == interface_type))
+			(ITEM_TYPE_SIMPLE == item_type && INTERFACE_TYPE_VMWARE == interface_type) ||
+			(ITEM_TYPE_SIMPLE == item_type && INTERFACE_TYPE_HTTP == interface_type) ||
+			(ITEM_TYPE_SIMPLE == item_type && INTERFACE_TYPE_ICMP == interface_type) ||
+			(ITEM_TYPE_HTTPAGENT == item_type && INTERFACE_TYPE_NUTANIX == interface_type)||
+			(ITEM_TYPE_SIMPLE == item_type && INTERFACE_TYPE_ODBC == interface_type) ||
+			(ITEM_TYPE_HTTPAGENT == item_type && INTERFACE_TYPE_HTTP == interface_type) )
 		return SUCCEED;
 
 	return FAIL;

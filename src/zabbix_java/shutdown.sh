@@ -15,14 +15,14 @@ if [ -n "$PID_FILE" ]; then
 					exit 0
 				fi
 			done
-			echo "Zabbix Java Gateway did not stop"
+			echo "Tognix Java Gateway did not stop"
 			exit 1
 		fi
 		rm -f "$PID_FILE"
 	fi
-	echo "Zabbix Java Gateway is not running"
+	echo "Tognix Java Gateway is not running"
 	exit 1
 else
-	echo "Zabbix Java Gateway is not configured as a daemon: variable \$PID_FILE is not set"
+	echo "Tognix Java Gateway is not configured as a daemon: variable \$PID_FILE is not set"
 	exit 1
 fi

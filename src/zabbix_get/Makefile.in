@@ -88,7 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = zops_get$(EXEEXT)
+bin_PROGRAMS = tognix_get$(EXEEXT)
 subdir = src/zabbix_get
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_lib_mysql.m4 \
@@ -115,10 +115,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_zops_get_OBJECTS = zops_get-zabbix_get.$(OBJEXT)
-zops_get_OBJECTS = $(am_zops_get_OBJECTS)
+am_tognix_get_OBJECTS = tognix_get-zabbix_get.$(OBJEXT)
+tognix_get_OBJECTS = $(am_tognix_get_OBJECTS)
 am__DEPENDENCIES_1 =
-zops_get_DEPENDENCIES =  \
+tognix_get_DEPENDENCIES =  \
 	$(top_builddir)/src/libs/zbxcomms/libzbxcomms.a \
 	$(top_builddir)/src/libs/zbxxml/libzbxxml.a \
 	$(top_builddir)/src/libs/zbxjson/libzbxjson.a \
@@ -140,8 +140,8 @@ zops_get_DEPENDENCIES =  \
 	$(top_builddir)/src/libs/zbxtime/libzbxtime.a \
 	$(top_builddir)/src/libs/zbxcommon/libzbxcommon.a \
 	$(am__DEPENDENCIES_1)
-zops_get_LINK = $(CCLD) $(zops_get_CFLAGS) $(CFLAGS) \
-	$(zops_get_LDFLAGS) $(LDFLAGS) -o $@
+tognix_get_LINK = $(CCLD) $(tognix_get_CFLAGS) $(CFLAGS) \
+	$(tognix_get_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -156,7 +156,7 @@ am__v_at_0 = @
 am__v_at_1 = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/zops_get-zabbix_get.Po
+am__depfiles_remade = ./$(DEPDIR)/tognix_get-zabbix_get.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -174,8 +174,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(zops_get_SOURCES)
-DIST_SOURCES = $(zops_get_SOURCES)
+SOURCES = $(tognix_get_SOURCES)
+DIST_SOURCES = $(tognix_get_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -317,9 +317,6 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -409,7 +406,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -418,10 +414,10 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-zops_get_SOURCES = \
+tognix_get_SOURCES = \
 	zabbix_get.c
 
-zops_get_LDADD = \
+tognix_get_LDADD = \
 	$(top_builddir)/src/libs/zbxcomms/libzbxcomms.a \
 	$(top_builddir)/src/libs/zbxxml/libzbxxml.a \
 	$(top_builddir)/src/libs/zbxjson/libzbxjson.a \
@@ -444,8 +440,8 @@ zops_get_LDADD = \
 	$(top_builddir)/src/libs/zbxcommon/libzbxcommon.a \
 	$(ZBXGET_LIBS)
 
-zops_get_LDFLAGS = $(ZBXGET_LDFLAGS)
-zops_get_CFLAGS = $(TLS_CFLAGS)
+tognix_get_LDFLAGS = $(ZBXGET_LDFLAGS)
+tognix_get_CFLAGS = $(TLS_CFLAGS)
 all: all-am
 
 .SUFFIXES:
@@ -522,9 +518,9 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
-zops_get$(EXEEXT): $(zops_get_OBJECTS) $(zops_get_DEPENDENCIES) $(EXTRA_zops_get_DEPENDENCIES) 
-	@rm -f zops_get$(EXEEXT)
-	$(AM_V_CCLD)$(zops_get_LINK) $(zops_get_OBJECTS) $(zops_get_LDADD) $(LIBS)
+tognix_get$(EXEEXT): $(tognix_get_OBJECTS) $(tognix_get_DEPENDENCIES) $(EXTRA_tognix_get_DEPENDENCIES) 
+	@rm -f tognix_get$(EXEEXT)
+	$(AM_V_CCLD)$(tognix_get_LINK) $(tognix_get_OBJECTS) $(tognix_get_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -532,7 +528,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/zops_get-zabbix_get.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tognix_get-zabbix_get.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -556,19 +552,19 @@ am--depfiles: $(am__depfiles_remade)
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-zops_get-zabbix_get.o: zabbix_get.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_get_CFLAGS) $(CFLAGS) -MT zops_get-zabbix_get.o -MD -MP -MF $(DEPDIR)/zops_get-zabbix_get.Tpo -c -o zops_get-zabbix_get.o `test -f 'zabbix_get.c' || echo '$(srcdir)/'`zabbix_get.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_get-zabbix_get.Tpo $(DEPDIR)/zops_get-zabbix_get.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_get.c' object='zops_get-zabbix_get.o' libtool=no @AMDEPBACKSLASH@
+tognix_get-zabbix_get.o: zabbix_get.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_get_CFLAGS) $(CFLAGS) -MT tognix_get-zabbix_get.o -MD -MP -MF $(DEPDIR)/tognix_get-zabbix_get.Tpo -c -o tognix_get-zabbix_get.o `test -f 'zabbix_get.c' || echo '$(srcdir)/'`zabbix_get.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_get-zabbix_get.Tpo $(DEPDIR)/tognix_get-zabbix_get.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_get.c' object='tognix_get-zabbix_get.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_get_CFLAGS) $(CFLAGS) -c -o zops_get-zabbix_get.o `test -f 'zabbix_get.c' || echo '$(srcdir)/'`zabbix_get.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_get_CFLAGS) $(CFLAGS) -c -o tognix_get-zabbix_get.o `test -f 'zabbix_get.c' || echo '$(srcdir)/'`zabbix_get.c
 
-zops_get-zabbix_get.obj: zabbix_get.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_get_CFLAGS) $(CFLAGS) -MT zops_get-zabbix_get.obj -MD -MP -MF $(DEPDIR)/zops_get-zabbix_get.Tpo -c -o zops_get-zabbix_get.obj `if test -f 'zabbix_get.c'; then $(CYGPATH_W) 'zabbix_get.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_get.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_get-zabbix_get.Tpo $(DEPDIR)/zops_get-zabbix_get.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_get.c' object='zops_get-zabbix_get.obj' libtool=no @AMDEPBACKSLASH@
+tognix_get-zabbix_get.obj: zabbix_get.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_get_CFLAGS) $(CFLAGS) -MT tognix_get-zabbix_get.obj -MD -MP -MF $(DEPDIR)/tognix_get-zabbix_get.Tpo -c -o tognix_get-zabbix_get.obj `if test -f 'zabbix_get.c'; then $(CYGPATH_W) 'zabbix_get.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_get.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_get-zabbix_get.Tpo $(DEPDIR)/tognix_get-zabbix_get.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_get.c' object='tognix_get-zabbix_get.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_get_CFLAGS) $(CFLAGS) -c -o zops_get-zabbix_get.obj `if test -f 'zabbix_get.c'; then $(CYGPATH_W) 'zabbix_get.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_get.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_get_CFLAGS) $(CFLAGS) -c -o tognix_get-zabbix_get.obj `if test -f 'zabbix_get.c'; then $(CYGPATH_W) 'zabbix_get.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_get.c'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -697,7 +693,7 @@ clean: clean-am
 clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
 
 distclean: distclean-am
-		-rm -f ./$(DEPDIR)/zops_get-zabbix_get.Po
+		-rm -f ./$(DEPDIR)/tognix_get-zabbix_get.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -743,7 +739,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f ./$(DEPDIR)/zops_get-zabbix_get.Po
+		-rm -f ./$(DEPDIR)/tognix_get-zabbix_get.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

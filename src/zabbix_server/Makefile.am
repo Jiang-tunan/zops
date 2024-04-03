@@ -31,7 +31,7 @@ SUBDIRS = \
 	ha \
 	proxyconfigread
 
-sbin_PROGRAMS = zops_server
+sbin_PROGRAMS = tognix_server
 
 noinst_LIBRARIES = libzbxserver.a
 
@@ -54,11 +54,11 @@ libzbxserver_a_CFLAGS = \
 	-I$(top_srcdir)/src/libs/zbxcachevalue \
 	$(TLS_CFLAGS)
 
-zops_server_SOURCES = \
+tognix_server_SOURCES = \
 	server.h \
 	server.c
 
-zops_server_LDADD = \
+tognix_server_LDADD = \
 	dbsyncer/libzbxdbsyncer.a \
 	dbconfig/libzbxdbconfig.a \
 	diag/libzbxdiag_server.a \
@@ -166,14 +166,14 @@ zops_server_LDADD = \
 	$(top_builddir)/src/libs/zbxversion/libzbxversion.a \
 	$(top_builddir)/src/libs/zbxlic/libzbxlic.a
 if HAVE_IPMI
-zops_server_LDADD += ipmi/libipmi.a
+tognix_server_LDADD += ipmi/libipmi.a
 endif
 
-zops_server_LDADD += $(SERVER_LIBS)
+tognix_server_LDADD += $(SERVER_LIBS)
 
-zops_server_LDFLAGS = $(SERVER_LDFLAGS)
+tognix_server_LDFLAGS = $(SERVER_LDFLAGS)
 
-zops_server_CFLAGS = \
+tognix_server_CFLAGS = \
 	-DDEFAULT_SSL_CERT_LOCATION="\"$(CURL_SSL_CERT_LOCATION)\"" \
 	-DDEFAULT_SSL_KEY_LOCATION="\"$(CURL_SSL_KEY_LOCATION)\"" \
 	-DDEFAULT_CONFIG_FILE="\"$(SERVER_CONFIG_FILE)\"" \
@@ -187,4 +187,4 @@ install-data-hook:
 	$(MKDIR_P) "$(DESTDIR)$(EXTERNAL_SCRIPTS_PATH)"
 	$(MKDIR_P) "$(DESTDIR)$(ALERT_SCRIPTS_PATH)"
 	$(MKDIR_P) "$(DESTDIR)$(LOAD_MODULE_PATH)"
-	test -f "$(DESTDIR)$(SERVER_CONFIG_FILE)" || cp "../../conf/zops_server.conf" "$(DESTDIR)$(SERVER_CONFIG_FILE)"
+	test -f "$(DESTDIR)$(SERVER_CONFIG_FILE)" || cp "../../conf/tognix_server.conf" "$(DESTDIR)$(SERVER_CONFIG_FILE)"

@@ -17,6 +17,8 @@ libzbxtrapper_a_SOURCES = \
 	trapper_expressions_evaluate.h \
 	trapper_item_test.c \
 	trapper_item_test.h \
+	trapper_dproxy.c \
+	trapper_dproxy.h \
 	trapper_discovery.c \
 	trapper_discovery.h \
 	trapper.c \

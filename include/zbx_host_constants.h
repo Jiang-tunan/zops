@@ -37,6 +37,8 @@
 #define HOST_MAINTENANCE_STATUS_OFF	0
 #define HOST_MAINTENANCE_STATUS_ON	1
 
+#define HOST_MAINTENANCE_STATUS_FORBIDED	2  // 禁止代理，这里涉及到许可校验问题
+
 /* host inventory mode */
 #define HOST_INVENTORY_DISABLED		-1	/* the host has no record in host_inventory */
 
@@ -45,6 +47,6 @@
 #define HOST_INVENTORY_AUTOMATIC	1
 #define HOST_INVENTORY_COUNT		2
 
-#define HOST_INVENTORY_FIELD_COUNT	70
+#define HOST_INVENTORY_FIELD_COUNT	29  //select字段数减2
 
 #endif /*ZABBIX_ZBX_HOST_CONSTANTS_H*/

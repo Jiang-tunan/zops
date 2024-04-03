@@ -88,12 +88,12 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = x86_64-pc-linux-gnu
 host_triplet = x86_64-pc-linux-gnu
-#am__append_1 = zeroops.cn/cmd/zops_agent2
-#am__append_2 = install-zabbix.com/cmd/zops_agent2
-#am__append_3 = conf/zops_agent2.conf
-#am__append_4 = zeroops.cn/cmd/zops_web_service
-#am__append_5 = install-zeroops.cn/cmd/zops_web_service
-#am__append_6 = conf/zops_web_service.conf
+am__append_1 = zabbix.com/cmd/tognix_agent2
+am__append_2 = install-zabbix.com/cmd/tognix_agent2
+am__append_3 = conf/tognix_agent2.conf
+#am__append_4 = zabbix.com/cmd/zabbix_web_service
+#am__append_5 = install-zabbix.com/cmd/zabbix_web_service
+#am__append_6 = conf/tognix_web_service.conf
 subdir = src/go
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_lib_mysql.m4 \
@@ -138,8 +138,8 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
-am__dist_sysconf_DATA_DIST = conf/zops_agent2.conf \
-	conf/zops_web_service.conf
+am__dist_sysconf_DATA_DIST = conf/tognix_agent2.conf \
+	conf/tognix_web_service.conf
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -172,73 +172,73 @@ DATA = $(dist_sysconf_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} '/home/jenkins/workspace/zops-release/zops-6.4.4/missing' aclocal-1.16
-AGENT2_CONFIG_FILE = ${prefix}/etc/zops_agent2.conf
-AGENT2_CONFIG_PATH = ${prefix}/etc/zops_agent2.d
-AGENT2_CONFIG_PLUGINS_PATH = ${prefix}/etc/zops_agent2.d/plugins.d
+ACLOCAL = ${SHELL} '/home/zhul/zops-server/missing' aclocal-1.16
+AGENT2_CONFIG_FILE = ${prefix}/etc/tognix_agent2.conf
+AGENT2_CONFIG_PATH = ${prefix}/etc/tognix_agent2.d
+AGENT2_CONFIG_PLUGINS_PATH = ${prefix}/etc/tognix_agent2.d/plugins.d
 AGENT2_LDFLAGS =    
-AGENT2_LIBS =    
-AGENT_CONFIG_FILE = ${prefix}/etc/zops_agentd.conf
+AGENT2_LIBS =  -lz -lpthread 
+AGENT_CONFIG_FILE = ${prefix}/etc/tognix_agentd.conf
 AGENT_LDFLAGS =      
-AGENT_LIBS =      
-ALERT_SCRIPTS_PATH = ${datarootdir}/zops/alertscripts
+AGENT_LIBS =  -lz -lpthread    -lcurl
+ALERT_SCRIPTS_PATH = ${datarootdir}/tognix/alertscripts
 AMTAR = $${TAR-tar}
 AM_DEFAULT_VERBOSITY = 1
 ARCH = linux
-AUTOCONF = ${SHELL} '/home/jenkins/workspace/zops-release/zops-6.4.4/missing' autoconf
-AUTOHEADER = ${SHELL} '/home/jenkins/workspace/zops-release/zops-6.4.4/missing' autoheader
-AUTOMAKE = ${SHELL} '/home/jenkins/workspace/zops-release/zops-6.4.4/missing' automake-1.16
-AWK = mawk
+AUTOCONF = ${SHELL} '/home/zhul/zops-server/missing' autoconf
+AUTOHEADER = ${SHELL} '/home/zhul/zops-server/missing' autoheader
+AUTOMAKE = ${SHELL} '/home/zhul/zops-server/missing' automake-1.16
+AWK = gawk
 CC = cc
 CCDEPMODE = depmode=gcc3
-CFLAGS =  -g -O2
-CGO_CFLAGS = 
-CGO_LDFLAGS = 
+CFLAGS =  -g -O2  
+CGO_CFLAGS =   
+CGO_LDFLAGS =     -Wl,--start-group 		${abs_top_builddir}/src/libs/zbxalgo/libzbxalgo.a 		${abs_top_builddir}/src/libs/zbxcommon/libzbxcommon.a 		${abs_top_builddir}/src/libs/zbxcomms/libzbxcomms.a 		${abs_top_builddir}/src/libs/zbxcompress/libzbxcompress.a 		${abs_top_builddir}/src/libs/zbxcrypto/libzbxcrypto.a 		${abs_top_builddir}/src/libs/zbxexec/libzbxexec.a 		${abs_top_builddir}/src/libs/zbxhash/libzbxhash.a 		${abs_top_builddir}/src/libs/zbxhttp/libzbxhttp.a 		${abs_top_builddir}/src/libs/zbxjson/libzbxjson.a 		${abs_top_builddir}/src/libs/zbxmutexs/libzbxmutexs.a 		${abs_top_builddir}/src/libs/zbxprof/libzbxprof.a 		${abs_top_builddir}/src/libs/zbxnix/libzbxnix.a 		${abs_top_builddir}/src/libs/zbxregexp/libzbxregexp.a 		${abs_top_builddir}/src/libs/zbxnum/libzbxnum.a 		${abs_top_builddir}/src/libs/zbxstr/libzbxstr.a 		${abs_top_builddir}/src/libs/zbxparam/libzbxparam.a 		${abs_top_builddir}/src/libs/zbxexpr/libzbxexpr.a 		${abs_top_builddir}/src/libs/zbxtime/libzbxtime.a 		${abs_top_builddir}/src/libs/zbxip/libzbxip.a 		${abs_top_builddir}/src/libs/zbxsysinfo/linux/libspechostnamesysinfo.a 		${abs_top_builddir}/src/libs/zbxsysinfo/linux/libspecsysinfo.a 		${abs_top_builddir}/src/libs/zbxsysinfo/alias/libalias.a 		${abs_top_builddir}/src/libs/zbxsysinfo/common/libcommonsysinfo.a 		${abs_top_builddir}/src/libs/zbxsysinfo/libzbxagent2sysinfo.a 		${abs_top_builddir}/src/libs/zbxsysinfo/simple/libsimplesysinfo.a 		${abs_top_builddir}/src/libs/zbxthreads/libzbxthreads.a 		${abs_top_builddir}/src/libs/zbxvariant/libzbxvariant.a 		${abs_top_builddir}/src/libs/zbxxml/libzbxxml.a 		${abs_top_builddir}/src/libs/zbxlic/libzbxlic.a 		${abs_top_builddir}/src/zabbix_agent/logfiles/libzbxlogfiles.a 		-lpthread -lm -ldl  -lresolv  -lpcre    -lz -lpthread  -Wl,--end-group
 CPP = cc -E
 CPPFLAGS = 
-CURL_SSL_CERT_LOCATION = ${datarootdir}/zops/ssl/certs
-CURL_SSL_KEY_LOCATION = ${datarootdir}/zops/ssl/keys
+CURL_SSL_CERT_LOCATION = ${datarootdir}/tognix/ssl/certs
+CURL_SSL_KEY_LOCATION = ${datarootdir}/tognix/ssl/keys
 CYGPATH_W = echo
-DB_CFLAGS = 
-DB_LDFLAGS = 
-DB_LIBS = 
+DB_CFLAGS = -I/usr/include/mysql -m64    
+DB_LDFLAGS =  -L/usr/lib64/mysql   
+DB_LIBS = -lmysqlclient  -lpthread -ldl -lssl -lcrypto -lresolv -lm -lrt   
 DEFAULT_INCLUDES = -I$(top_srcdir)/include/common -I$(top_srcdir)/include
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
 ECHO_C = 
 ECHO_N = -n
 ECHO_T = 
-EGREP = /usr/bin/grep -E
+EGREP = /bin/grep -E
 EXEEXT = 
-EXTERNAL_SCRIPTS_PATH = ${datarootdir}/zops/externalscripts
+EXTERNAL_SCRIPTS_PATH = ${datarootdir}/tognix/externalscripts
 GNUTLS_CFLAGS = 
 GNUTLS_LDFLAGS = 
 GNUTLS_LIBS = 
-GO = 
+GO = go
 GOBIN = ${exec_prefix}/sbin
 GOCMD = go
-GOWORKDIR = /home/jenkins/workspace/zops-release/zops-6.4.4/go/src/zops
-GREP = /usr/bin/grep
+GOWORKDIR = /home/zhul/zops-server/go/src/zabbix
+GREP = /bin/grep
 ICONV_CFLAGS = 
 ICONV_LDFLAGS = 
 ICONV_LIBS = 
-INSTALL = /usr/bin/install -c
+INSTALL = /bin/install -c
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
-JAR = 
-JAVAC = 
+JAR = jar
+JAVAC = javac
 LDAP_CPPFLAGS = 
 LDAP_LDFLAGS = 
 LDAP_LIBS = 
-LDFLAGS = -rdynamic  
+LDFLAGS = -rdynamic    
 LIBCURL_CFLAGS = 
 LIBCURL_LDFLAGS = 
-LIBCURL_LIBS = 
+LIBCURL_LIBS =  -lcurl
 LIBEVENT_CFLAGS = 
 LIBEVENT_LDFLAGS = 
-LIBEVENT_LIBS = 
+LIBEVENT_LIBS = -levent -levent_pthreads
 LIBMODBUS_CFLAGS = 
 LIBMODBUS_LDFLAGS = 
 LIBMODBUS_LIBS = 
@@ -248,29 +248,29 @@ LIBPCRE2_LDFLAGS =
 LIBPCRE2_LIBS = 
 LIBPCRE_CFLAGS = 
 LIBPCRE_LDFLAGS = 
-LIBPCRE_LIBS = 
+LIBPCRE_LIBS = -lpcre 
 LIBPTHREAD_CFLAGS = 
 LIBPTHREAD_LDFLAGS = 
-LIBPTHREAD_LIBS = 
-LIBS = -lpthread -lm -ldl  -lresolv 
-LIBXML2_CFLAGS = 
+LIBPTHREAD_LIBS = -lpthread
+LIBS = -lpthread -lm -ldl  -lresolv  -lpcre  
+LIBXML2_CFLAGS = -I/usr/include/libxml2 
 LIBXML2_LDFLAGS = 
-LIBXML2_LIBS = 
-LIBXML2_VERSION = 
+LIBXML2_LIBS = -lxml2 
+LIBXML2_VERSION = 2.9.7
 LOAD_MODULE_PATH = ${exec_prefix}/lib/modules
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} '/home/jenkins/workspace/zops-release/zops-6.4.4/missing' makeinfo
-MKDIR_P = /usr/bin/mkdir -p
-MYSQL_CFLAGS = 
-MYSQL_CONFIG = 
-MYSQL_LDFLAGS = 
-MYSQL_LIBS = 
-MYSQL_VERSION = 
+MAKEINFO = ${SHELL} '/home/zhul/zops-server/missing' makeinfo
+MKDIR_P = /bin/mkdir -p
+MYSQL_CFLAGS = -I/usr/include/mysql -m64 
+MYSQL_CONFIG = /bin/mysql_config
+MYSQL_LDFLAGS =  -L/usr/lib64/mysql
+MYSQL_LIBS = -lmysqlclient  -lpthread -ldl -lssl -lcrypto -lresolv -lm -lrt
+MYSQL_VERSION = 8.0.33
 OBJEXT = o
-ODBC_CONFIG = 
-OPENIPMI_CFLAGS = 
-OPENIPMI_LDFLAGS = 
-OPENIPMI_LIBS = 
+ODBC_CONFIG = /bin/odbc_config
+OPENIPMI_CFLAGS = -I/usr/include
+OPENIPMI_LDFLAGS = -L/usr/lib
+OPENIPMI_LIBS = -lOpenIPMI -lOpenIPMIposix
 OPENSSL_CFLAGS = 
 OPENSSL_LDFLAGS = 
 OPENSSL_LIBS = 
@@ -286,29 +286,26 @@ PACKAGE_TARNAME = zabbix
 PACKAGE_URL = 
 PACKAGE_VERSION = 6.4.4
 PATH_SEPARATOR = :
-PG_CONFIG = 
-PKG_CONFIG = 
-PKG_CONFIG_LIBDIR = 
-PKG_CONFIG_PATH = 
+PG_CONFIG = no
 POSTGRESQL_CFLAGS = 
 POSTGRESQL_LDFLAGS = 
 POSTGRESQL_LIBS = 
 POSTGRESQL_VERSION = 
-PROXY_CONFIG_FILE = ${prefix}/etc/zops_proxy.conf
-PROXY_LDFLAGS =      
-PROXY_LIBS =      
+PROXY_CONFIG_FILE = ${prefix}/etc/tognix_proxy.conf
+PROXY_LDFLAGS =  -L/usr/lib64   -L/usr/lib64/mysql     -L/usr/lib64   -L/usr/lib      
+PROXY_LIBS =  -lmysqlclient  -lpthread -ldl -lssl -lcrypto -lresolv -lm -lrt    -lxml2  -lodbc  -lnetsnmp   -lOpenIPMI -lOpenIPMIposix -lz -lpthread -levent -levent_pthreads    -lcurl
 RANLIB = ranlib
 RESOLV_LIBS = -lresolv
 SENDER_LDFLAGS =      
-SENDER_LIBS =      
-SERVER_CONFIG_FILE = ${prefix}/etc/zops_server.conf
-SERVER_LDFLAGS =      
-SERVER_LIBS =      
+SENDER_LIBS =  -lz -lpthread  -lz -lpthread
+SERVER_CONFIG_FILE = ${prefix}/etc/tognix_server.conf
+SERVER_LDFLAGS =  -L/usr/lib64   -L/usr/lib64/mysql     -L/usr/lib64   -L/usr/lib      
+SERVER_LIBS =  -lmysqlclient  -lpthread -ldl -lssl -lcrypto -lresolv -lm -lrt    -lxml2  -lodbc  -lnetsnmp   -lOpenIPMI -lOpenIPMIposix -lz -lpthread -levent -levent_pthreads    -lcurl
 SET_MAKE = 
-SHELL = /bin/bash
-SNMP_CFLAGS = 
-SNMP_LDFLAGS = 
-SNMP_LIBS = 
+SHELL = /bin/sh
+SNMP_CFLAGS =  -I. -I/usr/include
+SNMP_LDFLAGS =  -L/usr/lib64
+SNMP_LIBS =  -lnetsnmp
 SQLITE3_CPPFLAGS = 
 SQLITE3_LDFLAGS = 
 SQLITE3_LIBS = 
@@ -323,24 +320,24 @@ STRIP =
 TLS_CFLAGS = 
 TLS_LDFLAGS = 
 TLS_LIBS = 
-UNIXODBC_CFLAGS = 
-UNIXODBC_LDFLAGS = 
-UNIXODBC_LIBS = 
+UNIXODBC_CFLAGS = -I/usr/include
+UNIXODBC_LDFLAGS = -L/usr/lib64
+UNIXODBC_LIBS = -lodbc
 VERSION = 6.4.4
-WEBSERVICE_CONFIG_FILE = ${prefix}/etc/zops_web_service.conf
+WEBSERVICE_CONFIG_FILE = ${prefix}/etc/tognix_web_service.conf
 ZBXGET_LDFLAGS =      
-ZBXGET_LIBS =      
+ZBXGET_LIBS =  -lz -lpthread  -lz -lpthread
 ZBXJS_LDFLAGS =   
-ZBXJS_LIBS =     
+ZBXJS_LIBS =  -lz -lpthread   -lcurl
 ZLIB_CFLAGS = 
 ZLIB_LDFLAGS = 
-ZLIB_LIBS = 
-_libcurl_config = no
-_libnetsnmp_config = 
-abs_builddir = /home/jenkins/workspace/zops-release/zops-6.4.4/src/go
-abs_srcdir = /home/jenkins/workspace/zops-release/zops-6.4.4/src/go
-abs_top_builddir = /home/jenkins/workspace/zops-release/zops-6.4.4
-abs_top_srcdir = /home/jenkins/workspace/zops-release/zops-6.4.4
+ZLIB_LIBS = -lz
+_libcurl_config = 
+_libnetsnmp_config = /bin/net-snmp-config
+abs_builddir = /home/zhul/zops-server/src/go
+abs_srcdir = /home/zhul/zops-server/src/go
+abs_top_builddir = /home/zhul/zops-server
+abs_top_srcdir = /home/zhul/zops-server
 ac_ct_CC = cc
 am__include = include
 am__leading_dot = .
@@ -367,7 +364,7 @@ host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /home/jenkins/workspace/zops-release/zops-6.4.4/install-sh
+install_sh = ${SHELL} /home/zhul/zops-server/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -376,10 +373,9 @@ mandir = ${datarootdir}/man
 mkdir_p = $(MKDIR_P)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /usr/local
+prefix = /home/zhul/tognix
 program_transform_name = s,x,x,
 psdir = ${docdir}
-runstatedir = ${localstatedir}/run
 sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 srcdir = .
@@ -400,15 +396,15 @@ GOLDFLAGS = -X '${PKG}.compileDate=${BUILD_DATE}' -X \
 	-X ${PKG}.compileArch=${GOARCH}
 AGENT_GOLDFLAGS = ${GOLDFLAGS} -X \
 	main.confDefault=${AGENT2_CONFIG_FILE} -X \
-	main.applicationName=zabbix_agent2
+	main.applicationName=tognix_agent2
 WEBSERVICE_GOLDFLAGS = ${GOLDFLAGS} -X \
 	main.applicationName=zabbix_web_service
 #AGENT_GOTAGS = pcre2
-#AGENT_GOTAGS = pcre
+AGENT_GOTAGS = pcre
 dist_sysconf_DATA = $(am__append_3) $(am__append_6)
 TARGETS = $(am__append_1) $(am__append_4)
 INSTALL_TARGETS = $(am__append_2) $(am__append_5)
-#DBGTARGETS = zabbix.com/cmd/mock_server
+DBGTARGETS = zabbix.com/cmd/mock_server
 all: all-am
 
 .SUFFIXES:
@@ -622,8 +618,8 @@ uninstall-am: uninstall-dist_sysconfDATA
 
 all: build
 
-zabbix.com/cmd/zabbix_agent2:
-	CGO_CFLAGS="${CGO_CFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build -tags="${AGENT_GOTAGS}" -ldflags="${AGENT_GOLDFLAGS}" -o bin zabbix.com/cmd/zabbix_agent2
+zabbix.com/cmd/tognix_agent2:
+	CGO_CFLAGS="${CGO_CFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build -tags="${AGENT_GOTAGS}" -ldflags="${AGENT_GOLDFLAGS}" -o bin zabbix.com/cmd/tognix_agent2
 
 zabbix.com/cmd/zabbix_web_service:
 	go build -ldflags="${WEBSERVICE_GOLDFLAGS}" -o bin zabbix.com/cmd/zabbix_web_service
@@ -632,14 +628,14 @@ build: ${TARGETS}
 
 clean:
 	go clean ./...
-	rm -f bin/zabbix_agent2 bin/mock_server
+	rm -f bin/tognix_agent2 bin/mock_server
 
-install-zabbix.com/cmd/zabbix_agent2:
+install-zabbix.com/cmd/tognix_agent2:
 	CGO_CFLAGS="${CGO_CFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" GOBIN=${GOBIN} \
 		go install -ldflags="${AGENT_GOLDFLAGS}" ${TARGETS}
 	$(MKDIR_P) "$(DESTDIR)$(AGENT2_CONFIG_PLUGINS_PATH)"
-	test -f "$(DESTDIR)$(AGENT2_CONFIG_FILE)" || cp "conf/zops_agent2.conf" "$(DESTDIR)$(AGENT2_CONFIG_FILE)"
-	for cfg in conf/zabbix_agent2.d/plugins.d/*.conf; do \
+	test -f "$(DESTDIR)$(AGENT2_CONFIG_FILE)" || cp "conf/tognix_agent2.conf" "$(DESTDIR)$(AGENT2_CONFIG_FILE)"
+	for cfg in conf/tognix_agent2.d/plugins.d/*.conf; do \
 		test -f "$(DESTDIR)$(AGENT2_CONFIG_PLUGINS_PATH)/"`basename $$cfg` || \
 		cp "$$cfg" "$(DESTDIR)$(AGENT2_CONFIG_PLUGINS_PATH)/"`basename $$cfg`; \
 	done

@@ -42,7 +42,7 @@ zbx_thread_discoverer_args;
 
 ZBX_THREAD_ENTRY(discoverer_thread, args); 
 
-int	discover_service(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *ip, int port, int config_timeout, char **value, size_t *value_alloc);
+int	discover_service(zbx_db_drule *drule, const DB_DCHECK *dcheck, char *ip, int port, int config_timeout, char **value, size_t *value_alloc);
 void DB_dcheck_free(DB_DCHECK *dcheck);
 void notify_discover_thread();
 #endif

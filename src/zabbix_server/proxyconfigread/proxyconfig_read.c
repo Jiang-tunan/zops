@@ -780,6 +780,7 @@ static int	proxyconfig_get_drules_data(const DC_PROXY *proxy, struct zbx_json *j
 {
 	zbx_vector_uint64_t	druleids;
 	zbx_vector_uint64_t	proxy_hostids;
+	// zbx_vector_uint64_t	credentialids;
 	int			ret = FAIL;
 	char			*filter = NULL;
 	size_t			filter_alloc = 0, filter_offset = 0;
@@ -788,10 +789,12 @@ static int	proxyconfig_get_drules_data(const DC_PROXY *proxy, struct zbx_json *j
 
 	zbx_vector_uint64_create(&druleids);
 	zbx_vector_uint64_create(&proxy_hostids);
+	// zbx_vector_uint64_create(&credentialids);
 
 	zbx_vector_uint64_append(&proxy_hostids, proxy->hostid);
-
-	zbx_snprintf_alloc(&filter, &filter_alloc, &filter_offset, " status=%d", DRULE_STATUS_MONITORED);
+	
+	// 去掉这行，确保没有启用的扫描规则还可以手动触发扫描
+	// zbx_snprintf_alloc(&filter, &filter_alloc, &filter_offset, " status=%d", DRULE_STATUS_MONITORED);
 
 	if (SUCCEED != proxyconfig_get_table_data("drules", "proxy_hostid", &proxy_hostids, filter, &druleids, j,
 			error))
@@ -801,12 +804,16 @@ static int	proxyconfig_get_drules_data(const DC_PROXY *proxy, struct zbx_json *j
 
 	if (SUCCEED != proxyconfig_get_table_data("dchecks", "druleid", &druleids, NULL, NULL, j, error))
 		goto out;
+	
+	if (SUCCEED != proxyconfig_get_table_data("credentials", NULL, NULL, NULL, NULL, j, error))
+		goto out;
 
 	ret = SUCCEED;
 out:
 	zbx_free(filter);
 	zbx_vector_uint64_destroy(&proxy_hostids);
 	zbx_vector_uint64_destroy(&druleids);
+	// zbx_vector_uint64_destroy(&credentialids);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 
@@ -979,6 +986,13 @@ static int	proxyconfig_get_tables(const DC_PROXY *proxy, zbx_uint64_t proxy_conf
 	if (0 != flags)
 	{
 		zbx_db_begin();
+		
+		// 优先同步扫描规则
+		if (0 != (flags & ZBX_PROXYCONFIG_SYNC_DRULES) &&
+				SUCCEED != proxyconfig_get_drules_data(proxy, j, error))
+		{
+			goto out;
+		}
 
 		if (0 != (flags & ZBX_PROXYCONFIG_SYNC_HOSTS) &&
 				SUCCEED != proxyconfig_get_host_data(&updated_hostids, j, error))
@@ -1008,11 +1022,6 @@ static int	proxyconfig_get_tables(const DC_PROXY *proxy, zbx_uint64_t proxy_conf
 			}
 		}
 
-		if (0 != (flags & ZBX_PROXYCONFIG_SYNC_DRULES) &&
-				SUCCEED != proxyconfig_get_drules_data(proxy, j, error))
-		{
-			goto out;
-		}
 
 		if (0 != (flags & ZBX_PROXYCONFIG_SYNC_EXPRESSIONS) &&
 				SUCCEED != proxyconfig_get_expression_data(j, error))
@@ -1129,7 +1138,7 @@ int	zbx_proxyconfig_get_data(DC_PROXY *proxy, const struct zbx_json_parse *jp_re
 		goto out;
 	}
 
-	if (0 != zbx_dc_register_config_session(proxy->hostid, token, proxy_config_revision, &dc_revision) ||
+	if (proxy->isfullsync ||  0 != zbx_dc_register_config_session(proxy->hostid, token, proxy_config_revision, &dc_revision) ||
 			0 == proxy_config_revision)
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "%s() forcing full proxy configuration sync", __func__);
@@ -1142,14 +1151,13 @@ int	zbx_proxyconfig_get_data(DC_PROXY *proxy, const struct zbx_json_parse *jp_re
 				__func__, proxy_config_revision, dc_revision.config);
 	}
 
-	if (proxy_config_revision != dc_revision.config)
+	if (proxy->isfullsync || proxy_config_revision != dc_revision.config)
 	{
 		if (SUCCEED != (ret = proxyconfig_get_tables(proxy, proxy_config_revision, &dc_revision, j, status,
 				config_vault, error)))
 		{
 			goto out;
 		}
-
 		zbx_json_adduint64(j, ZBX_PROTO_TAG_CONFIG_REVISION, dc_revision.config);
 
 		zabbix_log(LOG_LEVEL_TRACE, "%s() configuration: %s", __func__, j->buffer);
@@ -1269,4 +1277,44 @@ out:
 	zbx_free(version_str);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
+}
+
+
+/******************************************************************************
+ *                                                                            *
+ * Purpose: prepare proxy configuration data                                  *
+ *                                                                            *
+ ******************************************************************************/
+int	tognix_zbx_proxyconfig_get_data(DC_PROXY *proxy, const struct zbx_json_parse *jp_request, struct zbx_json *j,
+		zbx_proxyconfig_status_t *status, const zbx_config_vault_t *config_vault, char **error)
+{
+	int			ret = FAIL;
+	char			token[ZBX_SESSION_TOKEN_SIZE + 1], tmp[ZBX_MAX_UINT64_LEN + 1];
+	zbx_uint64_t		proxy_config_revision;
+	zbx_dc_revision_t	dc_revision;
+  
+	proxy_config_revision = 0;
+	zbx_json_addint64(j, ZBX_PROTO_TAG_FULL_SYNC, 0);
+	 
+
+	if (proxy->isfullsync || proxy_config_revision != dc_revision.config)
+	{
+		if (SUCCEED != (ret = proxyconfig_get_tables(proxy, proxy_config_revision, &dc_revision, j, status,
+				config_vault, error)))
+		{
+			goto out;
+		}
+		zbx_json_adduint64(j, ZBX_PROTO_TAG_CONFIG_REVISION, dc_revision.config);
+
+		zabbix_log(LOG_LEVEL_TRACE, "%s() configuration: %s", __func__, j->buffer);
+	}
+	else
+	{
+		*status = ZBX_PROXYCONFIG_STATUS_EMPTY;
+		ret = SUCCEED;
+	}
+out:
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__, zbx_result_string(ret));
+
+	return ret;
 }

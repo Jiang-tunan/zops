@@ -88,7 +88,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = zops_sender$(EXEEXT)
+bin_PROGRAMS = tognix_sender$(EXEEXT)
 subdir = src/zabbix_sender
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_lib_mysql.m4 \
@@ -115,10 +115,10 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_zops_sender_OBJECTS = zops_sender-zabbix_sender.$(OBJEXT)
-zops_sender_OBJECTS = $(am_zops_sender_OBJECTS)
+am_tognix_sender_OBJECTS = tognix_sender-zabbix_sender.$(OBJEXT)
+tognix_sender_OBJECTS = $(am_tognix_sender_OBJECTS)
 am__DEPENDENCIES_1 =
-zops_sender_DEPENDENCIES =  \
+tognix_sender_DEPENDENCIES =  \
 	$(top_builddir)/src/libs/zbxjson/libzbxjson.a \
 	$(top_builddir)/src/libs/zbxalgo/libzbxalgo.a \
 	$(top_builddir)/src/libs/zbxregexp/libzbxregexp.a \
@@ -142,8 +142,8 @@ zops_sender_DEPENDENCIES =  \
 	$(top_builddir)/src/libs/zbxtime/libzbxtime.a \
 	$(top_builddir)/src/libs/zbxip/libzbxip.a \
 	$(am__DEPENDENCIES_1)
-zops_sender_LINK = $(CCLD) $(zops_sender_CFLAGS) $(CFLAGS) \
-	$(zops_sender_LDFLAGS) $(LDFLAGS) -o $@
+tognix_sender_LINK = $(CCLD) $(tognix_sender_CFLAGS) $(CFLAGS) \
+	$(tognix_sender_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -158,7 +158,7 @@ am__v_at_0 = @
 am__v_at_1 = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__maybe_remake_depfiles = depfiles
-am__depfiles_remade = ./$(DEPDIR)/zops_sender-zabbix_sender.Po
+am__depfiles_remade = ./$(DEPDIR)/tognix_sender-zabbix_sender.Po
 am__mv = mv -f
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
@@ -176,8 +176,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(zops_sender_SOURCES)
-DIST_SOURCES = $(zops_sender_SOURCES)
+SOURCES = $(tognix_sender_SOURCES)
+DIST_SOURCES = $(tognix_sender_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -319,9 +319,6 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -411,7 +408,6 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
-runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -420,10 +416,10 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-zops_sender_SOURCES = \
+tognix_sender_SOURCES = \
 	zabbix_sender.c
 
-zops_sender_LDADD = \
+tognix_sender_LDADD = \
 	$(top_builddir)/src/libs/zbxjson/libzbxjson.a \
 	$(top_builddir)/src/libs/zbxalgo/libzbxalgo.a \
 	$(top_builddir)/src/libs/zbxregexp/libzbxregexp.a \
@@ -448,8 +444,8 @@ zops_sender_LDADD = \
 	$(top_builddir)/src/libs/zbxip/libzbxip.a \
 	$(SENDER_LIBS)
 
-zops_sender_LDFLAGS = $(SENDER_LDFLAGS)
-zops_sender_CFLAGS = $(TLS_CFLAGS)
+tognix_sender_LDFLAGS = $(SENDER_LDFLAGS)
+tognix_sender_CFLAGS = $(TLS_CFLAGS)
 EXTRA_DIST = win32
 all: all-am
 
@@ -527,9 +523,9 @@ uninstall-binPROGRAMS:
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
 
-zops_sender$(EXEEXT): $(zops_sender_OBJECTS) $(zops_sender_DEPENDENCIES) $(EXTRA_zops_sender_DEPENDENCIES) 
-	@rm -f zops_sender$(EXEEXT)
-	$(AM_V_CCLD)$(zops_sender_LINK) $(zops_sender_OBJECTS) $(zops_sender_LDADD) $(LIBS)
+tognix_sender$(EXEEXT): $(tognix_sender_OBJECTS) $(tognix_sender_DEPENDENCIES) $(EXTRA_tognix_sender_DEPENDENCIES) 
+	@rm -f tognix_sender$(EXEEXT)
+	$(AM_V_CCLD)$(tognix_sender_LINK) $(tognix_sender_OBJECTS) $(tognix_sender_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -537,7 +533,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/zops_sender-zabbix_sender.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tognix_sender-zabbix_sender.Po@am__quote@ # am--include-marker
 
 $(am__depfiles_remade):
 	@$(MKDIR_P) $(@D)
@@ -561,19 +557,19 @@ am--depfiles: $(am__depfiles_remade)
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-zops_sender-zabbix_sender.o: zabbix_sender.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_sender_CFLAGS) $(CFLAGS) -MT zops_sender-zabbix_sender.o -MD -MP -MF $(DEPDIR)/zops_sender-zabbix_sender.Tpo -c -o zops_sender-zabbix_sender.o `test -f 'zabbix_sender.c' || echo '$(srcdir)/'`zabbix_sender.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_sender-zabbix_sender.Tpo $(DEPDIR)/zops_sender-zabbix_sender.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_sender.c' object='zops_sender-zabbix_sender.o' libtool=no @AMDEPBACKSLASH@
+tognix_sender-zabbix_sender.o: zabbix_sender.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_sender_CFLAGS) $(CFLAGS) -MT tognix_sender-zabbix_sender.o -MD -MP -MF $(DEPDIR)/tognix_sender-zabbix_sender.Tpo -c -o tognix_sender-zabbix_sender.o `test -f 'zabbix_sender.c' || echo '$(srcdir)/'`zabbix_sender.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_sender-zabbix_sender.Tpo $(DEPDIR)/tognix_sender-zabbix_sender.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_sender.c' object='tognix_sender-zabbix_sender.o' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_sender_CFLAGS) $(CFLAGS) -c -o zops_sender-zabbix_sender.o `test -f 'zabbix_sender.c' || echo '$(srcdir)/'`zabbix_sender.c
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_sender_CFLAGS) $(CFLAGS) -c -o tognix_sender-zabbix_sender.o `test -f 'zabbix_sender.c' || echo '$(srcdir)/'`zabbix_sender.c
 
-zops_sender-zabbix_sender.obj: zabbix_sender.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_sender_CFLAGS) $(CFLAGS) -MT zops_sender-zabbix_sender.obj -MD -MP -MF $(DEPDIR)/zops_sender-zabbix_sender.Tpo -c -o zops_sender-zabbix_sender.obj `if test -f 'zabbix_sender.c'; then $(CYGPATH_W) 'zabbix_sender.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_sender.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/zops_sender-zabbix_sender.Tpo $(DEPDIR)/zops_sender-zabbix_sender.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_sender.c' object='zops_sender-zabbix_sender.obj' libtool=no @AMDEPBACKSLASH@
+tognix_sender-zabbix_sender.obj: zabbix_sender.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_sender_CFLAGS) $(CFLAGS) -MT tognix_sender-zabbix_sender.obj -MD -MP -MF $(DEPDIR)/tognix_sender-zabbix_sender.Tpo -c -o tognix_sender-zabbix_sender.obj `if test -f 'zabbix_sender.c'; then $(CYGPATH_W) 'zabbix_sender.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_sender.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/tognix_sender-zabbix_sender.Tpo $(DEPDIR)/tognix_sender-zabbix_sender.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='zabbix_sender.c' object='tognix_sender-zabbix_sender.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(zops_sender_CFLAGS) $(CFLAGS) -c -o zops_sender-zabbix_sender.obj `if test -f 'zabbix_sender.c'; then $(CYGPATH_W) 'zabbix_sender.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_sender.c'; fi`
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(tognix_sender_CFLAGS) $(CFLAGS) -c -o tognix_sender-zabbix_sender.obj `if test -f 'zabbix_sender.c'; then $(CYGPATH_W) 'zabbix_sender.c'; else $(CYGPATH_W) '$(srcdir)/zabbix_sender.c'; fi`
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -702,7 +698,7 @@ clean: clean-am
 clean-am: clean-binPROGRAMS clean-generic mostlyclean-am
 
 distclean: distclean-am
-		-rm -f ./$(DEPDIR)/zops_sender-zabbix_sender.Po
+		-rm -f ./$(DEPDIR)/tognix_sender-zabbix_sender.Po
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -748,7 +744,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-		-rm -f ./$(DEPDIR)/zops_sender-zabbix_sender.Po
+		-rm -f ./$(DEPDIR)/tognix_sender-zabbix_sender.Po
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

@@ -266,7 +266,7 @@ int	zbx_daemon_start(int allow_root, const char *user, unsigned int flags,
 	if (0 == allow_root && 0 == getuid())	/* running as root? */
 	{
 		if (NULL == user)
-			user = "zops";
+			user = "tognix";
 
 		pwd = getpwnam(user);
 

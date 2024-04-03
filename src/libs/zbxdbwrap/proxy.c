@@ -40,6 +40,7 @@
 #include "zbx_host_constants.h"
 #include "zbx_item_constants.h"
 #include "zbxcachehistory.h"
+#include "../../libs/zbxcacheconfig/dbconfig.h"
 
 extern char	*CONFIG_SERVER;
 
@@ -214,6 +215,38 @@ int	zbx_proxy_check_permissions(const DC_PROXY *proxy, const zbx_socket_t *sock,
 #endif
 #endif
 	return SUCCEED;
+}
+
+/**
+ * 校验 代理的许可权限，即:校验license允许的代理个数和实际代理个数之间的值。如果代理个数超过了license允许的代理个数，
+ * 则最后添加的超过许可个数的几个代理相关所有的主机，软件哪些都不监控
+*/
+int	zbx_proxy_check_allow_permissions(const DC_PROXY *proxy)
+{
+	int ret = SUCCEED;
+
+	if(NULL == proxy){
+		ret = FAIL;
+		goto out;
+	}
+
+	ZBX_DC_HOST *host = NULL;
+	ZBX_DC_HOST_H	host_p_local;
+	host_p_local.host = proxy->host;
+ 
+	if (NULL != (host = (const ZBX_DC_HOST *)zbx_hashset_search(&config->hosts, &proxy->hostid))
+	  || NULL != (host = (ZBX_DC_HOST_H *)zbx_hashset_search(&config->hosts_p, &host_p_local)))
+	{
+		if(host->maintenance_status == HOST_MAINTENANCE_STATUS_FORBIDED){
+			ret = FAIL;
+		}
+	}
+out:
+	if(SUCCEED != ret)
+		zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s  ret=%d, hostid=%llu, host=%s, ip=%s, mstatus=%d", 
+	 		__func__, ret, proxy->hostid, proxy->host, proxy->proxy_address, host->maintenance_status);
+
+	return ret;
 }
 
 /******************************************************************************
@@ -2233,19 +2266,25 @@ static void	zbx_drule_free(zbx_drule_t *drule)
  *                                                                            *
  ******************************************************************************/
 static int	process_services(const zbx_vector_ptr_t *services, const char *ip, zbx_uint64_t druleid,
-		zbx_vector_uint64_t *dcheckids, zbx_uint64_t unique_dcheckid, int *processed_num, int ip_idx)
+		zbx_vector_uint64_t *dcheckids, zbx_uint64_t unique_dcheckid, int *processed_num, int ip_idx, 
+		zbx_uint64_t proxy_hostid, zbx_vector_ptr_t *dhosts)
 {
-	zbx_db_dhost		dhost;
+	zbx_db_dhost		dhost, *p_dhost=NULL;
 	zbx_dservice_t		*service;
 	int			services_num, ret = FAIL, i, dchecks = 0;
 	zbx_vector_ptr_t	services_old;
 	zbx_db_drule		drule = {.druleid = druleid, .unique_dcheckid = unique_dcheckid};
+	
+	zbx_vector_ptr_t	v_dchecks;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s(proxy)", __func__);
 
 	memset(&dhost, 0, sizeof(dhost));
 
 	zbx_vector_ptr_create(&services_old);
+	
+	zbx_vector_ptr_create(&v_dchecks);
+	drule.proxy_hostid = proxy_hostid;
 
 	/* find host update */
 	for (i = *processed_num; i < services->values_num; i++)
@@ -2339,22 +2378,30 @@ static int	process_services(const zbx_vector_ptr_t *services, const char *ip, zb
 
 		if (SUCCEED != zbx_db_lock_druleid(drule.druleid))
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "druleid:" ZBX_FS_UI64 " does not exist", drule.druleid);
+			zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s druleid:" ZBX_FS_UI64 " does not exist",  __func__, drule.druleid);
 			goto fail;
 		}
 
 		if (SUCCEED != zbx_db_lock_ids("dchecks", "dcheckid", dcheckids))
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "checks are not available for druleid:" ZBX_FS_UI64, drule.druleid);
+			zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s checks are not available for druleid:" ZBX_FS_UI64, __func__, drule.druleid);
 			goto fail;
 		}
 	}
 
 	if (0 == dchecks)
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "cannot process host update without services");
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s cannot process host update without services", __func__);
 		goto fail;
 	}
+	
+	int index,next_drule=0;
+	int unique = (0 != drule.unique_dcheckid ? 1:0);
+	DB_DCHECK	*dcheck=NULL;
+
+	dc_get_dchecks(&drule, unique, &v_dchecks, NULL);
+
+	init_discovery_hosts(0);
 
 	for (i = 0; i < services_old.values_num; i++)
 	{
@@ -2365,10 +2412,22 @@ static int	process_services(const zbx_vector_ptr_t *services, const char *ip, zb
 			zabbix_log(LOG_LEVEL_DEBUG, "dcheckid:" ZBX_FS_UI64 " does not exist", service->dcheckid);
 			continue;
 		}
-
-		//todo:1111 暂时用NULL 参数需要适配
+		zabbix_log(LOG_LEVEL_DEBUG, "%s  dcheckid=%ld", __func__, service->dcheckid);
+		if (FAIL == (index = zbx_vector_ptr_search(&v_dchecks, &service->dcheckid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC))){
+			continue;
+		}else{
+			dcheck = (DB_DCHECK *)v_dchecks.values[index];
+		}
+		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s  oldproxy  druleid=%d, dcheckid=%d, ip=%s", 
+			__func__, drule.druleid, dcheck->dcheckid, ip);
+		
 		zbx_discovery_update_service(&drule, service->dcheckid, &dhost, ip, service->dns, service->port,
-				service->status, service->value, service->itemtime, NULL);
+				service->status, service->value, service->itemtime, dcheck);
+
+		p_dhost = (zbx_db_dhost *)zbx_malloc(NULL,sizeof(dhost));
+		memset(p_dhost, 0, sizeof(zbx_db_dhost));
+		memcpy(p_dhost, &dhost, sizeof(p_dhost));
+		zbx_vector_ptr_append(dhosts, p_dhost);
 	}
 
 	for (;*processed_num < services_num; (*processed_num)++)
@@ -2380,10 +2439,24 @@ static int	process_services(const zbx_vector_ptr_t *services, const char *ip, zb
 			zabbix_log(LOG_LEVEL_DEBUG, "dcheckid:" ZBX_FS_UI64 " does not exist", service->dcheckid);
 			continue;
 		}
+		if (FAIL == (index = zbx_vector_ptr_search(&v_dchecks, &service->dcheckid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC))){
+			continue;
+		}else{
+			dcheck = (DB_DCHECK *)v_dchecks.values[index];
+		}
+		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s  proxy druleid=%d, dcheckid=%d, ip=%s", 
+			__func__, drule.druleid, dcheck->dcheckid, ip);
+		if(DOBJECT_STATUS_UP == service->status)
+		{
+			zbx_discovery_update_service(&drule, service->dcheckid, &dhost, ip, service->dns, service->port,
+				service->status, service->value, service->itemtime, dcheck);
+			
+			p_dhost = (zbx_db_dhost *)zbx_malloc(NULL,sizeof(dhost));
+			memset(p_dhost, 0, sizeof(zbx_db_dhost));
+			memcpy(p_dhost, &dhost, sizeof(p_dhost));
+			zbx_vector_ptr_append(dhosts, p_dhost);
+		}
 
-		//todo:1111 暂时用NULL 参数需要适配
-		zbx_discovery_update_service(&drule, service->dcheckid, &dhost, ip, service->dns, service->port,
-				service->status, service->value, service->itemtime, NULL);
 	}
 
 	service = (zbx_dservice_t *)services->values[(*processed_num)++];
@@ -2393,8 +2466,10 @@ static int	process_services(const zbx_vector_ptr_t *services, const char *ip, zb
 fail:
 	zbx_vector_ptr_clear_ext(&services_old, zbx_ptr_free);
 	zbx_vector_ptr_destroy(&services_old);
+  
+	zbx_vector_ptr_destroy(&v_dchecks);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__, zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s(proxy):%s", __func__, zbx_result_string(ret));
 
 	return ret;
 }
@@ -2411,7 +2486,7 @@ fail:
  *                FAIL - an error occurred                                    *
  *                                                                            *
  ******************************************************************************/
-static int	process_discovery_data_contents(struct zbx_json_parse *jp_data, char **error)
+static int	process_discovery_data_contents(const DC_PROXY *proxy, struct zbx_json_parse *jp_data, char **error)
 {
 	DB_RESULT		result;
 	DB_ROW			row;
@@ -2428,6 +2503,10 @@ static int	process_discovery_data_contents(struct zbx_json_parse *jp_data, char 
 	zbx_drule_t		*drule;
 	zbx_drule_ip_t		*drule_ip;
 	zbx_dservice_t		*service;
+	
+	zbx_db_dhost		*dhost;
+	zbx_vector_ptr_t	dhosts;
+	zbx_vector_ptr_create(&dhosts);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
 
@@ -2562,7 +2641,7 @@ json_parse_error:
 			while (processed_num != drule_ip->services.values_num)
 			{
 				if (FAIL == (ret2 = process_services(&drule_ip->services, drule_ip->ip, drule->druleid,
-						&drule->dcheckids, unique_dcheckid, &processed_num, j)))
+						&drule->dcheckids, unique_dcheckid, &processed_num, j, proxy->hostid, &dhosts)))
 				{
 					break;
 				}
@@ -2573,11 +2652,20 @@ json_parse_error:
 		zbx_clean_events();
 		zbx_db_commit();
 	}
+
+	// 绑定模板，必须在zbx_db_commit()后执行，否则对导致绑定模板失败
+	for(int i = 0; i < dhosts.values_num; i ++)
+	{
+		dhost = (zbx_db_dhost *)dhosts.values[i];
+		discovery_update_other(dhost);
+	}
 json_parse_return:
 	zbx_free(value);
 
 	zbx_vector_ptr_clear_ext(&drules, (zbx_clean_func_t)zbx_drule_free);
 	zbx_vector_ptr_destroy(&drules);
+
+	zbx_vector_ptr_destroy(&dhosts);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__, zbx_result_string(ret));
 
@@ -2640,7 +2728,7 @@ static int	process_autoregistration_contents(struct zbx_json_parse *jp_data, zbx
 
 		if (FAIL == zbx_check_hostname(host, NULL))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "%s(): \"%s\" is not a valid Zops host name", __func__, host);
+			zabbix_log(LOG_LEVEL_WARNING, "%s(): \"%s\" is not a valid tognix host name", __func__, host);
 			continue;
 		}
 
@@ -2993,7 +3081,7 @@ int	zbx_process_proxy_data(const DC_PROXY *proxy, struct zbx_json_parse *jp, zbx
 
 	if (SUCCEED == zbx_json_brackets_by_name(jp, ZBX_PROTO_TAG_DISCOVERY_DATA, &jp_data))
 	{
-		if (SUCCEED != (ret = process_discovery_data_contents(&jp_data, &error_step)))
+		if (SUCCEED != (ret = process_discovery_data_contents(proxy, &jp_data, &error_step)))
 			zbx_strcatnl_alloc(error, &error_alloc, &error_offset, error_step);
 	}
 

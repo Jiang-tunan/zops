@@ -1,6 +1,6 @@
 /*
-** Zops
-** Copyright (C) 2001-2023 Zops SIA
+** tognix
+** Copyright (C) 2001-2023 tognix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 #include "zbxserver.h"
 #include "zbxdbwrap.h"
 #include "trapper_discovery.h"
+#include "trapper_dproxy.h"
 
 #include "log.h"
 #include "zbxself.h"
@@ -57,6 +58,8 @@ static zbx_get_program_type_f          zbx_get_program_type_cb = NULL;
 static int g_lic_result = 0;
 
 extern size_t				(*find_psk_in_cache)(const unsigned char *, unsigned char *, unsigned int *);
+
+extern int g_running_program_type;
 
 typedef struct
 {
@@ -130,7 +133,7 @@ static void	recv_agenthistory(zbx_socket_t *sock, struct zbx_json_parse *jp, zbx
 	}
 	else if (!ZBX_IS_RUNNING())
 	{
-		info = zbx_strdup(info, "Zops server shutdown in progress");
+		info = zbx_strdup(info, "tognix server shutdown in progress");
 		zabbix_log(LOG_LEVEL_WARNING, "cannot receive agent history data from \"%s\": %s", sock->peer, info);
 		ret = FAIL;
 	}
@@ -161,7 +164,7 @@ static void	recv_senderhistory(zbx_socket_t *sock, struct zbx_json_parse *jp, zb
 	}
 	else if (!ZBX_IS_RUNNING())
 	{
-		info = zbx_strdup(info, "Zops server shutdown in progress");
+		info = zbx_strdup(info, "tognix server shutdown in progress");
 		zabbix_log(LOG_LEVEL_WARNING, "cannot process sender data from \"%s\": %s", sock->peer, info);
 		ret = FAIL;
 	}
@@ -858,11 +861,11 @@ out:
 
 /******************************************************************************
  *                                                                            *
- * Purpose: process Zops stats request                                      *
+ * Purpose: process tognix stats request                                      *
  *                                                                            *
  * Parameters: sock                - [IN] request socket                      *
  *             jp                  - [IN] request data                        *
- *             config_comms        - [IN] Zops server/proxy configuration   *
+ *             config_comms        - [IN] tognix server/proxy configuration   *
  *                        for communication                                   *
  *             config_startup_time - [IN] program startup time                *
  *                                                                            *
@@ -1076,14 +1079,21 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 		const zbx_config_comms_args_t *config_comms, const zbx_config_vault_t *config_vault,
 		int config_startup_time)
 {
+	zabbix_log(LOG_LEVEL_DEBUG, "recv request: socket=%d, ip=%s, bytes_received=%ld, msg='%s'",
+		sock->socket, sock->peer, bytes_received, s);
+	if(NULL == s || strlen(s) == 0){
+		zabbix_log(LOG_LEVEL_DEBUG, "recv request fail! socket=%d, ip=%s",sock->socket, sock->peer);
+		return FAIL;
+	}
+	
 	int	ret = SUCCEED;
-
 	zbx_rtrim(s, " \r\n");
-	zabbix_log(LOG_LEVEL_DEBUG, "recv request: socket=%d, msg='%s'",sock->socket, s);
+	
 	if ('{' == *s)	/* JSON protocol */
 	{
 		struct zbx_json_parse	jp;
-		char			value[MAX_STRING_LEN] = "";
+		char tstr[256]="", value[MAX_STRING_LEN] = "";
+		int proxyhostid = 0;
 
 		if (SUCCEED != zbx_json_open(s, &jp))
 		{
@@ -1095,7 +1105,11 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 
 		if (SUCCEED != zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_REQUEST, value, sizeof(value), NULL))
 			return FAIL;
-
+		
+		if (SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_PROXYHOSTID, tstr, sizeof(tstr), NULL)){
+			proxyhostid = zbx_atoi(tstr);
+		}
+		
 		if (ZBX_GIBIBYTE < bytes_received && 0 != strcmp(value, ZBX_PROTO_VALUE_PROXY_CONFIG))
 		{
 			zabbix_log(LOG_LEVEL_WARNING, "message size " ZBX_FS_I64 " exceeds the maximum size "
@@ -1117,10 +1131,11 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 		{
 			ret = send_license_query(sock, &jp, config_comms->config_timeout);
 		}
-		else if(g_lic_result != LICENSE_SUCCESS)  //许可失败，不处理其他请求
+		else if(ZBX_PROGRAM_TYPE_SERVER == g_running_program_type &&
+			g_lic_result != LICENSE_SUCCESS)  //许可失败，不处理其他请求
 		{
 			zbx_send_response(sock, g_lic_result, "verify license fail!", config_comms->config_timeout);
-			zabbix_log(LOG_LEVEL_ERR, "#ZOPS#process_trap license fail! result=%d, request=%s", g_lic_result, s);
+			zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#process_trap license fail! result=%d, request=%s", g_lic_result, s);
 			return g_lic_result;
 		}
 		
@@ -1191,21 +1206,34 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 		{
 			ret = process_active_check_heartbeat(&jp);
 		}
-		else if (0 == strcmp(value, DISCOVERY_RULES_PROGRESS))
+		else if (0 == strcmp(value, DISCOVERY_RULES_PROGRESS) ||
+			0 == strcmp(value, DISCOVERY_RULES_ACTIVATE) ||
+			0 == strcmp(value, DISCOVERY_RULES_STOP) ||
+			0 == strcmp(value, DISCOVERY_RULES_SINGLE_SCAN))
 		{
-			ret = discovery_rules_state(sock, s, config_comms->config_timeout);
+			// zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#DISCOVERY_RULES proxyhostid=%d, running_proxy=%d, request=%s", 
+			// 	proxyhostid, g_running_program_type, value);
+
+			if(proxyhostid > 0 && ZBX_PROGRAM_TYPE_SERVER == g_running_program_type){ //从php端发过来发到代理服务器的请求
+				char session[128];
+				zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_SESSION, &session, sizeof(session), NULL);
+				
+				ret = discovery_rules_proxy(value, session, proxyhostid, sock, s, config_comms->config_timeout, config_vault);
+			}else{ //从php端发过来发到服务端的请求
+				ret = discovery_rules_state(sock, s, config_comms->config_timeout);
+			}
 		}
-		else if (0 == strcmp(value, DISCOVERY_RULES_ACTIVATE))
+		else if (0 == strcmp(value, COMMON_CHECK_IP_CONNECT))
 		{
-			ret = discovery_rules_state(sock, s, config_comms->config_timeout);
+			ret = discovery_comm_check_ip_connect(sock, &jp, config_comms->config_timeout);
 		}
-		else if (0 == strcmp(value, DISCOVERY_RULES_STOP))
+		else if (0 == strcmp(value, DISCOVERY_CHECK_PROXY_SERVER))
 		{
-			ret = discovery_rules_state(sock, s, config_comms->config_timeout);
+			ret = discovery_check_proxy_server(sock, s, &jp, config_comms->config_timeout);
 		}
-		else if (0 == strcmp(value, DISCOVERY_RULES_SINGLE_SCAN))
+		else if (0 == strcmp(value, PROXY_CHECK_PROXY_SERVER))
 		{
-			ret = discovery_rules_state(sock, s, config_comms->config_timeout);
+			ret = proxy_check_proxy_server(sock, s, &jp, config_comms->config_timeout);
 		}
 		else if (SUCCEED != trapper_process_request(value, sock, &jp, config_comms->config_tls, config_vault,
 				zbx_get_program_type_cb, config_comms->config_timeout, s))
@@ -1216,7 +1244,7 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 	}
 	else if(g_lic_result != LICENSE_SUCCESS)  //软件许可失败，不处理其他请求
 	{
-		zabbix_log(LOG_LEVEL_ERR, "#ZOPS#process_trap license fail!! result=%d, request=%s", g_lic_result, s);
+		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#process_trap license fail!! result=%d, request=%s", g_lic_result, s);
 		return g_lic_result;
 	}
 	else if (0 == strncmp(s, "ZBX_GET_ACTIVE_CHECKS", 21))	/* request for list of active checks */
@@ -1304,9 +1332,12 @@ static void	process_trapper_child(zbx_socket_t *sock, zbx_timespec_t *ts,
 {
 	ssize_t	bytes_received;
 
-	if (FAIL == (bytes_received = zbx_tcp_recv_ext(sock, CONFIG_TRAPPER_TIMEOUT, ZBX_TCP_LARGE)))
+	if (FAIL == (bytes_received = zbx_tcp_recv_ext(sock, CONFIG_TRAPPER_TIMEOUT, ZBX_TCP_LARGE))){
+		zabbix_log(LOG_LEVEL_DEBUG, "recv request fail! socket=%d,ip=%s, bytes_received=%d",
+			sock->socket,sock->peer, bytes_received);
 		return;
-
+	}
+	
 	process_trap(sock, sock->buffer, bytes_received, ts, config_comms, config_vault, config_startup_time);
 }
 
@@ -1332,7 +1363,7 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 			server_num, get_process_type_string(process_type), process_num);
 			
 	g_lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#trapper init_license. result=%d, is_success=%d", g_lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#trapper init_license. result=%d, is_success=%d", g_lic_result, LIC_IS_SUCCESS());
 
 	zbx_update_selfmon_counter(info, ZBX_PROCESS_STATE_BUSY);
 
@@ -1350,6 +1381,7 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 	zbx_rtc_subscribe(process_type, process_num, rtc_msgs, ARRSIZE(rtc_msgs),
 			trapper_args_in->config_comms->config_timeout, &rtc);
 #endif
+
 
 	discovery_rules_trapper_thread_init(server_num); //接收线程初始化
 	
@@ -1400,6 +1432,8 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 				}
 
 			}
+
+			s.rtc = &rtc; // 异步向其他进程通信用
 #endif
 			sec = zbx_time();
 			process_trapper_child(&s, &ts, trapper_args_in->config_comms, trapper_args_in->config_vault,

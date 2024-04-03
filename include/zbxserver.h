@@ -87,8 +87,11 @@ typedef enum
 	SVC_SNMPv3,
 	SVC_HTTPS,
 	SVC_TELNET,
-	SVC_IPMI
-	//todo:1111 在这里加一个ipmi会有其他地方需要有对应的调整，需要确认如果php选ipmi能否自动发现设备，对应的发现代码在哪里写的
+	SVC_IPMI,    //新增加扫描方式 by v1.2.0
+	SVC_VMWARE,   //新增加扫描方式 by v1.2.0
+	SVC_JMX,	  //新增加扫描方式 by v1.3.0
+	SVC_NUTANIX,  //新增加扫描方式 by v1.3.0
+	SVC_ODBC
 }
 zbx_dservice_type_t;
 

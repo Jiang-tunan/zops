@@ -22,10 +22,14 @@
 
 #include "zbxcacheconfig.h"
 #include "module.h"
-
+#include "../../libs/zbxcomms/comms.h"
+#include "../../../include/zbxcomms.h"
 extern char	*CONFIG_SOURCE_IP;
 
 int	get_value_agent(const DC_ITEM *item, AGENT_RESULT *result);
 int	get_value_agent_discovery(DC_ITEM *item, AGENT_RESULT *result);
+int	get_value_agent_single(DC_ITEM *item, AGENT_RESULT *result);
+int tognix_tcp_connect(zbx_socket_t *s, const char *source_ip, const char *ip, unsigned short port, int timeout,
+		unsigned int tls_connect, const char *tls_arg1, const char *tls_arg2, int type);
 
 #endif

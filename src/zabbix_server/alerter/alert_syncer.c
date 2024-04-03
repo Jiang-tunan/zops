@@ -158,7 +158,7 @@ static int	am_db_get_alerts(zbx_vector_ptr_t *alerts)
 	zbx_db_add_condition_alloc(&sql, &sql_alloc, &sql_offset, "a.status", status_filter, status_limit);
 	zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, " order by a.alertid");
 
-	//zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#alert_syncer-%s,sql=%s", __func__, sql);
+	//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#alert_syncer-%s,sql=%s", __func__, sql);
 	zbx_db_begin();
 	result = zbx_db_select("%s", sql);
 	sql_offset = 0;
@@ -943,7 +943,7 @@ ZBX_THREAD_ENTRY(zbx_alert_syncer_thread, args)
 	zbx_setproctitle("%s [started, idle %d sec]", get_process_type_string(process_type), sleeptime);
 	
 	int lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#ZOPS#alert_syncer init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#alert_syncer init_license. result=%d, is_success=%d", lic_result, LIC_IS_SUCCESS());
 
 	while (ZBX_IS_RUNNING() && LIC_IS_SUCCESS())
 	{

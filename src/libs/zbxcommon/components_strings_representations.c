@@ -197,6 +197,14 @@ const char	*zbx_interface_type_string(zbx_interface_type_t type)
 			return "any";
 		case INTERFACE_TYPE_VMWARE:
 			return "VMWare";
+		case INTERFACE_TYPE_HTTP:
+			return "HTTP";
+		case INTERFACE_TYPE_ICMP:
+			return "ICMP";
+		case INTERFACE_TYPE_NUTANIX:
+			return "NUTANIX";
+		case INTERFACE_TYPE_ODBC:
+			return "ODBC";
 		case INTERFACE_TYPE_UNKNOWN:
 		default:
 			return "unknown";

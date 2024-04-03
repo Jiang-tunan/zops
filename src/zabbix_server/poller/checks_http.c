@@ -33,11 +33,13 @@ int	get_value_http(const DC_ITEM *item, AGENT_RESULT *result)
 			item->verify_host, item->authtype, item->username, item->password, NULL, item->post_type,
 			item->status_codes, item->output_format, &out, &error)))
 	{
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s() success. url=%s,value=%s",__func__,item->url,out);
 		SET_TEXT_RESULT(result, out);
 		out = NULL;
 	}
 	else
 	{
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s() fail. url=%s,error=%s",__func__,item->url,error);
 		SET_MSG_RESULT(result, error);
 		error = NULL;
 	}

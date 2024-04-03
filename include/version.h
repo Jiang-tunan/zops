@@ -23,7 +23,7 @@
 #define ZBX_STR2(str)	#str
 #define ZBX_STR(str)	ZBX_STR2(str)
 
-#define APPLICATION_NAME	"ZOps Agent"
+#define APPLICATION_NAME	"tognix Agent"
 #define ZABBIX_REVDATE		"27 June 2023"
 #define ZABBIX_VERSION_MAJOR	6
 #define ZABBIX_VERSION_MINOR	4

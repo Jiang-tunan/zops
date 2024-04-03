@@ -171,7 +171,7 @@ static int	dbsync_compare_uint64(const char *value_raw, zbx_uint64_t value)
  ******************************************************************************/
 static int	dbsync_compare_int(const char *value_raw, int value)
 {
-	return (atoi(value_raw) == value ? SUCCEED : FAIL);
+	return (zbx_atoi(value_raw) == value ? SUCCEED : FAIL);
 }
 
 /******************************************************************************
@@ -196,7 +196,7 @@ static int	dbsync_compare_uchar(const char *value_raw, unsigned char value)
 
 static int	dbsync_compare_str(const char *value_raw, const char *value)
 {
-	return (0 == strcmp(value_raw, value) ? SUCCEED : FAIL);
+	return (0 == zbx_strcmp_null(value_raw, value) ? SUCCEED : FAIL);
 }
 
 /******************************************************************************
@@ -1508,7 +1508,8 @@ int	zbx_dbsync_compare_host_macros(zbx_dbsync_t *sync)
 static int	dbsync_compare_interface(const ZBX_DC_INTERFACE *interface, const DB_ROW dbrow)
 {
 	ZBX_DC_SNMPINTERFACE *snmp;
-
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
+	//zabbix_log(LOG_LEVEL_DEBUG, "In %s() is_interface_null=%d", __func__, (interface==NULL?1:0));
 	if (FAIL == dbsync_compare_uint64(dbrow[1], interface->hostid))
 		return FAIL;
 
@@ -1521,15 +1522,15 @@ static int	dbsync_compare_interface(const ZBX_DC_INTERFACE *interface, const DB_
 	if (FAIL == dbsync_compare_uchar(dbrow[4], interface->useip))
 		return FAIL;
 
-	if (NULL != strstr(dbrow[5], "{$"))
+	if (NULL != zbx_strstr(dbrow[5], "{$"))
 		return FAIL;
 
 	if (FAIL == dbsync_compare_str(dbrow[5], interface->ip))
 		return FAIL;
 
-	if (NULL != strstr(dbrow[6], "{$"))
+	if (NULL != zbx_strstr(dbrow[6], "{$"))
 		return FAIL;
-
+	//zabbix_log(LOG_LEVEL_DEBUG, "%s compare interface 6.", __func__);
 	if (FAIL == dbsync_compare_str(dbrow[6], interface->dns))
 		return FAIL;
 
@@ -1542,16 +1543,17 @@ static int	dbsync_compare_interface(const ZBX_DC_INTERFACE *interface, const DB_
 	if (FAIL == dbsync_compare_int(dbrow[9], interface->disable_until))
 		return FAIL;
 
-	if (FAIL == dbsync_compare_str(dbrow[10], interface->error))
-		return FAIL;
+	// TODO： interface->error访问会出现段错误，先屏蔽看看有没有问题
+	// if (FAIL == dbsync_compare_str(dbrow[10], interface->error))
+	// 	return FAIL;
 
 	if (FAIL == dbsync_compare_int(dbrow[11], interface->errors_from))
 		return FAIL;
 	/* reset_availability, items_num and availability_ts are excluded from the comparison */
-
+	//zabbix_log(LOG_LEVEL_DEBUG, "%s compare interface snmp.", __func__);
 	snmp = (ZBX_DC_SNMPINTERFACE *)zbx_hashset_search(&dbsync_env.cache->interfaces_snmp,
 			&interface->interfaceid);
-
+	//zabbix_log(LOG_LEVEL_DEBUG, "%s compare interface snmp. type=%d,is_snmp_null=%d", __func__, interface->type, (snmp==NULL?1:0));
 	if (INTERFACE_TYPE_SNMP == interface->type)
 	{
 		if (NULL == snmp || SUCCEED == zbx_db_is_null(dbrow[12]))	/* should never happen */
@@ -1592,7 +1594,7 @@ static int	dbsync_compare_interface(const ZBX_DC_INTERFACE *interface, const DB_
 	}
 	else if (NULL != snmp)
 		return FAIL;
-
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 	return SUCCEED;
 }
 
@@ -1615,6 +1617,8 @@ int	zbx_dbsync_compare_interfaces(zbx_dbsync_t *sync)
 	zbx_uint64_t		rowid;
 	ZBX_DC_INTERFACE	*interface;
 
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
+
 	if (NULL == (result = zbx_db_select(
 			"select i.interfaceid,i.hostid,i.type,i.main,i.useip,i.ip,i.dns,i.port,"
 			"i.available,i.disable_until,i.error,i.errors_from,"
@@ -1634,14 +1638,23 @@ int	zbx_dbsync_compare_interfaces(zbx_dbsync_t *sync)
 		return SUCCEED;
 	}
 
+	if(NULL == dbsync_env.cache){
+		zabbix_log(LOG_LEVEL_WARNING, "%s dbsync_env.cache is null.", __func__);
+		return FAIL;
+	}
+
 	zbx_hashset_create(&ids, (size_t)dbsync_env.cache->interfaces.num_data, ZBX_DEFAULT_UINT64_HASH_FUNC,
 			ZBX_DEFAULT_UINT64_COMPARE_FUNC);
+	
+	//zabbix_log(LOG_LEVEL_DEBUG, "%s query interface", __func__);
 
 	while (NULL != (dbrow = zbx_db_fetch(result)))
 	{
 		unsigned char	tag = ZBX_DBSYNC_ROW_NONE;
 
 		ZBX_STR2UINT64(rowid, dbrow[0]);
+		//zabbix_log(LOG_LEVEL_DEBUG, "%s, interfaceid=%llu", __func__, rowid);
+
 		zbx_hashset_insert(&ids, &rowid, sizeof(rowid));
 
 		if (NULL == (interface = (ZBX_DC_INTERFACE *)zbx_hashset_search(&dbsync_env.cache->interfaces, &rowid)))
@@ -1662,7 +1675,7 @@ int	zbx_dbsync_compare_interfaces(zbx_dbsync_t *sync)
 
 	zbx_hashset_destroy(&ids);
 	zbx_db_free_result(result);
-
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __func__);
 	return SUCCEED;
 }
 

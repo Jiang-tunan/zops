@@ -1587,7 +1587,7 @@ void	zbx_tls_init_child(const zbx_config_tls_t *config_tls, zbx_get_program_type
 		}
 	}
 
-	/* 'TLSCRLFile' parameter (in zops_server.conf, zops_proxy.conf, zops_agentd.conf). */
+	/* 'TLSCRLFile' parameter (in tognix_server.conf, tognix_proxy.conf, tognix_agentd.conf). */
 	if (NULL != config_tls->ca_file)
 	{
 		if (0 < (res = gnutls_certificate_set_x509_trust_file(my_cert_creds, config_tls->ca_file,
@@ -1609,7 +1609,7 @@ void	zbx_tls_init_child(const zbx_config_tls_t *config_tls, zbx_get_program_type
 		}
 	}
 
-	/* 'TLSCRLFile' parameter (in zops_server.conf, zops_proxy.conf, zops_agentd.conf). */
+	/* 'TLSCRLFile' parameter (in tognix_server.conf, tognix_proxy.conf, tognix_agentd.conf). */
 	/* Load CRL (certificate revocation list) file. */
 	if (NULL != config_tls->crl_file)
 	{
@@ -1632,7 +1632,7 @@ void	zbx_tls_init_child(const zbx_config_tls_t *config_tls, zbx_get_program_type
 		}
 	}
 
-	/* 'TLSCRLFile' parameter (in zops_server.conf, zops_proxy.conf, zops_agentd.conf). */
+	/* 'TLSCRLFile' parameter (in tognix_server.conf, tognix_proxy.conf, tognix_agentd.conf). */
 	/* Load certificate and private key. */
 	if (NULL != config_tls->cert_file)
 	{
@@ -1943,7 +1943,7 @@ void	zbx_tls_init_child(const zbx_config_tls_t *config_tls, zbx_get_program_type
 			goto out_method;
 	}
 #endif
-	/* 'TLSCRLFile' parameter (in zops_server.conf, zops_proxy.conf, zops_agentd.conf). */
+	/* 'TLSCRLFile' parameter (in tognix_server.conf, tognix_proxy.conf, tognix_agentd.conf). */
 	if (NULL != config_tls->ca_file)
 	{
 #if defined(HAVE_OPENSSL_WITH_PSK)
@@ -1974,7 +1974,7 @@ void	zbx_tls_init_child(const zbx_config_tls_t *config_tls, zbx_get_program_type
 #endif
 	}
 
-	/* 'TLSCRLFile' parameter (in zops_server.conf, zops_proxy.conf, zops_agentd.conf). */
+	/* 'TLSCRLFile' parameter (in tognix_server.conf, tognix_proxy.conf, tognix_agentd.conf). */
 	/* Load CRL (certificate revocation list) file. */
 	if (NULL != config_tls->crl_file)
 	{
@@ -2050,7 +2050,7 @@ void	zbx_tls_init_child(const zbx_config_tls_t *config_tls, zbx_get_program_type
 				config_tls->crl_file);
 	}
 
-	/* 'TLSCRLFile' parameter (in zops_server.conf, zops_proxy.conf, zops_agentd.conf). */
+	/* 'TLSCRLFile' parameter (in tognix_server.conf, tognix_proxy.conf, tognix_agentd.conf). */
 	/* Load certificate. */
 	if (NULL != config_tls->cert_file)
 	{
@@ -2071,7 +2071,7 @@ void	zbx_tls_init_child(const zbx_config_tls_t *config_tls, zbx_get_program_type
 				config_tls->cert_file);
 	}
 
-	/* 'TLSCRLFile' parameter (in zops_server.conf, zops_proxy.conf, zops_agentd.conf). */
+	/* 'TLSCRLFile' parameter (in tognix_server.conf, tognix_proxy.conf, tognix_agentd.conf). */
 	/* Load private key. */
 	if (NULL != config_tls->key_file)
 	{

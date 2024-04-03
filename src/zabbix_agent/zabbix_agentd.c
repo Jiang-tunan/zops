@@ -1,6 +1,6 @@
 /*
-** Zops
-** Copyright (C) 2001-2023 Zops SIA
+** tognix
+** Copyright (C) 2001-2023 tognix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -145,12 +145,12 @@ const char	*usage_message[] = {
 
 /* application HELP message */
 const char	*help_message[] = {
-	"A Zops daemon for monitoring of various server parameters.",
+	"A tognix daemon for monitoring of various server parameters.",
 	"",
 	"Options:",
 	"  -c --config config-file        Path to the configuration file",
 	"                                 (default: \"" DEFAULT_CONFIG_FILE "\")",
-	"  -f --foreground                Run Zops agent in foreground",
+	"  -f --foreground                Run tognix agent in foreground",
 	"  -p --print                     Print known items and exit",
 	"  -t --test item-key             Test specified item and exit",
 #ifdef _WINDOWS
@@ -159,11 +159,11 @@ const char	*help_message[] = {
 	"                                 configuration file",
 	"Functions:",
 	"",
-	"  -i --install                   Install Zops agent as service",
-	"  -d --uninstall                 Uninstall Zops agent from service",
+	"  -i --install                   Install tognix agent as service",
+	"  -d --uninstall                 Uninstall tognix agent from service",
 
-	"  -s --start                     Start Zops agent service",
-	"  -x --stop                      Stop Zops agent service",
+	"  -s --start                     Start tognix agent service",
+	"  -x --stop                      Stop tognix agent service",
 #else
 	"  -R --runtime-control runtime-option   Perform administrative functions",
 	"",
@@ -191,9 +191,9 @@ const char	*help_message[] = {
 	"",
 #endif
 #ifdef _WINDOWS
-	"Example: zabbix_agentd -c C:\\zabbix\\zabbix_agentd.conf",
+	"Example:  tognix_agentd -c C:\\ tognix\\ tognix_agentd.conf",
 #else
-	"Example: zabbix_agentd -c /etc/zabbix/zabbix_agentd.conf",
+	"Example:  tognix_agentd -c /etc/ tognix/ tognix_agentd.conf",
 #endif
 	NULL	/* end of text */
 };
@@ -436,7 +436,7 @@ static int	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 		case ZBX_TASK_STOP_SERVICE:
 			if (0 != (t->flags & ZBX_TASK_FLAG_FOREGROUND))
 			{
-				zbx_error("foreground option cannot be used with Zops agent services");
+				zbx_error("foreground option cannot be used with tognix agent services");
 				ret = FAIL;
 				goto out;
 			}
@@ -444,7 +444,7 @@ static int	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 		default:
 			if (0 != (t->flags & ZBX_TASK_FLAG_MULTIPLE_AGENTS))
 			{
-				zbx_error("multiple agents option can be used only with Zops agent services");
+				zbx_error("multiple agents option can be used only with tognix agent services");
 				ret = FAIL;
 				goto out;
 			}
@@ -1155,7 +1155,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 #endif
 	if (0 != (flags & ZBX_TASK_FLAG_FOREGROUND))
 	{
-		printf("Starting Zops Agent [%s]. Zops %s (revision %s).\nPress Ctrl+C to exit.\n\n",
+		printf("Starting tognix Agent [%s]. tognix %s (revision %s).\nPress Ctrl+C to exit.\n\n",
 				CONFIG_HOSTNAMES, ZABBIX_VERSION, ZABBIX_REVISION);
 	}
 #ifndef _WINDOWS
@@ -1184,7 +1184,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 #	define TLS_FEATURE_STATUS	" NO"
 #endif
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Starting Zops Agent [%s]. Zops %s (revision %s).",
+	zabbix_log(LOG_LEVEL_INFORMATION, "Starting tognix Agent [%s]. tognix %s (revision %s).",
 			CONFIG_HOSTNAMES, ZABBIX_VERSION, ZABBIX_REVISION);
 
 	zabbix_log(LOG_LEVEL_INFORMATION, "**** Enabled features ****");
@@ -1325,7 +1325,7 @@ int	MAIN_ZABBIX_ENTRY(int flags)
 
 	if (ZBX_IS_RUNNING())
 	{
-		/* Zops agent service should either be stopped by the user in ServiceCtrlHandler() or */
+		/* tognix agent service should either be stopped by the user in ServiceCtrlHandler() or */
 		/* crash. If some thread has terminated normally, it means something is terribly wrong. */
 
 		zabbix_log(LOG_LEVEL_CRIT, "One thread has terminated unexpectedly (code:%lu). Exiting ...", res);
@@ -1395,7 +1395,7 @@ void	zbx_free_service_resources(int ret)
 #ifndef _WINDOWS
 	zbx_unload_modules();
 #endif
-	zabbix_log(LOG_LEVEL_INFORMATION, "Zops Agent stopped. Zops %s (revision %s).",
+	zabbix_log(LOG_LEVEL_INFORMATION, "tognix Agent stopped. tognix %s (revision %s).",
 			ZABBIX_VERSION, ZABBIX_REVISION);
 
 	zabbix_close_log();

@@ -71,6 +71,7 @@ const char	*zbx_truncate_value(const char *val, const size_t char_max, char *buf
 
 char	*zbx_strcasestr(const char *haystack, const char *needle);
 int	zbx_strncasecmp(const char *s1, const char *s2, size_t n);
+int	zbx_strcasecmp(const char *s1, const char *s2);
 
 #if defined(_WINDOWS) || defined(__MINGW32__)
 char	*zbx_unicode_to_utf8(const wchar_t *wide_string);
@@ -143,4 +144,37 @@ int zbx_split(char *src, const char *separator, char **dest, int *num);
 */
 int zbx_atoi(char *dst);
 
+long zbx_atol(char *dst);
+
+char *zbx_itoa(int value);
+
+/**
+ * 返回非NULL字符串，如果原来字符串是NULL，则返回""
+*/
+char * get_str_field(char *str);
+
+/**
+ * 判断字符串是否是数字组成
+*/
+int isdigitstr(char *str);
+
+/**
+ * 从最右边根据'split'拆分字符串,输出左边字符串到lstr,输出右边字符串到rstr;
+ * 如：str = "ruijie-switch-6", split='-'; 输出:lstr="ruijie-switch",rstr="6"
+*/
+int zbx_strrchr(char *str, char split, char **lstr, char **rstr);
+
+/**
+ * 函数搜索一个字符串在另一个字符串中的第一次出现。比原生的增加了空指针判断
+ * str1: 被查找目标
+ * str2: 要查找对象
+ * return: 找到所搜索的字符串，则该函数返回第一次匹配的字符串的地址； 如果未找到所搜索的字符串，则返回NULL。
+*/
+char *zbx_strstr(char *str1, const char *str2);
+
+/**
+ * 把字符串的版本号转为整形
+ * 如:"1.3.2" 转为 10302
+*/
+int get_version(char *version);
 #endif /* ZABBIX_STR_H */
