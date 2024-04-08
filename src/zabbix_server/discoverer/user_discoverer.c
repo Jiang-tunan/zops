@@ -16,7 +16,7 @@ extern int g_running_program_type;
 
 void __zbx_user_discover_drule_free(zbx_user_discover_drule_t *ptr)
 {
-	zbx_vector_ptr_clear_ext(&ptr->sessions, zbx_ptr_free);
+	// zbx_vector_ptr_clear_ext(&ptr->sessions, zbx_ptr_free);
 	zbx_vector_ptr_destroy(&ptr->sessions);
 	ptr->status = ZBX_USER_DISCOVER_STATUS_FREE;
 }
@@ -39,30 +39,34 @@ void __zbx_user_discover_session_free(zbx_vector_ptr_t *v_session, int index)
 {
 	if(NULL == v_session)  return;
 
-	zbx_user_discover_session_t *ptr = (zbx_user_discover_session_t *)v_session->values[index];
-	if(ptr->progress >= 0)
-	{
-		ptr->progress = -1;
-		zbx_vector_ptr_clear_ext(&ptr->hostids, zbx_ptr_free);
-		zbx_vector_ptr_destroy(&ptr->hostids);
-	}
+	int now = time(NULL);
+	zbx_user_discover_session_t *session = (zbx_user_discover_session_t *)v_session->values[index];
 	zbx_vector_ptr_remove(v_session, index);
+	if (now >= session->end_time)
+	{
+		session->progress = -1;
+		zbx_vector_ptr_clear_ext(&session->all_hostids, zbx_ptr_free);
+		zbx_vector_ptr_destroy(&session->all_hostids);
+		zbx_vector_ptr_destroy(&session->hostids);
+		int old_index = zbx_vector_ptr_bsearch(&g_user_discover.old_sessions, session->session, ZBX_DEFAULT_STR_COMPARE_FUNC);
+		if(FAIL != old_index){
+			zbx_vector_ptr_remove(&g_user_discover.old_sessions, old_index);
+		}
+	}
 }
-
-
-
 
 //只负责按session清理任务  
 int __zbx_user_discover_session_timout()
 {
 	int now = time(NULL);
+	zbx_user_discover_session_t *session = NULL;
 	for(int i=0; i<g_user_discover.drules.values_num; i++)
 	{
 		zbx_user_discover_drule_t *drule = (zbx_user_discover_drule_t *)g_user_discover.drules.values[i];
 		for(int j = 0; j < drule->sessions.values_num; j ++)
 		{
 			int timeout = (drule->ip_all_num - drule->ip_discovered_num) * USER_DISCOVER_IP_TIME_OUT + USER_DISCOVER_EXTRA_TIME_OUT;
-			zbx_user_discover_session_t *session = (zbx_user_discover_session_t *)drule->sessions.values[j];
+			session = (zbx_user_discover_session_t *)drule->sessions.values[j];
 			if (now >= (session->sbegin_time + timeout)){
 				zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s ruleid=%d,session=%s, now=%d, sbegin_time=%d,timeout=%d", 
 					__func__, drule->druleid, session->session,now, session->sbegin_time,timeout);
@@ -71,18 +75,30 @@ int __zbx_user_discover_session_timout()
 		}
 	}
 
+	for(int i=0; i<g_user_discover.old_sessions.values_num; i++)
+	{
+		session = (zbx_user_discover_session_t *)g_user_discover.old_sessions.values[i];
+		if (now >= session->end_time){
+			zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s clear old session, session=%s, now=%d, end_time=%d", 
+				__func__, session->session, now, session->end_time);
+			zbx_vector_ptr_clear_ext(&session->all_hostids, zbx_ptr_free);
+			zbx_vector_ptr_destroy(&session->all_hostids);
+			zbx_vector_ptr_destroy(&session->hostids);
+		}
+	}
+
 	return 0;
 }
 
-//用户扫描任务创建
+//用户扫描任务创建，这里服务端程序和代理程序都会执行
 int	user_discover_create(int proxyhostid, const char *session, const struct zbx_json_parse *jp)
 {
 	char			*sql = NULL;
 	size_t			sql_alloc = 0, sql_offset = 0;
 	DB_RESULT		result;
 	DB_ROW			row;
-	int             ret = DISCOVERY_RESULT_CREATE_FAIL, ipnumber=0;
-	int             try_count=0,max_try_count=1;
+	int             ret = DISCOVERY_RESULT_CREATE_FAIL, ipnumber=0, need_scan_druleid_num=0;
+	int             try_count=0, max_try_count=1;
 	zbx_user_discover_drule_t *dr = NULL;
 	
 	ret = parse_rules_activate(jp, &dr);
@@ -92,6 +108,7 @@ int	user_discover_create(int proxyhostid, const char *session, const struct zbx_
 	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "select druleid, iprange from drules where druleid='%llu'", dr->druleid);
 	if(ZBX_PROGRAM_TYPE_PROXY == g_running_program_type)
 	{
+		// 代理程序这边要重试，为了应对服务端数据没有同步过来情况，这部分可以优化，服务端直接传数据过来。
 		max_try_count = 10;
 	}
 	
@@ -114,8 +131,8 @@ int	user_discover_create(int proxyhostid, const char *session, const struct zbx_
 		}else{
 			break;
 		}
-		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s druleid=%d,try_count=%d,max_try_count=%d",
-			__func__, dr->druleid,try_count,max_try_count);
+		// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s druleid=%d,try_count=%d,max_try_count=%d",
+		// 	__func__, dr->druleid,try_count,max_try_count);
 		
 	}while (try_count < max_try_count);
 	
@@ -143,9 +160,13 @@ int	user_discover_create(int proxyhostid, const char *session, const struct zbx_
 			zbx_user_discover_session_t *t_session = (zbx_user_discover_session_t *)zbx_malloc(NULL, sizeof(zbx_user_discover_session_t));
 			memset(t_session, 0, sizeof(zbx_user_discover_session_t));
 			t_session->sbegin_time = time(NULL);
+			t_session->end_time = time(NULL) + ipnumber * USER_DISCOVER_IP_TIME_OUT 
+								+ USER_DISCOVER_EXTRA_TIME_OUT + USER_DISCOVER_SESSION_REMOVE_TIME;
 			zbx_strscpy(t_session->session,  session);
-			zbx_vector_ptr_create(&t_session->hostids);
+			zbx_vector_str_create(&t_session->hostids);
+			zbx_vector_str_create(&t_session->all_hostids);
 			zbx_vector_ptr_append(&old_dr->sessions, t_session);
+			zbx_vector_ptr_append(&g_user_discover.old_sessions, t_session);
 		}
 		ret = SUCCEED;
 		UNLOCK_USER_DISCOVER;
@@ -168,29 +189,31 @@ int	user_discover_create(int proxyhostid, const char *session, const struct zbx_
 	zbx_user_discover_session_t *t_session = (zbx_user_discover_session_t *)zbx_malloc(NULL, sizeof(zbx_user_discover_session_t));
 	memset(t_session, 0, sizeof(zbx_user_discover_session_t));
 	t_session->sbegin_time = time(NULL);
-	zbx_vector_ptr_create(&t_session->hostids);
+	t_session->end_time = time(NULL) + ipnumber * USER_DISCOVER_IP_TIME_OUT 
+					+ USER_DISCOVER_EXTRA_TIME_OUT + USER_DISCOVER_SESSION_REMOVE_TIME;
 	zbx_strscpy(t_session->session,  session);
+	zbx_vector_str_create(&t_session->hostids);
+	zbx_vector_str_create(&t_session->all_hostids);
 	zbx_vector_ptr_append(&dr->sessions, t_session);
-		
+	zbx_vector_ptr_append(&g_user_discover.old_sessions, t_session);
 	zbx_vector_ptr_append(&g_user_discover.drules, dr);
 
 	// 需要扫描的规则增加了1个
 	g_user_discover.need_scan_druleid_num ++; 
 
 	UNLOCK_USER_DISCOVER;
-	
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s create success. type=%d, druleid=%d,need_scan_druleid_num=%d", 
-		__func__, dr->check_type, dr->druleid, g_user_discover.need_scan_druleid_num);
-	
+
 	if(!(proxyhostid > 0 && ZBX_PROGRAM_TYPE_SERVER == g_running_program_type)){
 		init_discovery_hosts(1);
-		// 通知discover进程立刻处理
-		notify_discover_thread();
 	}
+	// 通知discover进程立刻处理
+	notify_discover_thread();
 	ret = SUCCEED;
 	
 out: 
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s result=%d",__func__, ret);
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s result=%d, type=%d, druleid=%d, ipnumber=%d,need_scan_druleid_num=%d,try_count=%d",
+		__func__, ret, dr->check_type, dr->druleid, ipnumber, g_user_discover.need_scan_druleid_num, try_count);
+	
 	zbx_free(sql);
 	zbx_db_free_result(result);
 	return ret;
@@ -446,7 +469,8 @@ int user_discover_add_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid)
 		zbx_user_discover_session_t *session = (zbx_user_discover_session_t *)drule->sessions.values[j];
 		char *hostid_s = (char *)zbx_malloc(NULL, 22);
 		zbx_snprintf(hostid_s, sizeof(hostid_s), ZBX_FS_UI64, hostid);
-		zbx_vector_ptr_append(&session->hostids, hostid_s);
+		zbx_vector_str_append(&session->hostids, hostid_s);
+		zbx_vector_str_append(&session->all_hostids, hostid_s);
 		ret = SUCCEED;
 		//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s, success. session:%s, hostid:%d", __func__, session->session, hostid);
 	}
@@ -622,12 +646,13 @@ void discovery_rules_select(const char* cmd,int recv_type, const struct zbx_json
 }
 
 int query_druleid_progress(const char * session, zbx_uint64_t druleid, 
-	int *out_progress, int *out_remain_time, char **out_hostids)
+	int *out_progress, int *out_remain_time, int fullsync, char **out_hostids)
 {
 	// 计算进度
-	int progress = 0, remain_time = 0;
+	int progress = 0, remain_time, ret = DISCOVERY_RESULT_SUCCESS;
 	int need_remove_druleid = 0;
-	int index_drule,index_session;
+	int index_drule = FAIL,index_session = FAIL;
+	zbx_user_discover_drule_t *drule = NULL;
 	zbx_user_discover_session_t *dsession = NULL;
 
 	if (druleid == 0)
@@ -635,119 +660,116 @@ int query_druleid_progress(const char * session, zbx_uint64_t druleid,
 	
 	LOCK_USER_DISCOVER;
 	
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ruleid=%d,fullsync=%d,session=%s",
+			__func__, druleid, fullsync, session);
+
+
 	// 查用户某个druleid进度
-	if (FAIL != (index_drule = zbx_vector_ptr_bsearch(&g_user_discover.drules, &druleid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
+	if (FAIL == (index_drule = zbx_vector_ptr_bsearch(&g_user_discover.drules, &druleid, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC)))
 	{
-		zbx_user_discover_drule_t *drule = (zbx_user_discover_drule_t *)g_user_discover.drules.values[index_drule];
-		
-		if (drule->ip_all_num > 0)
+		ret = DISCOVERY_RESULT_NO_DRULEID;
+		goto out;
+	}
+	drule = (zbx_user_discover_drule_t *)g_user_discover.drules.values[index_drule];
+	
+	if (FAIL == (index_session = zbx_vector_ptr_bsearch(&drule->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC)))
+	{
+		ret = DISCOVERY_RESULT_NO_SESSION;
+		goto out;
+	}
+	dsession = (zbx_user_discover_session_t *)drule->sessions.values[index_session];
+
+	int remaining_ips = drule->ip_all_num - drule->ip_discovered_num; // 计算剩余的IP数量
+	remain_time = remaining_ips * USER_DISCOVER_IP_INTERVAL_TIME;									// 剩余时间 = 剩余IP数量 * 3秒
+	progress = (double)(drule->ip_discovered_num / (double)drule->ip_all_num) * 100;
+
+	time_t now = time(NULL);
+	int alltime = drule->ip_all_num * USER_DISCOVER_IP_INTERVAL_TIME;
+	int timeout = remaining_ips * USER_DISCOVER_IP_TIME_OUT + USER_DISCOVER_EXTRA_TIME_OUT;
+	
+	dsession->query_number ++;
+
+	if (drule->ip_discovered_num >= drule->ip_all_num)
+	{
+		progress = 100;
+		remain_time = 0;
+		need_remove_druleid = 1;
+	}
+	else if (now >= dsession->sbegin_time + timeout)  //session超时，则移除session
+	{
+		__zbx_user_discover_session_free(&drule->sessions, index_session);
+
+		// 该ruldid下没有任何任务，就从队列中移除ruldid
+		if(drule->sessions.values_num == 0)
 		{
+			need_remove_druleid = 1;
+		}
+		progress = 100;
+		remain_time = 0;
+	}
+	else if (progress > dsession->progress) // 当前进度比缓存的进度更多，用新的进度
+	{
+		dsession->progress = progress;
+	}
+	else if (progress <= dsession->progress && dsession->progress < 99) // 当前进度没有任何进展，则每次查询时候，把进度加1
+	{
+		//前端每2秒查询一次，每次过去时间为2秒，每次查询进度为 消耗时间除以总时间。
+		int t_progress = ((double)(dsession->query_number * USER_DISCOVER_QUERY_INTERVAL_TIME) / (double)alltime) * 100;
+		if(t_progress > progress && t_progress < 99)
+			dsession->progress = t_progress;
+		else
+			dsession->progress ++;
 
-			if (drule->ip_discovered_num >= drule->ip_all_num)
-			{
-				progress = 100;
-				need_remove_druleid = 1;
-			}
-			else
-			{
-				int remaining_ips = drule->ip_all_num - drule->ip_discovered_num; // 计算剩余的IP数量
-				remain_time = remaining_ips * USER_DISCOVER_IP_INTERVAL_TIME;									// 剩余时间 = 剩余IP数量 * 3秒
-				progress = (double)(drule->ip_discovered_num / (double)drule->ip_all_num) * 100;
-				if (FAIL != (index_session = zbx_vector_ptr_bsearch(&drule->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC)))
-				{
-					time_t now = time(NULL);
-					int alltime = drule->ip_all_num * USER_DISCOVER_IP_INTERVAL_TIME;
-					int timeout = remaining_ips * USER_DISCOVER_IP_TIME_OUT + USER_DISCOVER_EXTRA_TIME_OUT;
-					dsession = (zbx_user_discover_session_t *)drule->sessions.values[index_session];
-					dsession->query_number ++;
+		progress = dsession->progress;
+		remain_time = ((double)(100-progress)/(double)100) * alltime;
+	}
+	else // 上次进度为99情况下，但是实际扫描进度没有那么多情况下，继续用99进度 
+	{ 
+		progress = dsession->progress;
+	}
 
-					if (now >= dsession->sbegin_time + timeout)  //session超时，则移除session
-					{
-						__zbx_user_discover_session_free(&drule->sessions, index_session);
+	if(fullsync){
+		vector_to_str(&dsession->all_hostids, out_hostids, ",");
+	}else{
+		vector_to_str(&dsession->hostids, out_hostids, ",");
+	}
+	
+	for(int k = dsession->hostids.values_num - 1; k >= 0; k --)
+	{
+		zbx_vector_ptr_remove(&dsession->hostids, k);
+	}
+	
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ruleid=%d,status=%d,fullsync=%d,all_num=%d,discovered_num=%d,progress=%d,remain_time=%d,need_remove=%d, hostids=%s",
+			__func__, drule->druleid, drule->status, fullsync, drule->ip_all_num, drule->ip_discovered_num, progress,remain_time,need_remove_druleid, *out_hostids);
 
-						// 该ruldid下没有任何任务，就从队列中移除ruldid
-						if(drule->sessions.values_num == 0)
-						{
-							need_remove_druleid = 1;
-						}
-						progress = 100;
-						remain_time = 0;
-					}
-					else if (progress > dsession->progress) // 当前进度比缓存的进度更多，用新的进度
-					{
-						dsession->progress = progress;
-					}
-					else if (progress <= dsession->progress && dsession->progress < 99) // 当前进度没有任何进展，则每次查询时候，把进度加1
-					{
-						//前端每2秒查询一次，每次过去时间为2秒，每次查询进度为 消耗时间除以总时间。
-						int t_progress = ((double)(dsession->query_number * USER_DISCOVER_QUERY_INTERVAL_TIME) / (double)alltime) * 100;
-						if(t_progress > progress && t_progress < 99)
-							dsession->progress = t_progress;
-						else
-							dsession->progress ++;
+	// 如果100%了或者超时 就移除该ruleid的任务 如果没有下一个任务了就清理所有任务
+	if (drule->ip_discovered_num >= drule->ip_all_num || need_remove_druleid)
+	{
+		__zbx_user_discover_session_clean_from_drule(index_drule, drule, session);
+	}
 
-						progress = dsession->progress;
-						remain_time = ((double)(100-progress)/(double)100) * alltime;
-					}
-					else // 上次进度为99情况下，但是实际扫描进度没有那么多情况下，继续用99进度 
-					{ 
-						progress = dsession->progress;
-					}
-					
-				}else
-				{
-					UNLOCK_USER_DISCOVER;
-					return DISCOVERY_RESULT_NO_SESSION;
-
-				}
-			}
-
-			// 返回扫描出来的设备hostid，格式为 hostid1,hostid2.....
-			char hostids[5120] = {""};
-			if (FAIL != (index_session = zbx_vector_ptr_bsearch(&drule->sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC)))
-			{
-				dsession = (zbx_user_discover_session_t *)drule->sessions.values[index_session];
-				//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s, get hostids. hostids_num:%d", __func__, dsession->hostids.values_num);
-			
-				for(int k = dsession->hostids.values_num - 1; k >= 0; k --)
-				{
-					char *str_hostid = (char *)dsession->hostids.values[k]; 
-					strcat(hostids, str_hostid);
-					if(k > 0)
-						strcat(hostids, ",");
-					zbx_free(str_hostid);
-					zbx_vector_ptr_remove(&dsession->hostids, k);
-				}
-			}
-			*out_hostids = zbx_strdup(NULL,hostids);
-			zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s, get hostids success. session:%s, hostids:%s", __func__, dsession->session, hostids);
+out:
+	// 没有拿到session进度，可能已经超时过期了，如果是fullsync，则从old_sessions拿
+	if(fullsync && DISCOVERY_RESULT_SUCCESS != ret)
+	{
+		if (FAIL != (index_session = zbx_vector_ptr_bsearch(&g_user_discover.old_sessions, session, ZBX_DEFAULT_STR_COMPARE_FUNC)))
+		{
+			dsession = (zbx_user_discover_session_t *)g_user_discover.old_sessions.values[index_session];
+			progress = 100;
+			remain_time = 0;
+			vector_to_str(&dsession->all_hostids, out_hostids, ",");
+			ret = DISCOVERY_RESULT_SUCCESS;
 		}
 		else
 		{
-			progress = 100;
-			need_remove_druleid = 1;
+			ret = DISCOVERY_RESULT_NO_SESSION;
 		}
+	} 
 
-		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ruleid=%d,status=%d,all_num=%d,discovered_num=%d,progress=%d,remain_time=%d,need_remove=%d",
-			 __func__, drule->druleid, drule->status, drule->ip_all_num, drule->ip_discovered_num, progress,remain_time,need_remove_druleid);
-
-		// 如果100%了或者超时 就移除该ruleid的任务 如果没有下一个任务了就清理所有任务
-		if (drule->ip_discovered_num >= drule->ip_all_num || need_remove_druleid)
-		{
-			__zbx_user_discover_session_clean_from_drule(index_drule, drule, session);
-		}
-
-	}
-	else
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s, query fail. druleid:%llu, index=%d", __func__, druleid, index_drule);
-		UNLOCK_USER_DISCOVER;
-		return DISCOVERY_RESULT_NO_DRULEID;
-	}
 	*out_progress = progress;
 	*out_remain_time = remain_time;
 	UNLOCK_USER_DISCOVER;
-	return SUCCEED;
+	return ret;
 }
 
 /*********************************************
@@ -767,10 +789,11 @@ char* create_progress_json(const char* session_value, const struct zbx_json_pars
 {
     struct zbx_json j;
     struct zbx_json_parse data_jp;
-    char druleid_str[MAX_STRING_LEN];
+    char druleid_str[128], fullsync_str[128];
 	const char *p = NULL;
+	int fullsync = 0;
 
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN*2);
 	// 添加response键值
 	zbx_json_addstring(&j, "response", DISCOVERY_CMD_PROGRESS, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&j, "session", session_value, ZBX_JSON_TYPE_STRING);
@@ -785,6 +808,11 @@ char* create_progress_json(const char* session_value, const struct zbx_json_pars
 			struct zbx_json_parse obj_j;
 			if (SUCCEED == zbx_json_brackets_open(p, &obj_j))
 			{
+				fullsync = 0;
+				if (SUCCEED == zbx_json_value_by_name(&obj_j, "fullsync", fullsync_str, sizeof(fullsync_str), NULL))
+				{
+					fullsync = zbx_atoi(fullsync_str);
+				}
 				// 从当前对象中提取druleid的值
 				if (SUCCEED == zbx_json_value_by_name(&obj_j, "druleid", druleid_str, sizeof(druleid_str), NULL))
 				{
@@ -800,13 +828,14 @@ char* create_progress_json(const char* session_value, const struct zbx_json_pars
 					zbx_json_addobject(&j, NULL);
 					zbx_json_addint64(&j, "druleid", druleid);// 是否选择使用 user_discover中的值?
 						
-					ret = query_druleid_progress(session_value, druleid, &progress, &remain_time, &hostids);
+					ret = query_druleid_progress(session_value, druleid, &progress, &remain_time, fullsync, &hostids);
 
 					zbx_json_addint64(&j, "result", ret);  
 					zbx_json_addint64(&j, "progress", progress);
 					zbx_json_addint64(&j, "remain_time", remain_time);
 					zbx_json_addstring(&j, "hostids", hostids, ZBX_JSON_TYPE_STRING);
 					zbx_json_close(&j);
+					zbx_free(hostids);
 				}
 			}
 		}

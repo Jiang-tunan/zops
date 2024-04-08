@@ -207,6 +207,8 @@
 #define ZBX_PROTO_TAG_ACKNOWLEDGEID		"acknowledgeid"
 
 #define ZBX_PROTO_TAG_PROXYHOSTID		"proxyhostid"
+#define ZBX_PROTO_TAG_SCAN_TYPE			"scan_type"
+#define ZBX_PROTO_TAG_BIGVALUE			"bigvalue"
 
 #define ZBX_PROTO_VALUE_FAILED		"failed"
 #define ZBX_PROTO_VALUE_SUCCESS		"success"
@@ -260,8 +262,9 @@
 #define LICENSE_QUERY					"license_query"
 /*zhul content* END */
 
+#define DISCOVERY_CHECK_PROXY_SERVER	"discovery_check_proxy_server" 		// 检测代理是否可用
 #define COMMON_CHECK_IP_CONNECT			"common_check_ip_connect"
-#define DISCOVERY_CHECK_PROXY_SERVER	"discovery_check_proxy_server" // 检测代理是否可用
+#define COMMON_CHECK_SEND_MAIL			"common_check_send_mail" 		// 检测邮件配置是否可用
 
 // 服务器和代理之间的内部协议
 #define PROXY_CHECK_PROXY_SERVER		"proxy.check_proxy_server"

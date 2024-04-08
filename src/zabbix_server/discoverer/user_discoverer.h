@@ -23,7 +23,8 @@
 #define DISCOVERY_CMD_STOP			"discovery_rules_stop"
 #define DISCOVERY_CMD_SINGLE_SCAN	"discovery_rules_single_scan"
 
-#define DISCOVERY_RESULT_SUCCESS  					0       //成功
+#define DISCOVERY_RESULT_SUCCESS  					0       //成功，通用类型。
+#define DISCOVERY_RESULT_FAIL						1000    //失败，通用类型。当不需要非常详细区分那种失败时候用
 #define DISCOVERY_RESULT_NO_SESSION					1001    //请求没有session 参数，或者没有发现此session在扫描
 #define DISCOVERY_RESULT_NO_DRULEID					1002    //请求没有ruleid 参数，或者没有发现此ruleid在扫描
 #define DISCOVERY_RESULT_CREATE_FAIL				1003    //创建扫描规则失败
@@ -38,11 +39,14 @@
 #define DISCOVERY_RESULT_PORXY_NO_MATCH_MODE		1012    //代理服务器模式配置和服务器配置的不匹配
 #define DISCOVERY_RESULT_PORXY_NO_MATCH_HOSTNAME	1013    //代理服务器名称配置和服务器配置的不匹配
 #define DISCOVERY_RESULT_PORXY_OVER_NODES			1014    //代理服务器超过许可允许数量
+#define DISCOVERY_RESULT_PORXY_SCAN_FAIL			1015    //代理服务器扫描设备/软件失败
+
 
 #define USER_DISCOVER_IP_INTERVAL_TIME 		3     //用户扫描每个IP估算间隔时间,单位秒
 #define USER_DISCOVER_IP_TIME_OUT   		6     //用户扫描每个IP过期时间,单位秒
 #define USER_DISCOVER_QUERY_INTERVAL_TIME   2     //前端每次查询进度间隔时间,单位秒
 #define USER_DISCOVER_EXTRA_TIME_OUT   		10    //用户扫描额外的过期时间,单位秒
+#define USER_DISCOVER_SESSION_REMOVE_TIME	3600  //用户扫描old_session过期时间,单位秒
 
 extern int msgid;
 
@@ -62,9 +66,12 @@ typedef struct
 {
 	char                         session[128];           			//session
 	int                          sbegin_time;                       //完成时间
+	int                          end_time;                       	//seesion最终删除时间
 	int                          query_number;						//查询次数，做进度条用
 	int                          progress;							//当前的进度0-100的值
-	zbx_vector_ptr_t             hostids;                           //扫描出来的hostid列表，保存对象为字符串(char *)
+	zbx_vector_str_t             hostids;                           //扫描出来的hostid列表，保存对象为字符串(char *)
+	zbx_vector_str_t             all_hostids;                       //扫描出来的hostid列表，一直保存，给前端恢复页面用
+
 }
 zbx_user_discover_session_t;
 
@@ -91,6 +98,7 @@ typedef struct
 	zbx_vector_ptr_t             drules;                            //所有扫描规则，包括已经完成的,zbx_user_discover_drule_t
 	zbx_uint64_t                 druleid;                           //扫描到了哪一个规则
 	int                          need_scan_druleid_num;				//需要扫描规则id的数量，<=0表示没有，>0表示有
+	zbx_vector_ptr_t             old_sessions; 						//旧的session，当进度为100或超时后，把当前的session保存到此，供前端恢复页面用
 }
 zbx_user_discover_drules_t;
 

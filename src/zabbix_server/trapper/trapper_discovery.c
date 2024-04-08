@@ -8,6 +8,7 @@
 #include "../discoverer/user_discoverer.h"
 #include "../discoverer/discoverer_comm.h"
 #include "zbxip.h"
+#include "zbxmedia.h"
 
 zbx_vector_ptr_t global_sock_queue;
 int create_queue_flag = FALSE;
@@ -279,6 +280,101 @@ int discovery_comm_check_ip_connect(zbx_socket_t *sock, struct zbx_json_parse *j
     zbx_free(session);
     zbx_free(ip);
     zbx_free(response);
+    return ret;
+}
+
+
+int discovery_comm_check_sendmail(zbx_socket_t *sock, struct zbx_json_parse *jp, int config_timeout)
+{ 
+    struct zbx_json_parse jp_params;
+	int ret = DISCOVERY_RESULT_FAIL, mediatypeid=-1;
+    DB_RESULT	result = NULL;
+	DB_ROW		row;
+    char *smtp_server=NULL,  *smtp_helo=NULL,  *smtp_email=NULL,  *mailto=NULL,  *inreplyto=NULL,  *mailsubject=NULL, *mailbody=NULL;
+    char tstr[256], *session=NULL, *name=NULL, *username=NULL, *password=NULL, *response=NULL;
+	unsigned char smtp_security=0, smtp_verify_peer=0, smtp_verify_host=0,smtp_authentication=0, content_type=0;
+    int k = 0, timeout=6;
+    size_t value_size = 0;
+    unsigned short smtp_port=0;
+    char error[MAX_STRING_LEN];
+
+    memset(&tstr, 0, sizeof(tstr));
+    if (SUCCEED == zbx_json_value_by_name(jp, "session", tstr, sizeof(tstr), NULL)){
+        session = zbx_strdup(NULL, tstr);
+    }
+
+	if (FAIL == zbx_json_brackets_by_name(jp, ZBX_PROTO_TAG_PARAMS, &jp_params)){
+		goto out;
+	}
+	  
+    memset(&tstr, 0, sizeof(tstr));
+    if (FAIL == zbx_json_value_by_name(&jp_params, "mediatypeid", tstr, sizeof(tstr), NULL))
+        goto out;
+    else
+        mediatypeid = zbx_atoi(tstr);
+
+    if (FAIL == zbx_json_value_by_name_dyn(&jp_params, "mailto", &mailto, &value_size, NULL))
+        goto out;
+
+    value_size = 0;
+    if (FAIL == zbx_json_value_by_name_dyn(&jp_params, "mailsubject", &mailsubject, &value_size, NULL))
+        goto out;
+    
+    value_size = 0;
+    if (FAIL == zbx_json_value_by_name_dyn(&jp_params, "mailbody", &mailbody, &value_size, NULL))
+        goto out;
+
+    result = zbx_db_select("select name,smtp_server,smtp_helo,smtp_email,username,passwd," \
+        "smtp_port,smtp_security,smtp_verify_peer,smtp_verify_host,smtp_authentication," \
+        "content_type,timeout from media_type where mediatypeid=%d", mediatypeid);
+    if (NULL != (row = zbx_db_fetch(result)))
+    {
+        k = 0;
+        name = zbx_strdup(NULL,row[k++]);
+        smtp_server = zbx_strdup(NULL,row[k++]);
+        smtp_helo = zbx_strdup(NULL,row[k++]);
+        smtp_email = zbx_strdup(NULL,row[k++]);
+        username = zbx_strdup(NULL,row[k++]);
+        password = zbx_strdup(NULL,row[k++]);
+        smtp_port = zbx_atoi(row[k++]);
+        ZBX_STR2UCHAR(smtp_security, row[k++]);
+        ZBX_STR2UCHAR(smtp_verify_peer, row[k++]);
+        ZBX_STR2UCHAR(smtp_verify_host, row[k++]);
+        ZBX_STR2UCHAR(smtp_authentication, row[k++]);
+        ZBX_STR2UCHAR(content_type, row[k++]);
+    } else{
+        goto out;
+    }
+    zbx_db_free_result(result);
+    ret = send_email(smtp_server, smtp_port, smtp_helo, smtp_email,
+		mailto, inreplyto, mailsubject, mailbody,
+		smtp_security, smtp_verify_peer, smtp_verify_host,
+		smtp_authentication, username, password,
+		content_type, timeout, error, sizeof(error));
+
+    if(SUCCEED != ret) ret = DISCOVERY_RESULT_FAIL;
+
+out:
+    
+    zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s result=%d, mediatypeid=%d,name=%s,smtp_server=%s, smtp_port=%d,mailto=%s, mailsubject=%s, mailbody=%s,error=%s",
+        __func__,ret, mediatypeid,name,smtp_server,smtp_port,mailto,mailsubject,mailbody,error);
+    
+    response = build_comm_resp_json(ret, session, COMMON_CHECK_SEND_MAIL);
+    tognix_tcp_send(sock, response, strlen(response), config_timeout); 
+
+    zbx_free(session);
+    zbx_free(response);
+    zbx_free(smtp_server);
+    zbx_free(smtp_helo);
+    zbx_free(smtp_email);
+    zbx_free(mailto);
+    zbx_free(inreplyto);
+    zbx_free(mailsubject);
+    zbx_free(mailbody);
+    zbx_free(name);
+    zbx_free(username);
+    zbx_free(password);
+
     return ret;
 }
 

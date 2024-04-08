@@ -224,8 +224,9 @@ tognix_proxy_DEPENDENCIES = diag/libzbxdiag_proxy.a \
 	$(top_builddir)/src/libs/zbxversion/libzbxversion.a \
 	$(top_builddir)/src/libs/zbxlic/libzbxlic.a \
 	$(top_builddir)/src/zabbix_server/proxyconfigread/libzbxproxyconfigread.a \
-	libzbxproxy.a $(top_builddir)/src/libs/zbxalgo/libzbxalgo.a \
-	$(am__append_1) $(am__DEPENDENCIES_1)
+	$(top_builddir)/src/libs/zbxmedia/libzbxmedia.a libzbxproxy.a \
+	$(top_builddir)/src/libs/zbxalgo/libzbxalgo.a $(am__append_1) \
+	$(am__DEPENDENCIES_1)
 tognix_proxy_LINK = $(CCLD) $(tognix_proxy_CFLAGS) $(CFLAGS) \
 	$(tognix_proxy_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
@@ -447,9 +448,6 @@ PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PG_CONFIG = @PG_CONFIG@
-PKG_CONFIG = @PKG_CONFIG@
-PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
-PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 POSTGRESQL_CFLAGS = @POSTGRESQL_CFLAGS@
 POSTGRESQL_LDFLAGS = @POSTGRESQL_LDFLAGS@
 POSTGRESQL_LIBS = @POSTGRESQL_LIBS@
@@ -659,8 +657,9 @@ tognix_proxy_LDADD = diag/libzbxdiag_proxy.a \
 	$(top_builddir)/src/libs/zbxversion/libzbxversion.a \
 	$(top_builddir)/src/libs/zbxlic/libzbxlic.a \
 	$(top_builddir)/src/zabbix_server/proxyconfigread/libzbxproxyconfigread.a \
-	libzbxproxy.a $(top_builddir)/src/libs/zbxalgo/libzbxalgo.a \
-	$(am__append_1) $(PROXY_LIBS)
+	$(top_builddir)/src/libs/zbxmedia/libzbxmedia.a libzbxproxy.a \
+	$(top_builddir)/src/libs/zbxalgo/libzbxalgo.a $(am__append_1) \
+	$(PROXY_LIBS)
 tognix_proxy_LDFLAGS = $(PROXY_LDFLAGS)
 tognix_proxy_CFLAGS = \
 	-DDEFAULT_SSL_CERT_LOCATION="\"$(CURL_SSL_CERT_LOCATION)\"" \

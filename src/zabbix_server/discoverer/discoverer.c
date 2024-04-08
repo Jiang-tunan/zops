@@ -1159,6 +1159,7 @@ ZBX_THREAD_ENTRY(discoverer_thread, args)
 
 	memset(&g_user_discover, 0, sizeof(zbx_user_discover_drules_t));
 	zbx_vector_ptr_create(&g_user_discover.drules);
+	zbx_vector_ptr_create(&g_user_discover.old_sessions);
 
 	init_discovery_hosts(1);
 

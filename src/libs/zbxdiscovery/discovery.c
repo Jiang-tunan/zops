@@ -354,7 +354,7 @@ void discovery_parsing_value_model(const char *entphysicalmodel, const char *sys
 }
 
 // 根据系统描述的关键字获得操作系统名称和模板id
-void discovery_parsing_os_value(const char *sysdesc, int check_type, int device_type, char *model, char **os, int *templateid)
+void discovery_parsing_os_value(const char *sysdesc, int check_type, int device_type, char *model, char **os, int *templateid, int *groupid)
 {
 	if(NULL == sysdesc) return;
 
@@ -394,10 +394,12 @@ void discovery_parsing_os_value(const char *sysdesc, int check_type, int device_
 		case SVC_SNMPv3:
 			if(hShow > 0){
 				*templateid = TEMPLATEID_NETWORK_DEVICE_SNMP;
+				*groupid = HSTGRP_GROUPID_NETWORK;
 			}
 			// 这个判断规则需要改善
 			else if(lShow > 0 && NULL != model && strlen(model) > 0){
 				*templateid = TEMPLATEID_NETWORK_DEVICE_SNMP;
+				*groupid = HSTGRP_GROUPID_NETWORK;
 			}
 			break;
 		default:
@@ -407,9 +409,16 @@ void discovery_parsing_os_value(const char *sysdesc, int check_type, int device_
 		switch (check_type)
 		{
 		case SVC_AGENT:
+			if(device_type == DEVICE_TYPE_HV){
+				*groupid = HSTGRP_GROUPID_SERVER;
+			}else if(device_type == DEVICE_TYPE_VM){
+				*groupid = HSTGRP_GROUPID_VM;
+			}
+
 			if(is_windows){
 				if(device_type == DEVICE_TYPE_HV || device_type == DEVICE_TYPE_VM){
 					*templateid = TEMPLATEID_SERVER_WINDOWS_BY_AGENT;
+					
 				}
 			}else if(is_linux){
 				if(device_type == DEVICE_TYPE_HV || device_type == DEVICE_TYPE_VM){
@@ -420,6 +429,12 @@ void discovery_parsing_os_value(const char *sysdesc, int check_type, int device_
 		case SVC_SNMPv1:
 		case SVC_SNMPv2c:
 		case SVC_SNMPv3:
+			if(device_type == DEVICE_TYPE_HV){
+				*groupid = HSTGRP_GROUPID_SERVER;
+			}else if(device_type == DEVICE_TYPE_VM){
+				*groupid = HSTGRP_GROUPID_VM;
+			}
+
 			if(is_windows){
 				if(device_type == DEVICE_TYPE_HV || device_type == DEVICE_TYPE_VM){
 					*templateid = TEMPLATEID_SERVER_WINDOWS_BY_SNMP;
@@ -680,14 +695,22 @@ int discovery_register_host(DB_HOST *host,DB_HOST_INVENTORY *inventory, const vo
 	}
 	
 	//根据系统描述和entphysicalmodel查找厂商名称，群组，模板id
-	discovery_parsing_value_model(entphysicalmodel, sysdesc, dcheck->type, &host->groupid, &manufacturer, &templateid);
+	discovery_parsing_value_model(entphysicalmodel, sysdesc, dcheck->type, &hst_groupid, &manufacturer, &templateid);
 
 	//根据系统描述分析出操作系统名称和模板ID
-	discovery_parsing_os_value(sysdesc, dcheck->type, host->device_type, entphysicalmodel, &os, &templateid);
-
+	discovery_parsing_os_value(sysdesc, dcheck->type, host->device_type, entphysicalmodel, &os, &templateid, &hst_groupid);
 
 	// 确定VMWare 物理机和虚拟机对应的模板ID
 	discovery_parsing_templateid(dcheck, in_value, &templateid, &hst_groupid);
+	
+	// 如果找出新模板，则用新模板。否则用数据库中以前的模板
+	if(0 < templateid){
+		host->templateid = templateid;
+	}
+
+	if(0 < hst_groupid){
+		host->hstgrpid = hst_groupid;
+	}
  
 	description_esc = zbx_db_dyn_escape_field("hosts", "description", sysdesc);
 	create_time = update_time = (int)time(NULL);
@@ -701,7 +724,7 @@ int discovery_register_host(DB_HOST *host,DB_HOST_INVENTORY *inventory, const vo
 					"create_time,templateid,groupid,hstgrpid,device_type,uuid)" \
 					" values (" ZBX_FS_UI64 "," ZBX_FS_UI64 ",'%s','%s','%s',%d,%d,'%s',%d,%d,%d,%d,%d,'%s')", 
 					host->hostid, host->proxy_hostid, host->name, host->host, host->ifphysaddresses, HOST_STATUS_UNREACHABLE, 0, description_esc, 
-					create_time,templateid,host->groupid,host->hstgrpid,host->device_type,host->uuid);
+					create_time,host->templateid,host->groupid,host->hstgrpid,host->device_type,host->uuid);
 		}
 	}
 	else  
@@ -710,18 +733,20 @@ int discovery_register_host(DB_HOST *host,DB_HOST_INVENTORY *inventory, const vo
 				"update_time=%d,templateid=%d,groupid=%d,hstgrpid=%d," \
 				"device_type=%d,uuid='%s' where hostid=" ZBX_FS_UI64,
 				host->proxy_hostid,host->name,host->host,host->ifphysaddresses,
-				update_time,templateid,host->groupid,host->hstgrpid,
+				update_time,host->templateid,host->groupid,host->hstgrpid,
 				host->device_type,host->uuid,host->hostid);
 	}
 	ret = db_ret >= 1 ? SUCCEED : FAIL;
 	 
-	zabbix_log(LOG_LEVEL_INFORMATION, "#TOGNIX#%s, dbret=%d, status=%d, hoststatus:%d, hostid:%d", __func__, db_ret, status, host->status, host->hostid);
+	zabbix_log(LOG_LEVEL_INFORMATION, "#TOGNIX#%s, dbret=%d, status=%d, hoststatus=%d, hostid=%d, templateid=%d", 
+		__func__, db_ret, status, host->status, host->hostid, host->templateid);
 	 
 	if(SUCCEED == ret && dcheck->type == SVC_IPMI)
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#IPMI %s() value=[%s]", __func__, in_value);
 		// ipmi 模板
 		templateid = TEMPLATEID_SERVER_IPMI;
+		host->templateid = templateid;
 		// 更新 host表的ipmi信息
 		char *ipmi_username = NULL;
 		char *ipmi_password = NULL;
@@ -776,8 +801,7 @@ int discovery_register_host(DB_HOST *host,DB_HOST_INVENTORY *inventory, const vo
 		zbx_free(escaped_ipmi_username);
 		zbx_free(temp);
 	}
-	host->templateid = templateid;
-
+	
 	update_discovery_hosts(host);
 
 	int dunique_type = DUNIQUE_TYPE_UNKNOW;
@@ -1331,7 +1355,7 @@ int discovery_update_other(zbx_db_dhost *dhost)
 {
 	DB_HOST host;
 
-	if(NULL == dhost) return -1;
+	if(NULL == dhost || 0 == dhost->hostid) return -1;
 	// status 0已监控，1已关闭，2未纳管, 未纳管的设备返回给前端实时显示
 	if(dhost->hstatus == HOST_STATUS_UNREACHABLE || dhost->istatus == HOST_STATUS_UNREACHABLE)
 	{

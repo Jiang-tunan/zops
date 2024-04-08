@@ -117,6 +117,7 @@ tognix_proxy_LDADD = \
 	$(top_builddir)/src/libs/zbxversion/libzbxversion.a \
 	$(top_builddir)/src/libs/zbxlic/libzbxlic.a \
 	$(top_builddir)/src/zabbix_server/proxyconfigread/libzbxproxyconfigread.a \
+	$(top_builddir)/src/libs/zbxmedia/libzbxmedia.a \
 	libzbxproxy.a
 
 tognix_proxy_LDADD += $(top_builddir)/src/libs/zbxalgo/libzbxalgo.a

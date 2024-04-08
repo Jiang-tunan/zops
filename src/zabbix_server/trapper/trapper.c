@@ -1227,6 +1227,10 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 		{
 			ret = discovery_comm_check_ip_connect(sock, &jp, config_comms->config_timeout);
 		}
+		else if (0 == strcmp(value, COMMON_CHECK_SEND_MAIL))
+		{
+			ret = discovery_comm_check_sendmail(sock, &jp, config_comms->config_timeout);
+		}
 		else if (0 == strcmp(value, DISCOVERY_CHECK_PROXY_SERVER))
 		{
 			ret = discovery_check_proxy_server(sock, s, &jp, config_comms->config_timeout);
@@ -1242,7 +1246,7 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 				value);
 		}
 	}
-	else if(g_lic_result != LICENSE_SUCCESS)  //软件许可失败，不处理其他请求
+	else if(ZBX_PROGRAM_TYPE_SERVER == g_running_program_type && g_lic_result != LICENSE_SUCCESS)  //软件许可失败，不处理其他请求
 	{
 		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#process_trap license fail!! result=%d, request=%s", g_lic_result, s);
 		return g_lic_result;
