@@ -794,12 +794,14 @@ static int	send_email_curl(const char *smtp_server, unsigned short smtp_port, co
 			if (CURLE_OK != (err = curl_easy_setopt(easyhandle, CURLOPT_CAPATH, CONFIG_SSL_CA_LOCATION)))
 				goto error;
 		}
-
+		
+		curl_easy_setopt(easyhandle, CURLOPT_LOGIN_OPTIONS, "AUTH=LOGIN");
+		
 		if (SMTP_SECURITY_STARTTLS == smtp_security)
 		{
 			if (CURLE_OK != (err = curl_easy_setopt(easyhandle, CURLOPT_USE_SSL, (long)CURLUSESSL_ALL)))
 				goto error;
-		}
+		} 
 	}
 
 	if (SMTP_AUTHENTICATION_NORMAL_PASSWORD == smtp_authentication)

@@ -2379,3 +2379,21 @@ int get_version(char *version)
 	}
 	return iversion;
 }
+
+char *to_hexstr(const char *src,  int src_size)
+{
+	char			*dest = NULL;
+	size_t			dest_alloc = 0, dest_offset = 0;
+	if (0 == src_size)	
+	{
+		return zbx_strdup(NULL,"");
+	} 
+
+	for (int i = 0; i < src_size; i++)
+	{
+		zbx_snprintf_alloc(&dest, &dest_alloc, &dest_offset, "%02x", 
+			(unsigned int)(unsigned char)*(src + i));
+	}
+	
+	return dest;
+}

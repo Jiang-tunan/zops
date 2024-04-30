@@ -18,6 +18,7 @@
 **/
 
 #include "trapper_dproxy.h"
+#include "../../libs/zbxcomms/comms.h"
 
 
 extern char	*CONFIG_SOURCE_IP;
@@ -68,8 +69,8 @@ int	dc_connect_to_proxy(const ZBX_DC_PROXY *proxy, zbx_socket_t *sock, int timeo
 	}
 out:
 	
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s connect proxy, result=%d,proxyid=%llu,ip=%s,port=%d", 
-            __func__, ret, proxy->hostid, proxy->proxy_address, proxy->port);
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s connect proxy, result=%d, sock=%d, tls_connect=%d, timeout=%d,proxyid=%llu,ip=%s,port=%d", 
+            __func__, ret, sock->socket, proxy->tls_connect,timeout, proxy->hostid, proxy->proxy_address, proxy->port);
 	
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__, zbx_result_string(ret));
 
@@ -101,14 +102,13 @@ static int	recv_data_from_proxy(const ZBX_DC_PROXY *proxy, zbx_socket_t *sock)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
 
-	if (FAIL == (ret = zbx_tcp_recv(sock)))
+	// if (FAIL == (ret = zbx_tcp_recv(sock)))
+	if (FAIL == (ret = zbx_tcp_recv_ext(sock, CONFIG_TRAPPER_TIMEOUT, ZBX_TCP_LARGE)))
 	{
 		zabbix_log(LOG_LEVEL_ERR, "cannot obtain data from proxy \"%llu\": %s", proxy->hostid,
 				zbx_socket_strerror());
 	}
-	else
-		zabbix_log(LOG_LEVEL_DEBUG, "obtained data from proxy \"%llu\": [%s]", proxy->hostid, sock->buffer);
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__, zbx_result_string(ret));
 
 	return ret;
@@ -152,7 +152,7 @@ int	dc_get_data_from_proxy(ZBX_DC_PROXY *proxy, const char *request, int config_
 		char **data, zbx_timespec_t *ts)
 {
 	
-	int		ret=SUCCEED, flags = ZBX_TCP_PROTOCOL;
+	int		ret=SUCCEED, flags = ZBX_TCP_PROTOCOL, recv_size = 0;
 	char		*buffer = NULL;
 	size_t		buffer_size, reserved = 0;
 
@@ -191,267 +191,46 @@ int	dc_get_data_from_proxy(ZBX_DC_PROXY *proxy, const char *request, int config_
 		{
 			ret = send_data_to_proxy(proxy, sock, request, request_len, 0, flags);
 		}
-
+		zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s send data to proxy ret=%d, sock=%d, flags=%d, auto_compress=%d, request=%s",
+			 __func__,ret, sock->socket, flags, proxy->auto_compress, request);
 		if (SUCCEED == ret)
 		{
-			if (SUCCEED == (ret = recv_data_from_proxy(proxy, sock)))
-			{
-				if (0 != (sock->protocol & ZBX_TCP_COMPRESS))
-					proxy->auto_compress = 1;
-
-				if (!ZBX_IS_RUNNING())
-				{
-					int	flags_response = ZBX_TCP_PROTOCOL;
-
-					if (0 != (sock->protocol & ZBX_TCP_COMPRESS))
-						flags_response |= ZBX_TCP_COMPRESS;
-
-					zbx_send_response_ext(sock, FAIL, "tognix server shutdown in progress", NULL,
-							flags_response, config_timeout);
-
-					zabbix_log(LOG_LEVEL_WARNING, "cannot process proxy data from passive proxy at"
-							" \"%s\": tognix server shutdown in progress", sock->peer);
-					ret = FAIL;
-				}
-				else
-				{
-					ret = zbx_send_proxy_data_response(proxy, sock, NULL, SUCCEED,
-							ZBX_PROXY_UPLOAD_UNDEFINED);
-
-					if (SUCCEED == ret)
-						*data = zbx_strdup(*data, sock->buffer);
-				}
+			recv_size = recv_data_from_proxy(proxy, sock);
+			if (0 < recv_size){
+				ret = SUCCEED;
+				*data = zbx_strdup(*data, sock->buffer);
+			}else{
+				ret = FAIL;
 			}
+			zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s recv data from proxy ret=%d, sock=%d, recv_size=%d, response=%s",  __func__, ret, sock->socket,  recv_size, sock->buffer);
 		}
-
-		disconnect_proxy(sock);
 	}
+	disconnect_proxy(sock);
 out:
 	zbx_free(buffer);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__, zbx_result_string(ret));
-
+	// 转换 dc_get_data_from_proxy 返回的ret值
+	switch(ret)
+	{
+		case SUCCEED:
+			ret = DISCOVERY_RESULT_SUCCESS;
+			break;
+		case NETWORK_ERROR:
+			ret = DISCOVERY_RESULT_PORXY_CONN_FAIL;
+			break;
+		default:
+			ret = DISCOVERY_RESULT_PORXY_SCAN_FAIL;
+			break;
+	}
 	return ret;
 }
-
-
-void dc_get_proxy(DC_PROXY *dst_proxy, const ZBX_DC_PROXY *src_proxy)
-{
-	const ZBX_DC_HOST	*host;
-	ZBX_DC_INTERFACE_HT	*interface_ht, interface_ht_local;
-
-	dst_proxy->hostid = src_proxy->hostid;
-	dst_proxy->proxy_config_nextcheck = src_proxy->proxy_config_nextcheck;
-	dst_proxy->proxy_data_nextcheck = src_proxy->proxy_data_nextcheck;
-	dst_proxy->proxy_tasks_nextcheck = src_proxy->proxy_tasks_nextcheck;
-	dst_proxy->last_cfg_error_time = src_proxy->last_cfg_error_time;
-	zbx_strlcpy(dst_proxy->version_str, src_proxy->version_str, sizeof(dst_proxy->version_str));
-	dst_proxy->version_int = src_proxy->version_int;
-	dst_proxy->compatibility = src_proxy->compatibility;
-	dst_proxy->lastaccess = src_proxy->lastaccess;
-	dst_proxy->auto_compress = src_proxy->auto_compress;
-	dst_proxy->last_version_error_time = src_proxy->last_version_error_time;
-
-	dst_proxy->revision = src_proxy->revision;
-	dst_proxy->macro_revision = config->um_cache->revision;
-
-	if (NULL != (host = (const ZBX_DC_HOST *)zbx_hashset_search(&config->hosts, &src_proxy->hostid)))
-	{
-		zbx_strscpy(dst_proxy->host, host->host);
-		zbx_strscpy(dst_proxy->proxy_address, src_proxy->proxy_address);
-
-		dst_proxy->tls_connect = host->tls_connect;
-		dst_proxy->tls_accept = host->tls_accept;
-#if defined(HAVE_GNUTLS) || defined(HAVE_OPENSSL)
-		zbx_strscpy(dst_proxy->tls_issuer, host->tls_issuer);
-		zbx_strscpy(dst_proxy->tls_subject, host->tls_subject);
-
-		if (NULL == host->tls_dc_psk)
-		{
-			*dst_proxy->tls_psk_identity = '\0';
-			*dst_proxy->tls_psk = '\0';
-		}
-		else
-		{
-			zbx_strscpy(dst_proxy->tls_psk_identity, host->tls_dc_psk->tls_psk_identity);
-			zbx_strscpy(dst_proxy->tls_psk, host->tls_dc_psk->tls_psk);
-		}
-#endif
-	}
-	else
-	{
-		/* DCget_proxy() is called only from DCconfig_get_proxypoller_hosts(), which is called only from */
-		/* process_proxy(). So, this branch should never happen. */
-		*dst_proxy->host = '\0';
-		*dst_proxy->proxy_address = '\0';
-		dst_proxy->tls_connect = ZBX_TCP_SEC_TLS_PSK;	/* set PSK to deliberately fail in this case */
-#if defined(HAVE_GNUTLS) || defined(HAVE_OPENSSL)
-		*dst_proxy->tls_psk_identity = '\0';
-		*dst_proxy->tls_psk = '\0';
-#endif
-		THIS_SHOULD_NEVER_HAPPEN;
-	}
-
-	interface_ht_local.hostid = src_proxy->hostid;
-	interface_ht_local.type = INTERFACE_TYPE_UNKNOWN;
-
-	if (NULL != (interface_ht = (ZBX_DC_INTERFACE_HT *)zbx_hashset_search(&config->interfaces_ht,
-			&interface_ht_local)))
-	{
-		const ZBX_DC_INTERFACE	*interface = interface_ht->interface_ptr;
-
-		zbx_strscpy(dst_proxy->addr_orig, interface->useip ? interface->ip : interface->dns);
-		zbx_strscpy(dst_proxy->port_orig, interface->port);
-	}
-	else
-	{
-		*dst_proxy->addr_orig = '\0';
-		*dst_proxy->port_orig = '\0';
-	}
-
-	dst_proxy->addr = NULL;
-	dst_proxy->port = 0;
-}
-
-int	dc_proxy_send_configuration(ZBX_DC_PROXY *proxy, const zbx_config_vault_t *config_vault)
-{
-	char				*error = NULL, *buffer = NULL;
-	int				ret, flags = ZBX_TCP_PROTOCOL, loglevel;
-	
-	struct zbx_json			j;
-	struct zbx_json_parse		jp;
-	size_t				buffer_size, reserved = 0;
-	zbx_proxyconfig_status_t	status;
-	
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s begin. proxy=%llu", __func__, proxy->hostid);
-	
-	zbx_json_init(&j, 512 * ZBX_KIBIBYTE);
-	zbx_json_addstring(&j, ZBX_PROTO_TAG_REQUEST, ZBX_PROTO_VALUE_PROXY_CONFIG, ZBX_JSON_TYPE_STRING);
-	
-	zbx_socket_t s;
-	if (SUCCEED != (ret = dc_connect_to_proxy(proxy, &s, CONFIG_TRAPPER_TIMEOUT)))
-		goto out;
-	zbx_socket_t *sock = &s;
-	if (SUCCEED != (ret = send_data_to_proxy(proxy, sock, j.buffer, j.buffer_size, reserved, ZBX_TCP_PROTOCOL)))
-		goto clean;
-
-	if (FAIL == (ret = zbx_tcp_recv_ext(sock, 0, 0)))
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s receive proxy config info fail. proxyid=%llu, error=%s",
-				__func__, proxy->hostid, zbx_socket_strerror());
-		goto clean;
-	}
-	
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s recv from proxy. proxy=%llu,  buffer: %s", __func__, proxy->hostid, sock->buffer);
-	
-	if (SUCCEED != (ret = zbx_json_open(sock->buffer, &jp)))
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s parse proxy config info fail. proxyid=%llu, error=%s",
-				__func__, proxy->hostid, zbx_socket_strerror());
-		goto clean;
-	}
-
-	zbx_json_clean(&j);
-	DC_PROXY dst_proxy;
-    dc_get_proxy(&dst_proxy, proxy);
-	dst_proxy.isfullsync = 1;
-	if (SUCCEED != (ret = zbx_proxyconfig_get_data(&dst_proxy, &jp, &j, &status, config_vault, &error)))
-	{
-		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s get config data fail. proxyid=%llu,ret=%d,error=%s",
-				__func__, proxy->hostid, ret, error);
-		goto clean;
-	}
-	
-	if(0 == zbx_strcmp_null(j.buffer, "{}")){
-		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s get config data fail2. proxyid=%llu",
-				__func__, proxy->hostid);
-		goto clean;
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s proxyconfig get data proxyid=%llu,result=%d,auto_compress=%d,bufferlen=%d", 
-					__func__,proxy->hostid, ret, proxy->auto_compress, strlen(j.buffer));
-	if (0 != proxy->auto_compress)
-	{
-		if (SUCCEED != zbx_compress(j.buffer, j.buffer_size, &buffer, &buffer_size))
-		{
-			zabbix_log(LOG_LEVEL_ERR,"#TOGNIX#%s cannot compress data. error=%s", __func__, zbx_compress_strerror());
-			ret = FAIL;
-			goto clean;
-		}
-
-		flags |= ZBX_TCP_COMPRESS;
-		reserved = j.buffer_size;
-		zbx_json_free(&j);	/* json buffer can be large, free as fast as possible */
-	}
-
-	loglevel = (ZBX_PROXYCONFIG_STATUS_DATA == status ? LOG_LEVEL_WARNING : LOG_LEVEL_DEBUG);
-
-	if (0 != proxy->auto_compress)
-	{
-		zabbix_log(loglevel, "%s sending configuration data to proxy \"%llu\" at \"%s\", datalen "
-				ZBX_FS_SIZE_T ", bytes " ZBX_FS_SIZE_T " with compression ratio %.1f", 
-				__func__, proxy->hostid, sock->peer, (zbx_fs_size_t)reserved, (zbx_fs_size_t)buffer_size,
-				(double)reserved / buffer_size);
-
-		ret = send_data_to_proxy(proxy, sock, buffer, buffer_size, reserved, flags);
-		zbx_free(buffer);		/* json buffer can be large, free as fast as possible */
-	}
-	else
-	{
-		zabbix_log(loglevel, "%s sending configuration data to proxy \"%llu\" at \"%s\", datalen "
-				ZBX_FS_SIZE_T, __func__, proxy->hostid, sock->peer, (zbx_fs_size_t)j.buffer_size);
-
-		ret = send_data_to_proxy(proxy, sock, j.buffer, j.buffer_size, reserved, flags);
-		zbx_json_free(&j);	/* json buffer can be large, free as fast as possible */
-	}
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s sending data to proxy %llu, result=%d", 
-					__func__,proxy->hostid, ret);
-
-	 
-	if (SUCCEED == ret)
-	{
-		if (SUCCEED != (ret = zbx_recv_response(sock, 1, &error)))
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s cannot send configuration data to proxy." \
-					"proxyid=%llu,ip=%s,error=%s", __func__, proxy->hostid, sock->peer, error);
-		}
-		else
-		{
-			if (SUCCEED != zbx_json_open(sock->buffer, &jp))
-			{
-				zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s invalid configuration data response received from proxy." \
-						"proxyid=%llu,ip=%s,error=%s", __func__, proxy->hostid, sock->peer, zbx_json_strerror());
-			}
-			else
-			{
-				char	*version_str;
-
-				version_str = zbx_get_proxy_protocol_version_str(&jp);
-				zbx_strlcpy(proxy->version_str, version_str, sizeof(proxy->version_str));
-				proxy->version_int = zbx_get_proxy_protocol_version_int(version_str);
-				proxy->auto_compress = (0 != (sock->protocol & ZBX_TCP_COMPRESS) ? 1 : 0);
-				proxy->lastaccess = time(NULL);
-				zbx_free(version_str);
-			 
-			}
-		}
-	}
-clean:
-	disconnect_proxy(sock);
-out:
-	zbx_free(buffer);
-	zbx_free(error);
-	zbx_json_free(&j);
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s end. proxyid=%llu,result=%d", 
-					__func__,proxy->hostid, ret);
-	return ret;
-}
-
 
 /**
  * 处理从代理端返回的数据
+ * sock php请求连接的sock
 */
-int discovery_rules_from_proxy(zbx_socket_t *sock, char *resp, int config_timeout)
+int discovery_rules_from_proxy(zbx_socket_t *sock, char *resp, int config_timeout, zbx_ipc_async_socket_t *rtc)
 {
     int ret = SUCCEED;
     if ('{' == *resp)	/* JSON protocol */
@@ -469,79 +248,29 @@ int discovery_rules_from_proxy(zbx_socket_t *sock, char *resp, int config_timeou
 		zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_REQUEST, cmd, sizeof(cmd), NULL);
 		
         if (0 == strcmp(cmd, DISCOVERY_RULES_SINGLE_SCAN)){ // 代理端单设备扫描返回数据，必须在服务端进行处理
-            discovery_rules_state(sock, resp, config_timeout);
+            discovery_rules_state(1, sock, resp, config_timeout, rtc);
         }else{  //代理端自动扫描返回数据，直接返回给php端
             ret == tognix_tcp_send(sock, resp, strlen(resp), config_timeout);
         }
         return ret;
     }
-    zbx_tcp_close(sock);        
+         
 }
 
- 
-
-//用户扫描任务创建
-int	user_discover_proxy_create(int proxyhostid, const char *session, const struct zbx_json_parse *jp)
+// 服务端处理代理端返回的进程查询应答，处理后再返回给前端显示
+static char *server_build_proxy_progress_resp(int fullsync, char *session, char *proxy_resp)
 {
-    char			*sql = NULL;
-	size_t			sql_alloc = 0, sql_offset = 0;
-	DB_RESULT		result;
-	DB_ROW			row;
-	int             ret = SUCCEED, ipnumber=0;
-	
-	zbx_user_discover_drule_t *dr = NULL;
-	
-	ret = parse_rules_activate(jp, &dr);
-	
-	if (SUCCEED != ret)  goto out;
-    
-
-    // 删除超时的扫描
-    zbx_db_execute("delete from proxy_dhosts where endtime<%d", time(NULL));
-
-	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "select id,druleid,session,hostids,begintime" \ 
-        " from proxy_dhosts where druleid=%llu and session='%s' ", \
-         dr->druleid, session);
-	result = zbx_db_select(sql);
-	while (NULL != (row = zbx_db_fetch(result)))
-	{
-        return ret;
-	}
- 
-	result = zbx_db_select("select druleid, iprange from drules where druleid=%llu", dr->druleid);
-	while (NULL != (row = zbx_db_fetch(result)))
-	{
-		zbx_iprange_t iprange;
-		if (SUCCEED != zbx_iprange_parse(&iprange, row[1]))
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "#TOGNIX#%s ruleid:%s: wrong format of IP range:%s",__func__, row[0], row[1]);
-			continue;
-		}
-		ipnumber = zbx_iprange_volume(&iprange);
-	}
-
-    int begintime = time(NULL);
-    int endtime =  begintime + ipnumber*USER_DISCOVER_IP_TIME_OUT + USER_DISCOVER_EXTRA_TIME_OUT;
-    zbx_db_execute("insert into proxy_dhosts (druleid,session,hostids,ipnumber,begintime,endtime) " \
-                  " values(%llu, '%s', '', %d, %d, %d)", 
-        dr->druleid, session, ipnumber, begintime, endtime);
-out:
-	return ret;
-}
-
-
-// proxy程序处理server的请求后返回应答
-static char *build_proxy_progress_resp(char *session, char *request)
-{
-	int ret = FAIL, depth = 0, id = 0;
+	int ret = FAIL, depth = 0, id = 0, endtime = 0, nowtime = 0;
 	struct zbx_json_parse jp, jp_data;
 	struct zbx_json json;
-    char tstr[128], *p = NULL, *response;
+    char tstr[128], *p = NULL, *response, *hostids = NULL;
     DB_RESULT		result;
 	DB_ROW			row;
+
+	nowtime = time(NULL);
 	
 	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
-	if (SUCCEED != (ret = zbx_json_open(request, &jp))){
+	if (SUCCEED != (ret = zbx_json_open(proxy_resp, &jp))){
 		goto out;
 	}
     
@@ -553,43 +282,33 @@ static char *build_proxy_progress_resp(char *session, char *request)
         ret = FAIL;
     }
 
-    if(SUCCEED != ret) return request;
-
-    zbx_uint64_t druleid = 0;
-    if (SUCCEED == zbx_json_brackets_by_name(&jp, ZBX_PROTO_TAG_DATA, &jp_data))
-	{
-		while (NULL != (p = zbx_json_next(&jp_data, p)))
-		{
-			struct zbx_json_parse jp_obj;
-			if (SUCCEED == zbx_json_brackets_open(p, &jp_obj))
-			{
-				// 从当前对象中提取druleid的值
-                memset(tstr, 0 , sizeof(tstr));
-				if (SUCCEED == zbx_json_value_by_name(&jp_obj, "druleid", tstr, sizeof(tstr), NULL))
-				{
-					zbx_lrtrim(tstr, ZBX_WHITESPACE);
-					zbx_is_uint64(tstr, &druleid);
-                    break;
-                }
-            }
-        }
-    }
-    zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s druleid=%d, session=%s", __func__, druleid, session);
+    if(SUCCEED != ret) return proxy_resp;
 	
-    result = zbx_db_select("select id,druleid,session,hostids" \ 
-                    " from proxy_dhosts where druleid=%llu and session='%s' ", \
-                    druleid, session);
-    char *hostids = NULL;
+    zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s fullsync=%d, session=%s", __func__, fullsync, session);
+	
+    result = zbx_db_select("select id,druleid,session,all_hostids,hostids,endtime" \ 
+                    " from proxy_dhosts where session='%s' ",  session);
+
 	while (NULL != (row = zbx_db_fetch(result)))
 	{
         id = zbx_atoi(row[0]);
-        hostids = zbx_strdup(NULL, row[3]);
+		if(fullsync){
+			hostids = zbx_strdup(NULL, row[3]);
+		}else{
+			hostids = zbx_strdup(NULL, row[4]);
+        }
+		endtime = zbx_atoi(row[5]);
 	}
-    
-    if(NULL != zbx_strstr(request, "\"progress\":100,")){
-        zbx_db_execute("delete from proxy_dhosts where druleid=%llu and session='%s' ",
-                    druleid, session);
-    }else if(NULL != hostids){
+	zbx_db_free_result(result);
+   
+    if(NULL != zbx_strstr(proxy_resp, "\"progress\":100,")){
+		if(nowtime >= endtime){
+       		zbx_db_execute("delete from proxy_dhosts where session='%s' ", session);
+		}
+		else{
+			zbx_db_execute("update proxy_dhosts set progress=100 where session='%s' ", session);
+		}
+    }else if(NULL != hostids && strlen(hostids) > 0){
         ret = zbx_db_execute("update proxy_dhosts set hostids='' WHERE id=%d", id);
     }
     
@@ -601,15 +320,31 @@ static char *build_proxy_progress_resp(char *session, char *request)
 out:
 	response = strdup(json.buffer);
 	zbx_json_free(&json);
+	zbx_free(hostids);
 	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s response=%s", __func__, response);
 	
 	return response;
 }
+void	zbx_rtc_notify_config_fullsync(int proxyhostid, int config_timeout, zbx_ipc_async_socket_t *rtc)
+{
+	char data[128] = {0};
+	zbx_snprintf(data,sizeof(data),"%d",proxyhostid);
+	zabbix_log(LOG_LEVEL_CRIT, "#TOGNIX#%s configuration syncer notification, proxyhostid=%s", __func__, data);
+	if (FAIL == zbx_ipc_async_socket_send(rtc, ZBX_RTC_PROXYPOLLER_PROCESS, data, strlen(data)))
+	{
+		zabbix_log(LOG_LEVEL_CRIT, "#TOGNIX#cannot send proxypoller process notification");
+	}
 
+	if (FAIL == zbx_ipc_async_socket_flush(rtc, config_timeout))
+	{
+		zabbix_log(LOG_LEVEL_CRIT, "cannot flush configuration syncer notification");
+	}
+}
+ 
 /**
  * 处理从php端发过来的请求，该请求必须发到代理服务端处理
 */
-int discovery_rules_to_proxy_handle(void* arg)
+int do_proxy_discovery_rules(void* arg)
 {
     proxy_thread_arg *proxy_arg = (proxy_thread_arg *)arg;
 
@@ -619,97 +354,128 @@ int discovery_rules_to_proxy_handle(void* arg)
     zbx_socket_t *sock = proxy_arg->sock;
     const char *request = proxy_arg->request;
     int config_timeout = proxy_arg->config_timeout;
-    const zbx_config_vault_t *config_vault = proxy_arg->config_vault;
+	zbx_ipc_async_socket_t *rtc = proxy_arg->rtc;
 
-    int		ret = FAIL, try_count = 0;
-    zbx_timespec_t	ts;
-    char		*response = NULL;
+    int		ret = DISCOVERY_RESULT_PORXY_SCAN_FAIL,ret_sync_cfg = FAIL, try_count = 0, fullsync = 0, isproxyfinish = 0;
+    char		*response = NULL, *resp_session = NULL;
     ZBX_DC_PROXY *proxy;
+	zbx_timespec_t	ts;
     zbx_socket_t *proxy_sock = NULL;
+	zbx_uint64_t druleid = 0;
 
     struct zbx_json_parse	jp;
     if (SUCCEED != zbx_json_open(request, &jp))
         return FAIL;
-    
- 
+
     if(NULL != (proxy = (ZBX_DC_PROXY *)zbx_hashset_search(&config->proxies, &proxyhostid)))
     {
         zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s hostid=%llu,proxy_address=%s,request=%s",
-             __func__, proxy->hostid,proxy->proxy_address,request);
+             __func__, proxy->hostid,proxy->proxy_address, request);
         
         proxy->port = ZBX_DEFAULT_SERVER_PORT;
         proxy->tls_connect = 1; 
 
-        if(0 == strcmp(cmd, DISCOVERY_RULES_ACTIVATE))
-        {
-            if(DISCOVERY_RESULT_SUCCESS != (ret = user_discover_proxy_create(proxyhostid, session, &jp)))
-                goto out;
-        }
- 
+		// 同步到最新数据到代理服务器(现在是全量，有待优化)
         if(0 == strcmp(cmd, DISCOVERY_RULES_ACTIVATE) ||
 			0 == strcmp(cmd, DISCOVERY_RULES_SINGLE_SCAN))
         {
-			try_count = 0;
-			do{
-            	ret = dc_proxy_send_configuration(proxy, config_vault);
-				if(SUCCEED == ret) break;
-				zbx_sleep(1);
-				try_count ++;
-			}while (try_count < MAX_SYNC_PROXY_CONFIG_TIMES);
+			// 通知proxypoller进程去同步配置
+			zbx_rtc_notify_config_fullsync(proxy->hostid, config_timeout, rtc);
         }
 
+		// 查询进度，有些情况从本地查询进度，有些情况发到代理端查询进度
+        if(0 == strcmp(cmd, DISCOVERY_RULES_PROGRESS))
+		{
+			isproxyfinish = is_proxy_discover_finish(session, &jp, &druleid, &fullsync);
+			if(fullsync || isproxyfinish){
+				// 如果是fullsync,直接返回服务端session对应的全量hostid
+				// 如果代理服务端已经扫描处理完成，剩下部分是服务端处理，主要是Nutanix,WMWare扫描使用
+				response = user_discover_progress(1, session, &jp);
+				goto out;
+			}
+		}
+
+		// 把数据转发到代理服务器处理
 		try_count = 0;
 		do{
 			ret = dc_get_data_from_proxy(proxy, request, config_timeout, &response, &ts);
-			if(SUCCEED == ret) break;
-			zbx_sleep(1);
+			if(SUCCEED == ret || try_count > MAX_SEND_PROXY_DATA_TIMES){ 
+				break;
+			}
+			zbx_sleep(MAX_SEND_PROXY_SLEEP_TIME);
 			try_count ++;
-		}while (try_count < MAX_SEND_PROXY_DATA_TIMES);
-        
-
+		}while (1);
+		
         zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s proxy response. result=%d, resp=%s", 
 			__func__, ret, print_content(response));
-        if (SUCCEED != (ret)){
-		    goto out;
+        if (SUCCEED != ret){
+			// 进度查询不到要返回出错
+			if(0 == strcmp(cmd, DISCOVERY_RULES_PROGRESS)){
+				ret = DISCOVERY_RESULT_SUCCESS;
+			}
+			// 没有发到代理端，代理端数据没有返回，则直接返回给php端
+			response = create_activate_or_stop_json(ret, cmd, session, &jp);
+			goto out;
         }else if(SUCCEED == ret && NULL != response){
+			// 没有代理端数据已经返回，则处理
             if(0 == strcmp(cmd, DISCOVERY_RULES_PROGRESS)){
-                response = build_proxy_progress_resp(session, response);
+				server_discovery_proxy_progress_finish(response, &resp_session);
+                response = server_build_proxy_progress_resp(fullsync, resp_session, response);
             }
+			else if(0 == strcmp(cmd, DISCOVERY_RULES_ACTIVATE))
+			{
+				ret = server_user_discover_create_proxy(proxyhostid, session, &jp);
+				if(SUCCEED != ret ){
+					response = create_activate_or_stop_json(ret, cmd, session, &jp);
+				}
+			} 
         }
-    } 
+    }else{
+		// 没有发到代理端，则直接返回给php端
+		ret = DISCOVERY_RESULT_PORXY_NO_EXIST;
+		response = create_activate_or_stop_json(ret, cmd, session, &jp);
+	}
 
 out:
-    if(NULL == response){
-        response = create_activate_or_stop_json(ret, cmd, session, &jp);
-    }
-    discovery_rules_from_proxy(sock, response, config_timeout);
-    zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s ret=%d", __func__,ret);
+	// 这里处理代理返回或本地生成的response数据，如果是单设备扫描则转发到代discoverer进程处理，否则直接返回给php
+    discovery_rules_from_proxy(sock, response, config_timeout, rtc);
+    
+	zbx_free(cmd);
+	zbx_free(session);
+	zbx_free(request);
     zbx_free(response);
+	zbx_free(resp_session);
+	
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ret=%d", __func__,ret);
     return ret;
 }
 
 
 int discovery_rules_proxy(char *cmd, char *session, int proxyhostid, zbx_socket_t *sock, const char *request, 
-    int config_timeout, const zbx_config_vault_t *config_vault)
+    int config_timeout, zbx_ipc_async_socket_t *rtc)
 {
     pthread_t proxy_thread;
     proxy_thread_arg proxy_arg;
 
-    zbx_socket_t *resp_sock = zbx_malloc(resp_sock, sizeof(zbx_socket_t));
-	memcpy(resp_sock, sock, sizeof(sock));
-	sock->socket = -1;
+    zbx_socket_t *resp_sock = (zbx_socket_t *)zbx_malloc(resp_sock, sizeof(zbx_socket_t));
+	copy_zbx_socket(sock, resp_sock);
+	sock->socket = ZBX_SOCKET_ERROR;
 
-    proxy_arg.cmd = cmd;
-    proxy_arg.session = session;
+    proxy_arg.cmd = zbx_strdup(NULL,cmd);
+    proxy_arg.session = zbx_strdup(NULL,session);
     proxy_arg.proxyhostid = proxyhostid;
     proxy_arg.sock = resp_sock;
-    proxy_arg.request = request;
+    proxy_arg.request = zbx_strdup(NULL,request);
     proxy_arg.config_timeout = config_timeout;
-    proxy_arg.config_vault = config_vault;
+	proxy_arg.rtc = rtc;
  
-    if (pthread_create(&proxy_thread, NULL, discovery_rules_to_proxy_handle, &proxy_arg))
+    if (pthread_create(&proxy_thread, NULL, do_proxy_discovery_rules, &proxy_arg))
     {
         zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s. create thread fail.",__func__);
         return FAIL;
-    } 
+    }
+	// if (pthread_join(&proxy_thread, NULL))
+	// {
+	// 	zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s join thread fail", __func__);
+	// }
 }

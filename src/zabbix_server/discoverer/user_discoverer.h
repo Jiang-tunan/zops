@@ -10,6 +10,7 @@
 #include "zbxthreads.h"
 #include "zbxnix.h"
 #include "zbxdiscovery.h"
+#include "discoverer_comm.h"
 
 #define LOCK_USER_DISCOVER		zbx_mutex_lock(user_discover_lock)
 #define UNLOCK_USER_DISCOVER	zbx_mutex_unlock(user_discover_lock)
@@ -71,7 +72,8 @@ typedef struct
 	int                          progress;							//当前的进度0-100的值
 	zbx_vector_str_t             hostids;                           //扫描出来的hostid列表，保存对象为字符串(char *)
 	zbx_vector_str_t             all_hostids;                       //扫描出来的hostid列表，一直保存，给前端恢复页面用
-
+	char*			             p_hostids;                         //从数据库读出的 扫描出来的hostid列表，
+	char*			             p_all_hostids;                     //从数据库读出的 扫描出来的hostid列表，一直保存，给前端恢复页面用
 }
 zbx_user_discover_session_t;
 
@@ -85,10 +87,14 @@ typedef struct
                                                                     //保存对象为 zbx_user_discover_session_t
 	zbx_user_discover_status_t   status;                            //扫描状态
 	int                          check_type;						//扫描类型
-	int                          vm_count;
-	int                          hv_count;
-	int                          vm_num;
-	int                          hv_num;							
+	int                          vm_count;							// 虚拟机扫描出来的数量
+	int                          hv_count;							// 服务器扫描出来的数量
+	int                          vm_num;							// 虚拟机总数
+	int                          hv_num;							// 服务器总数
+	int							 proxy_discover_finish;				// 代理端扫描部分已经结束，代理只是完成了进度的一部分，需要服务端继续处理
+	zbx_user_discover_session_t  proxy_session;						// 代理session对象
+	
+	int							 result;							//扫描结果
 }
 zbx_user_discover_drule_t;
 
@@ -104,7 +110,7 @@ zbx_user_discover_drules_t;
 
 
 int	user_discover_create(int proxyhostid, const char *session, const struct zbx_json_parse *jp);
-char* user_discover_progress(const char * session, const struct zbx_json_parse *jp);
+char* user_discover_progress(int proxy_hostid, const char * session, const struct zbx_json_parse *jp);
 int	user_discover_stop(const char *session);
 
 // int user_discover_gen_ip(const char *ipnext);
@@ -117,7 +123,7 @@ void __zbx_user_discover_clean();
 void discovery_rules_discoverer_thread_init();
 void* discovery_rules_discoverer_thread_function(void* arg);
 void discovery_rules_select(const char* request_value, int socket, const struct zbx_json_parse *jp, char *request);
-char* create_progress_json(const char* session_value, const struct zbx_json_parse *jp);
+char* create_progress_json(int proxy_hostid, const char* session_value, const struct zbx_json_parse *jp);
 char* create_activate_or_stop_json(int result, const char *cmd, const char *session_value, const struct zbx_json_parse *jp);
 char* create_fail_json(const char* response, const char* session, int result, const char* failreason);
 int extract_druleids(const struct zbx_json_parse *jp, zbx_vector_uint64_t *druleids);
@@ -127,6 +133,22 @@ int discovery_add_total_ip_num(zbx_uint64_t druleid, int type, int ip_num);
 int discovered_next_ip(zbx_uint64_t druleid, int type, int ip_num);
 
 void update_hostmacro_data(int hostmacroid, int hostid, char *macro, char *value, char *description);
+void update_hostmacro_int_data(int hostmacroid, int hostid, char *macro, int ivalue, char *description);
+char* user_discover_progress(int from_proxy, const char * session, const struct zbx_json_parse *jp);
+int user_discover_add_result(zbx_uint64_t druleid, int result);
 
-int user_discover_proxy_add_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid);
+int	server_user_discover_create_proxy(int proxyhostid, const char *session, const struct zbx_json_parse *jp);
+int server_discovery_proxy_add_total_ip_num(zbx_uint64_t druleid, int type, int ip_num);
+int server_user_discover_add_proxy_hostid(zbx_uint64_t druleid, zbx_uint64_t hostid);
+int server_discovered_proxy_next_ip(zbx_uint64_t druleid, int type, int ip_num);
+int server_query_proxy_druleid_progress(const char * session, zbx_uint64_t druleid, int fullsync, 
+	int *out_progress, int *out_remain_time, char **out_hostids);
+int server_discover_proxy_finished(zbx_uint64_t druleid, char *session);
+int server_discovery_proxy_progress_finish(char *proxy_resp, char **session);
+
+int is_proxy_discover_finish(char *session, struct zbx_json_parse *jp, zbx_uint64_t *druleid,  int *fullsync);
+
+int proxy_discover_finished(zbx_uint64_t druleid);
+int proxy_get_sessions(zbx_uint64_t druleid, char **sessions);
+
 #endif

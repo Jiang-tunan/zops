@@ -1079,8 +1079,8 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 		const zbx_config_comms_args_t *config_comms, const zbx_config_vault_t *config_vault,
 		int config_startup_time)
 {
-	zabbix_log(LOG_LEVEL_DEBUG, "recv request: socket=%d, ip=%s, bytes_received=%ld, msg='%s'",
-		sock->socket, sock->peer, bytes_received, s);
+	zabbix_log(LOG_LEVEL_DEBUG, "recv request: socket=%d, protocol=%d, ip=%s, bytes_received=%ld, msg='%s'",
+		sock->socket, sock->protocol, sock->peer, bytes_received, s);
 	if(NULL == s || strlen(s) == 0){
 		zabbix_log(LOG_LEVEL_DEBUG, "recv request fail! socket=%d, ip=%s",sock->socket, sock->peer);
 		return FAIL;
@@ -1119,17 +1119,13 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 		}
 		
 		// 如果软件许可不允许情况下，只处理软件许可的相关请求，其他请求都返回失败
-		if (0 == strcmp(value, LICENSE_GET_PRODUCTKEY))
+		if (0 == strcmp(value, LICENSE_GET_PRODUCTKEY)
+			|| 0 == strcmp(value, LICENSE_VERIFY)
+			|| 0 == strcmp(value, LICENSE_QUERY))
 		{
-			ret = send_productkey(sock, &jp, config_comms->config_timeout);
-		}		
-		else if (0 == strcmp(value, LICENSE_VERIFY))
-		{
-			ret = send_license_verify(sock, &jp, config_comms->config_timeout);
-		}
-		else if (0 == strcmp(value, LICENSE_QUERY))
-		{
-			ret = send_license_query(sock, &jp, config_comms->config_timeout);
+			zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#recv request: socket=%d, protocol=%d, ip=%s, bytes_received=%ld, msg='%s'",
+				sock->socket, sock->protocol, sock->peer, bytes_received, s);
+			ret = license_hander(value, sock, &jp, config_comms->config_timeout);
 		}
 		else if(ZBX_PROGRAM_TYPE_SERVER == g_running_program_type &&
 			g_lic_result != LICENSE_SUCCESS)  //许可失败，不处理其他请求
@@ -1218,9 +1214,9 @@ static int	process_trap(zbx_socket_t *sock, char *s, ssize_t bytes_received, zbx
 				char session[128];
 				zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_SESSION, &session, sizeof(session), NULL);
 				
-				ret = discovery_rules_proxy(value, session, proxyhostid, sock, s, config_comms->config_timeout, config_vault);
-			}else{ //从php端发过来发到服务端的请求
-				ret = discovery_rules_state(sock, s, config_comms->config_timeout);
+				ret = discovery_rules_proxy(value, session, proxyhostid, sock, s, config_comms->config_timeout, config_comms->rtc);
+			}else{ // 服务端处理从php端发过来发到服务端的请求，或 代理端处理服务端发过来的请求
+				ret = discovery_rules_state(0, sock, s, config_comms->config_timeout, config_comms->rtc);
 			}
 		}
 		else if (0 == strcmp(value, COMMON_CHECK_IP_CONNECT))
@@ -1367,7 +1363,7 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 			server_num, get_process_type_string(process_type), process_num);
 			
 	g_lic_result = init_license(info->lic_file);
-	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#trapper init_license. result=%d, is_success=%d", g_lic_result, LIC_IS_SUCCESS());
+	// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#trapper init_license. result=%d, is_success=%d", g_lic_result, LIC_IS_SUCCESS());
 
 	zbx_update_selfmon_counter(info, ZBX_PROCESS_STATE_BUSY);
 
@@ -1384,8 +1380,9 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 #ifdef HAVE_NETSNMP
 	zbx_rtc_subscribe(process_type, process_num, rtc_msgs, ARRSIZE(rtc_msgs),
 			trapper_args_in->config_comms->config_timeout, &rtc);
+	// 同步配置IPC通知
+	trapper_args_in->config_comms->rtc = &rtc;
 #endif
-
 
 	discovery_rules_trapper_thread_init(server_num); //接收线程初始化
 	
@@ -1437,7 +1434,6 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 
 			}
 
-			s.rtc = &rtc; // 异步向其他进程通信用
 #endif
 			sec = zbx_time();
 			process_trapper_child(&s, &ts, trapper_args_in->config_comms, trapper_args_in->config_vault,

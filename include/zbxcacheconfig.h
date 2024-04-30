@@ -371,7 +371,7 @@ typedef struct
 	char				proxy_address[HOST_PROXY_ADDRESS_LEN_MAX];
 	int				last_version_error_time;
 
-	int isfullsync;  // 服务端是否向代理同步全部配置数据
+	int isfullsync;  // 鏈嶅姟绔槸鍚﹀悜浠ｇ悊鍚屾鍏ㄩ儴閰嶇疆鏁版嵁
 }
 DC_PROXY;
 

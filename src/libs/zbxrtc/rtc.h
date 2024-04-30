@@ -21,6 +21,7 @@
 #define ZABBIX_RTC_H
 
 #include "zbxtypes.h"
+#include "zbxipcservice.h"
 
 int	rtc_option_get_parameter(const char *param, size_t *size, char **error);
 int	rtc_option_get_pid(const char *param, size_t *size, pid_t *pid, char **error);
@@ -28,4 +29,7 @@ int	rtc_option_get_process_type(const char *param, size_t *size, int *proc_type,
 int	rtc_option_get_process_num(const char *param, size_t *size, int *proc_num, char **error);
 int	rtc_option_get_prof_scope(const char *param, size_t pos, int *scope);
 
+//代理进程通知去同步配置数据 add by 1.5
+int	zbx_rtc_reload_proxy_config_fullsync(char **error, int timeout);
+void zbx_rtc_notify_proxy_config_fullsync(int config_timeout, zbx_ipc_async_socket_t *rtc);
 #endif

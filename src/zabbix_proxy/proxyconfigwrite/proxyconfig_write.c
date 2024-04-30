@@ -53,6 +53,7 @@
  */
 
 extern int	CONFIG_TRAPPER_TIMEOUT;
+extern int g_running_program_type;
 
 typedef struct
 {
@@ -2072,7 +2073,7 @@ void	zbx_recv_proxyconfig(zbx_socket_t *sock, const zbx_config_tls_t *config_tls
 		const zbx_config_vault_t *config_vault, int config_timeout, int icp_timeout)
 {
 	struct zbx_json_parse	jp_config, jp_kvs_paths = {0};
-	int			ret;
+	int			ret, reload_ret;
 	struct zbx_json		j;
 	char			*error = NULL;
 
@@ -2122,7 +2123,13 @@ void	zbx_recv_proxyconfig(zbx_socket_t *sock, const zbx_config_tls_t *config_tls
 
 	if (SUCCEED == (ret = zbx_proxyconfig_process(sock->peer, &jp_config, &error)))
 	{
-		if (SUCCEED == zbx_rtc_reload_config_cache(&error, icp_timeout))
+		reload_ret = FAIL;
+		if(ZBX_PROGRAM_TYPE_PROXY == g_running_program_type){
+			reload_ret = zbx_rtc_reload_proxy_config_fullsync(&error, icp_timeout);
+		}else{
+			 reload_ret = zbx_rtc_reload_config_cache(&error, icp_timeout);
+		}
+		if (SUCCEED == reload_ret)
 		{
 			if (SUCCEED == zbx_json_brackets_by_name(&jp_config, ZBX_PROTO_TAG_MACRO_SECRETS, &jp_kvs_paths))
 				DCsync_kvs_paths(&jp_kvs_paths, config_vault);

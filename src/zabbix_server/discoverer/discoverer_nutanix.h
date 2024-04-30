@@ -46,7 +46,10 @@ typedef struct
 	int port;
 } nutanix_arg;
  
-void discover_nutanix(zbx_db_drule *drule, const DB_DCHECK *dcheck,
+void discover_nutanix(zbx_db_drule *drule, DB_DCHECK *dcheck,
 	char *keys, char *user, char *passwd, char *ip, int port);
+
+void server_discover_nutanix_from_proxy(int scan_type, zbx_db_drule *drule, DB_DCHECK *dcheck,
+	 zbx_vector_ptr_t *dhosts, char *bigvalue, char *ip, int port);
 
 #endif

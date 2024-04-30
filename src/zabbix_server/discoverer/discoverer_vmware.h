@@ -53,4 +53,6 @@ typedef struct
 void discover_vmware(zbx_db_drule *drule, const DB_DCHECK *dcheck,
 	char *keys, char *user, char *passwd, char *ip, int port);
 
+void server_discover_vmware_from_proxy(int scan_type, zbx_db_drule *drule, const DB_DCHECK *dcheck,
+	 zbx_vector_ptr_t *dhosts, char *bigvalue, char *ip, int port);
 #endif

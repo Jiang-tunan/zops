@@ -210,6 +210,7 @@ typedef struct
 
 	zbx_uint64_t	main_hostid;  //主设备的hostid,针对一个设备多个扫描类型情况,(如:一个设备同时扫描snmp,ipmi等)
 	zbx_uint64_t	proxy_hostid; //代理hostid
+	char		*sessions; 		  //session列表，中间用 ','分割,代理服务返回的
 }
 zbx_db_drule;
 
@@ -220,14 +221,15 @@ typedef struct
 	int		lastup;
 	int		lastdown;
 
-	// 增加绑定模板需要的参数, add by 1.5
+	// 以下都是增加绑定模板需要的参数, add by 1.5
 	zbx_uint64_t hostid;
 	int templateid;
 	int hstgrpid;
-	int hstatus;
-	int istatus; 
+	int hstatus;		// hosts 表中的status
+	int istatus;		// interface 表中的status
 	int druleid;
 	int proxy_hostid;
+	char *session;		// 这个参数是为了代理返回时，server_discover_proxy_finished函数用的。
 }
 zbx_db_dhost;
 

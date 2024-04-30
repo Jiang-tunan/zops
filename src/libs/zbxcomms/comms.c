@@ -29,6 +29,7 @@
 #include "zbxnum.h"
 #include "zbxip.h"
 #include "zbxtime.h"
+#include "zbxalgo.h"
 
 #ifdef _WINDOWS
 #	ifndef _WIN32_WINNT_WIN7
@@ -1942,8 +1943,8 @@ ssize_t	zbx_tcp_recv_ext(zbx_socket_t *s, int timeout, unsigned char flags)
 				break;
 		}
 	}
-	//zabbix_log(LOG_LEVEL_DEBUG, "zbx_tcp_recv_ext. recv request: socket=%d,ip=%s, expect=%d, size=%d, expected_len=%d, ip=%s,msg=%s", 
-	//					s->socket,s->peer,expect,(buf_stat_bytes + buf_dyn_bytes), expected_len, s->peer, s->buf_stat);
+	// zabbix_log(LOG_LEVEL_DEBUG, "zbx_tcp_recv_ext. recv request: socket=%d,ip=%s, expect=%d, buf_stat_bytes=%d, buf_dyn_bytes=%d, expected_len=%d, ip=%s", 
+	// 					s->socket,s->peer,expect,buf_stat_bytes,buf_dyn_bytes, expected_len, s->peer);
 	if (ZBX_TCP_EXPECT_SIZE == expect)
 	{
 		if (buf_stat_bytes + buf_dyn_bytes == expected_len)
@@ -2469,4 +2470,50 @@ void	zbx_udp_close(zbx_socket_t *s)
 
 	zbx_socket_free(s);
 	zbx_socket_close(s->socket);
+}
+
+
+void copy_zbx_socket(zbx_socket_t *src, zbx_socket_t *dest)
+{
+	if(NULL == src || NULL == dest)
+		return;
+	memset(dest, 0, sizeof(dest));
+
+	dest->socket = src->socket;
+	dest->socket_orig = src->socket_orig;
+	dest->read_bytes = src->read_bytes;
+
+	if(NULL != src->buffer)
+		dest->buffer = zbx_strdup(NULL, src->buffer);
+	if(NULL != src->next_line)
+		dest->next_line = zbx_strdup(NULL, src->next_line);
+	
+#if defined(HAVE_GNUTLS) || defined(HAVE_OPENSSL)
+	if(NULL != src->tls_ctx)
+	{
+		dest->tls_ctx = (zbx_tls_context_t*)zbx_malloc(NULL, sizeof(src->tls_ctx));
+		#if defined(HAVE_GNUTLS)
+			memcpy(&(dest->ctx), &(src->ctx), sizeof(src->ctx));
+			memcpy(&(dest->psk_client_creds), &(src->psk_client_creds), sizeof(src->psk_client_creds));
+			memcpy(&(dest->psk_server_creds), &(src->psk_server_creds), sizeof(src->psk_server_creds));
+		#elif defined(HAVE_OPENSSL)
+			if(NULL != src->tls_ctx->ctx)
+			{
+				dest->tls_ctx->ctx = (SSL*)zbx_malloc(NULL, sizeof(src->tls_ctx->ctx));
+				memcpy(dest->tls_ctx->ctx, src->tls_ctx->ctx, sizeof(src->tls_ctx->ctx));
+			}
+		#endif
+	} 
+#endif
+
+	dest->connection_type = src->connection_type;
+	dest->timeout = src->timeout;
+	dest->buf_type = src->buf_type;
+	dest->accepted = src->accepted;
+	dest->num_socks = src->num_socks;
+	memcpy(dest->sockets, src->sockets, sizeof(src->sockets));
+	memcpy(dest->buf_stat, src->buf_stat, sizeof(src->buf_stat));
+	memcpy(&(dest->peer_info), &(src->peer_info), sizeof(src->peer_info));
+	memcpy(&(dest->peer), &(src->peer), sizeof(src->peer));
+	dest->protocol = src->protocol;
 }

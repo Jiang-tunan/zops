@@ -8,7 +8,8 @@
 #include "../discoverer/user_discoverer.h"
 #include "../discoverer/discoverer_comm.h"
 #include "zbxip.h"
-#include "zbxmedia.h"
+#include "../../libs/zbxcomms/comms.h"
+#include "../../libs/zbxrtc/rtc.h"
 
 zbx_vector_ptr_t global_sock_queue;
 int create_queue_flag = FALSE;
@@ -21,9 +22,11 @@ extern int	CONFIG_TRAPPER_TIMEOUT;
 extern char	*CONFIG_SOURCE_IP;
 extern unsigned char	program_type;
 extern char	*CONFIG_HOSTNAME;
+extern int g_running_program_type;
 
 void discovery_rules_trapper_thread_init(int server_num)
 {
+    int ret = FAIL;
     pthread_t drt_thread; // 接收线程
 
     if (!is_initialized)
@@ -38,20 +41,11 @@ void discovery_rules_trapper_thread_init(int server_num)
                 __func__, msgid, strerror(errno));
         }
 
-        
         zbx_vector_ptr_create(&global_sock_queue);
 
-        zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s()sock_queue_init, msgid=%d,recv_type=%d", __func__, msgid, G_TPR_MSG_TYPE);
-
         // 创建 接收response 线程
-        if (0 != pthread_create(&drt_thread, NULL, discovery_rules_trapper_thread_function, NULL)) 
-        {
-            zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s()Failed to create read message queue thread!", __func__);
-        }
-        else
-        {
-            zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s()Successfully to create read message queue thread!", __func__);
-        }
+        ret = pthread_create(&drt_thread, NULL, discovery_rules_trapper_thread_function, NULL);
+        zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s  ret=%d,msgid=%d,recv_type=%d", __func__, ret, msgid, G_TPR_MSG_TYPE);
 
         is_initialized = 1; // 标记为已初始化
     }
@@ -66,7 +60,6 @@ int tognix_tcp_send(zbx_socket_t *s, const char *data, size_t len, int timeout)
     return result;
 }
 
-
 /*********************************************
  * 设备发现状态[discovery_rules_progress> <discovery_rules_activate> <discovery_rules_stop]处理
  *
@@ -79,27 +72,47 @@ int tognix_tcp_send(zbx_socket_t *s, const char *data, size_t len, int timeout)
  *  SUCCEED 			0 处理成功	
  *	FAIL				-1 处理失败	
 ************************************************/
-int discovery_rules_state(zbx_socket_t *sock, char *input_json, int config_timeout)
+int discovery_rules_state(int from_proxy, zbx_socket_t *sock, char *input_json, int config_timeout, zbx_ipc_async_socket_t *rtc)
 {
     struct json_queue send_js;
-    char session_value[MAX_STRING_LEN] = ""; 
+    char session_value[128] = {""}, cmd[128] = {""}; 
 
-    // 从JSON中提取session值
-    if (SUCCEED != extract_session_from_json(input_json, session_value)) 
-    {
-        zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s()Failed to extract session from JSON.", __func__);
+    struct zbx_json_parse	jp;
+   
+    if (SUCCEED != zbx_json_open(input_json, &jp))
         return FAIL;
-    }
-     
-	zbx_socket_t *resp_sock = NULL;
-    resp_sock = zbx_malloc(resp_sock, sizeof(zbx_socket_t));
-	memcpy(resp_sock, sock, sizeof(sock));
-	sock->socket = -1;
 
-    // 创建一个sock_queue结构的实例
+    if (SUCCEED != zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_REQUEST, cmd, sizeof(cmd), NULL))
+        return FAIL;
+    if (SUCCEED != zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_SESSION, session_value, sizeof(session_value), NULL))
+        return FAIL;
+
+    // 代理端在被动模式下，如果是触发扫描/添加情况下，主动拉取服务端相关数据
+    if(ZBX_PROGRAM_TYPE_PROXY == g_running_program_type)
+    {
+        if(0 == strcmp(cmd, DISCOVERY_RULES_ACTIVATE) ||
+			0 == strcmp(cmd, DISCOVERY_RULES_SINGLE_SCAN))
+        {
+            zbx_rtc_notify_proxy_config_fullsync(config_timeout, rtc);
+        }
+    }
+
+     // 创建一个sock_queue结构的实例
     struct sock_queue *new_item = (struct sock_queue *)malloc(sizeof(struct sock_queue));
+    
+    if(from_proxy){
+        // 从代理发到服务端的请求，因为是线程处理，前面已经copy_zbx_socket了，所以这里直接使用
+        new_item->sock = sock;
+    }else{
+        zbx_socket_t *resp_sock = (zbx_socket_t *)zbx_malloc(NULL, sizeof(zbx_socket_t));
+        copy_zbx_socket(sock, resp_sock);
+        // memcpy(resp_sock, sock, sizeof(sock));
+        sock->socket = ZBX_SOCKET_ERROR;
+        new_item->sock = resp_sock;
+    }
+   
     new_item->id = msgid; 
-    new_item->sock = resp_sock;
+   
     new_item->config_timeout = config_timeout;
     zbx_strlcpy(new_item->session_value, session_value, sizeof(new_item->session_value));
 
@@ -112,7 +125,7 @@ int discovery_rules_state(zbx_socket_t *sock, char *input_json, int config_timeo
     zbx_strscpy(send_js.content, input_json); 
     int send_size = sizeof(send_js.recv_type) + strlen(send_js.content) + 1;
     zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX# recv request: socket=%d, recv_type=%d, send_size=%d, msg=%s", 
-            resp_sock->socket, send_js.recv_type, send_size, send_js.content);
+            new_item->sock->socket, send_js.recv_type, send_size, send_js.content);
 
     if (-1 == msgsnd(msgid, (void *)&send_js, send_size, IPC_NOWAIT))
     {
@@ -345,7 +358,6 @@ int discovery_comm_check_sendmail(zbx_socket_t *sock, struct zbx_json_parse *jp,
     } else{
         goto out;
     }
-    zbx_db_free_result(result);
     ret = send_email(smtp_server, smtp_port, smtp_helo, smtp_email,
 		mailto, inreplyto, mailsubject, mailbody,
 		smtp_security, smtp_verify_peer, smtp_verify_host,
@@ -355,7 +367,7 @@ int discovery_comm_check_sendmail(zbx_socket_t *sock, struct zbx_json_parse *jp,
     if(SUCCEED != ret) ret = DISCOVERY_RESULT_FAIL;
 
 out:
-    
+    zbx_db_free_result(result);
     zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s result=%d, mediatypeid=%d,name=%s,smtp_server=%s, smtp_port=%d,mailto=%s, mailsubject=%s, mailbody=%s,error=%s",
         __func__,ret, mediatypeid,name,smtp_server,smtp_port,mailto,mailsubject,mailbody,error);
     
@@ -464,8 +476,11 @@ int discovery_check_proxy_server(zbx_socket_t *sock, char *request, struct zbx_j
     struct zbx_json_parse jp_params;
     const char *p = NULL; 
     char tstr[256], *ip=NULL, *session=NULL, *response=NULL;
-	int ret = FAIL, port = 0;
+	int ret = FAIL, port = 0, depth = 0;
     zbx_socket_t	dsock; 
+    struct zbx_json json;	
+    zbx_map_t dc_map;
+	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
 
     memset(&tstr, 0, sizeof(tstr));
     if (SUCCEED == zbx_json_value_by_name(jp, "session", tstr, sizeof(tstr), NULL)){
@@ -500,10 +515,7 @@ int discovery_check_proxy_server(zbx_socket_t *sock, char *request, struct zbx_j
 		goto out;
     }
     
-    int depth = 0;
-    struct zbx_json json;	
-    zbx_map_t dc_map;
-	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
+   
     dc_map.name = "request";
     dc_map.value = PROXY_CHECK_PROXY_SERVER;
 	copy_original_json2(ZBX_JSON_TYPE_OBJECT, jp, &json, depth, &dc_map);
@@ -529,6 +541,7 @@ out:
     zbx_free(ip);
     zbx_free(response);
     zbx_tcp_close(&dsock);
+    
     zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ip=%s,port=%d,result=%d",__func__, ip, port, ret);
     return ret;
 }
@@ -542,52 +555,48 @@ out:
 int send_productkey(zbx_socket_t *sock, const struct zbx_json_parse *jp, int config_timeout)
 {
     char productkey[2 * SHA256_DIGEST_SIZE + 1];
-    char session_value[MAX_STRING_LEN] = ""; 
-    char resqust_value[MAX_STRING_LEN] = "";
+    char session_value[128] = ""; 
+    char resqust_value[128] = "";
     char *response = NULL;
     char *resqust = NULL;
-    int result = FAIL;
+    int result = DISCOVERY_RESULT_FAIL;
 
     // 提取 resqust char resqust_value[MAX_STRING_LEN] = "";
     if (SUCCEED != zbx_json_value_by_name(jp, ZBX_PROTO_TAG_REQUEST, resqust_value, sizeof(resqust_value), NULL))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to ectract resqust value.");
-        response = create_license_fail(FAIL, "Failed to ectract resqust value");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        result = DISCOVERY_RESULT_FAIL;
+        response = create_license_fail(result, "Failed to ectract resqust value");
+        goto out;
     }
 
     // 提取 session
     if (SUCCEED != zbx_json_value_by_name(jp, "session", session_value, sizeof(session_value), NULL))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to ectract session value.");
-        response = create_license_fail(FAIL, "Failed to ectract session value");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        result = DISCOVERY_RESULT_NO_SESSION;
+        response = create_license_fail(result, "Failed to ectract session value");
+        goto out;
     }
 
     if (SUCCEED >= (result = create_productkey(productkey)))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Error creating product key. #error code=%d#", result);
+        result = DISCOVERY_RESULT_FAIL;
         response = create_license_fail(result, "Error creating product key.");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        goto out;
+    }else{
+        result = DISCOVERY_RESULT_SUCCESS;
     }
 
     response = create_productkey_json(SUCCEED, resqust_value, session_value, productkey);
 
+out:
     // 发送响应
     if (SUCCEED != tognix_tcp_send(sock, response, strlen(response), config_timeout))
     {
         zabbix_log(LOG_LEVEL_ERR, "The send_productkey function encountered an error while sending the JSON response.");
-        zbx_free(response);
-        return FAIL;
     }
+    
 	zbx_free(response);
-    return SUCCEED;
+    return result;
 }
 
 /**
@@ -601,36 +610,30 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
     struct service monitor_services[MAX_STRING_LEN];
     struct service function_services[MAX_STRING_LEN];
     short monitor_size = 0, func_size = 0;
-    int result, nodes;
+    int result = DISCOVERY_RESULT_FAIL, nodes;
     long lic_expired = 0;
 
     // 提取 resqust 
     if (SUCCEED != zbx_json_value_by_name(jp, ZBX_PROTO_TAG_REQUEST, resqust_value, sizeof(resqust_value), NULL))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to ectract resqust value.");
-        response = create_license_fail(FAIL, "Failed to ectract resqust value");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        result = DISCOVERY_RESULT_FAIL;
+        response = create_license_fail(result, "Failed to ectract resqust value");
+        goto out;
     }
     // 提取 session
     if (SUCCEED != zbx_json_value_by_name(jp, "session", session_value, sizeof(session_value), 	NULL))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to ectract session value.");
-        response = create_license_fail(FAIL, "Failed to ectract session value");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        result = DISCOVERY_RESULT_NO_SESSION;
+        response = create_license_fail(result, "Failed to ectract session value");
+        goto out;
     }
 
     // 提取 monitor 和 function 数组
     if (FAIL == extract_monitor_and_function(jp, &nodes, monitor_services, function_services, &monitor_size, &func_size))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to extract monitor and function data.");
-        response = create_license_fail(FAIL, "Failed to extract monitor and function data.");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        result = DISCOVERY_RESULT_FAIL;
+        response = create_license_fail(result, "Failed to extract monitor and function data.");
+        goto out;
     }
     
     // 调用 verify_license 函数
@@ -646,7 +649,7 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
 
     if (result != LICENSE_SUCCESS)
     {
-        zabbix_log(LOG_LEVEL_DEBUG, "License verification failed.#error code=%d#", result);
+        result = DISCOVERY_RESULT_FAIL;
         if(LICENSE_OVER_NODES == result)
         {
             response = create_license_fail(result, "Number of nodes exceeded.");
@@ -659,20 +662,18 @@ int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int
         {
             response = create_license_fail(result, "License verification failed.");
         }
-        
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        goto out;
+    }else{
+        result = DISCOVERY_RESULT_SUCCESS;
     }
 
     response = create_license_verify_json(resqust_value, session_value, monitor_services, function_services, monitor_size, func_size, lic_expired);
 
+out:
     // 发送响应
     if (SUCCEED != tognix_tcp_send(sock, response, strlen(response), config_timeout))
     {
         zabbix_log(LOG_LEVEL_ERR, "The `send_license_verify` function encountered an error while sending the JSON response.");
-        zbx_free(response);
-        return FAIL;
     }
 
 	zbx_free(response);
@@ -688,51 +689,41 @@ int send_license_query(zbx_socket_t *sock, const struct zbx_json_parse *jp, int 
     char resqust_value[MAX_STRING_LEN] = "";
     char *response = NULL;
     struct app_license *lic = NULL;
-
+    int result = DISCOVERY_RESULT_FAIL;
     // 提取 resqust 
     if (SUCCEED != zbx_json_value_by_name(jp, ZBX_PROTO_TAG_REQUEST, resqust_value, sizeof(resqust_value), NULL))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to ectract resqust value.");
-        response = create_license_fail(FAIL, "Failed to ectract resqust value");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        result = DISCOVERY_RESULT_FAIL;
+        response = create_license_fail(result, "Failed to ectract resqust value");
+        goto out;
     }
     // 提取 session
     if (SUCCEED != zbx_json_value_by_name(jp, "session", session_value, sizeof(session_value), NULL))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to ectract session value.");
-        response = create_license_fail(FAIL, "Failed to ectract session value");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        return FAIL;
+        result = DISCOVERY_RESULT_NO_SESSION;
+        response = create_license_fail(result, "Failed to ectract session value");
+        goto out;
     }
 
     // 调用 query_license 函数
     if (FAIL == query_license(&lic))
     {
-        zabbix_log(LOG_LEVEL_ERR, "Failed to query license.");
-        response = create_license_fail(FAIL, "Failed to query license.");
-        tognix_tcp_send(sock, response, strlen(response), config_timeout);
-        zbx_free(response);
-        zbx_free(lic);
-        return FAIL;
+        result = DISCOVERY_RESULT_FAIL;
+        response = create_license_fail(result, "Failed to query license.");
+        goto out;
     }
-
+    result = DISCOVERY_RESULT_SUCCESS;
     response = create_license_query_json(resqust_value, session_value, lic);
-
+out:
     // 发送响应
     if (SUCCEED != tognix_tcp_send(sock, response, strlen(response), config_timeout))
     {
         zabbix_log(LOG_LEVEL_ERR, "The `send_license_query` function encountered an error while sending the JSON response.");
-        zbx_free(response);
-        zbx_free(lic);
-        return FAIL;
     }
 
     zbx_free(response);
     zbx_free(lic);
-    return SUCCEED;
+    return result;
 }
 
 /**
@@ -961,6 +952,27 @@ int extract_monitor_and_function(const struct zbx_json_parse *jp, int *nodes, st
     *func_size = index;
 
     return SUCCEED;
+}
+
+/**
+ * 发送 许可查询 响应
+*/
+int license_hander(char *cmd, zbx_socket_t *sock, const struct zbx_json_parse *jp, int config_timeout)
+{
+    int ret = FAIL;
+    if (0 == strcmp(cmd, LICENSE_GET_PRODUCTKEY))
+    {
+       ret = send_productkey(sock, jp, config_timeout);
+    }		
+    else if (0 == strcmp(cmd, LICENSE_VERIFY))
+    {
+        ret = send_license_verify(sock, jp, config_timeout);
+    }
+    else if (0 == strcmp(cmd, LICENSE_QUERY))
+    {
+        ret = send_license_query(sock, jp, config_timeout);
+    }
+    return ret;
 }
 
 /*zhu adds content * 软件许可 **end*/

@@ -1,5 +1,5 @@
-#ifndef DISCOVERER_NUTANIX_H
-#define DISCOVERER_NUTANIX_H
+#ifndef DISCOVERER_KUBERNETES_H
+#define DISCOVERER_KUBERNETES_H
 
 #include "zbxalgo.h"
 #include "zbxdb.h"

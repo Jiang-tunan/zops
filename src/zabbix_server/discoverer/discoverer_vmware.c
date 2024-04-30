@@ -22,11 +22,14 @@
 #include "zbxsysinfo.h"
 #include "zbx_rtc_constants.h"
 #include "zbx_host_constants.h"
+#include "zbxdiscovery.h"
 
 #ifdef HAVE_LIBEVENT
 #	include <event.h>
 #	include <event2/thread.h>
 #endif
+
+extern int	g_running_program_type;
 
 void wmware_free_vmware_server_ptr(vmware_server *p_server)
 {
@@ -47,11 +50,97 @@ void wmware_free_vmware_server_ptr(vmware_server *p_server)
 	zbx_free(p_server);
 }
 
-static void vmware_recv(char **out_value, char *key, char *user, char *passwd, char *ip, int port, int maxTry)
+static int	dc_compare_vmware_uuid(const void *d1, const void *d2)
+{
+	const vmware_server	*ptr1 = *((const vmware_server * const *)d1);
+	const vmware_server	*ptr2 = *((const vmware_server * const *)d2);
+	// zabbix_log(LOG_LEVEL_DEBUG,"%s uuid1=%s, uuid2=%s",  __func__, ptr1->uuid, ptr2->uuid);
+	
+	if(NULL == ptr1->uuid || 0 == strlen(ptr1->uuid) || NULL == ptr2->uuid )
+		return -1;
+	return strcmp(ptr1->uuid, ptr2->uuid);
+}
+ 
+void discover_get_proxy_vmware_extend_data(zbx_vector_ptr_t *v_extend, vmware_server *p_server)
+{
+	vmware_server f_vmware;
+	f_vmware.uuid = p_server->uuid;
+	int  index = zbx_vector_ptr_search(v_extend, &f_vmware, dc_compare_vmware_uuid);
+	if(index >= 0)
+	{
+		vmware_server *p_vmeare = v_extend->values[index];
+		p_server->macs = zbx_strdup(NULL, p_vmeare->macs);
+		p_server->cpuMode = zbx_strdup(NULL, p_vmeare->cpuMode);
+		p_server->cpuNum = p_vmeare->cpuNum;
+		p_server->totalMemory = p_server->totalMemory;
+	}
+
+	//zabbix_log(LOG_LEVEL_DEBUG,"%s index=%d, uuid=%s, macs=%s",  __func__, index, p_server->uuid, p_server->macs);
+}
+
+static void __parse_proxy_wmware_extend_data(char *value, zbx_vector_ptr_t *v_extend)
+{
+	if(NULL == value || NULL == v_extend) return;
+	
+	struct zbx_json_parse	jp, data_jp, jp_params;
+	size_t  str_alloc = 0;
+	const char		*p=NULL;
+	char  tstr[128];
+	
+	if (SUCCEED != zbx_json_open(value, &jp))
+	{
+		zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s  zbx_json_open fail",  __func__);
+		return;
+	}
+	if (SUCCEED == zbx_json_brackets_by_name(&jp, "extend_data", &data_jp))
+	{
+		while (NULL != (p = zbx_json_next(&data_jp, p)))
+		{
+			if (SUCCEED == zbx_json_brackets_open(p, &jp_params))
+			{
+				vmware_server *p_server = (vmware_server *)zbx_malloc(NULL, sizeof(vmware_server));
+				memset(p_server, 0, sizeof(vmware_server)); 
+			
+				memset(tstr, 0, sizeof(tstr));
+				if (SUCCEED == zbx_json_value_by_name(&jp_params, "uuid", tstr, sizeof(tstr), NULL))
+				{
+					p_server->uuid = zbx_strdup(NULL, tstr);
+				}
+				
+				str_alloc = 0;
+				zbx_json_value_by_name_dyn(&jp_params, "macs", &p_server->macs, &str_alloc, NULL);
+
+				memset(tstr, 0, sizeof(tstr));
+				if (SUCCEED == zbx_json_value_by_name(&jp_params, "cpu_mode", tstr, sizeof(tstr), NULL))
+				{
+					p_server->cpuMode = zbx_strdup(NULL, tstr);
+				}
+	
+				memset(tstr, 0, sizeof(tstr));
+				if (SUCCEED == zbx_json_value_by_name(&jp_params, "cpu_num", tstr, sizeof(tstr), NULL))
+				{
+					p_server->cpuNum = zbx_atoi(tstr);
+				}
+
+				memset(tstr, 0, sizeof(tstr));
+				if (SUCCEED == zbx_json_value_by_name(&jp_params, "total_memory", tstr, sizeof(tstr), NULL))
+				{
+					p_server->totalMemory = zbx_atoi(tstr);
+				}
+
+				zbx_vector_ptr_append(v_extend, p_server);
+			}
+		}
+	}
+}
+
+static int vmware_recv(char **out_value, char *key, char *user, char *passwd, char *ip, int port, int maxTry)
 {
 	AGENT_RESULT	result;
 	zbx_vector_ptr_t add_results;
 	DC_ITEM		item;
+	int ret = 0, count = 0, iRet = DISCOVERY_RESULT_FAIL;
+	char **pvalue;
 
 	zbx_vector_ptr_create(&add_results);
 	zbx_init_agent_result(&result);
@@ -71,15 +160,18 @@ static void vmware_recv(char **out_value, char *key, char *user, char *passwd, c
 	item.password = passwd;
 	item.state = 1;
 	item.value_type	= ITEM_VALUE_TYPE_STR;
-	int ret = 0, count = 0;
-	char **pvalue;
+
 	do{
 		ret = get_value_simple(&item, &result, &add_results);
 		if(SUCCEED == ret && NULL != (pvalue = ZBX_GET_TEXT_RESULT(&result)))
 		{
 			*out_value = zbx_strdup(NULL, *pvalue);
+			iRet = DISCOVERY_RESULT_SUCCESS;
 			break;
 		}else{
+			if(NOTSUPPORTED == ret){
+				iRet = DISCOVERY_RESULT_CREDENTIAL_FAIL;
+			}
 			count ++;
 			zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s, get_value_simple fail. key=%s,count=%d,result=%d",
 				__func__, key, count, ret);
@@ -89,13 +181,13 @@ static void vmware_recv(char **out_value, char *key, char *user, char *passwd, c
 	while (count < maxTry);
 	
 	
-	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, key=%s, user=%s, ip=%s, port=%d, recv value=%s", 
-		__func__, key, user, ip, port, *out_value);
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, iRet=%d, key=%s, user=%s, ip=%s, port=%d, recv value=%s", 
+		__func__, iRet, key, user, ip, port, *out_value);
 	 
 	zbx_vector_ptr_clear_ext(&add_results, (zbx_mem_free_func_t)zbx_free_agent_result_ptr);
 	zbx_vector_ptr_destroy(&add_results);
 	zbx_free_agent_result(&result);
-
+	return iRet;
 }
 
 /**
@@ -161,24 +253,22 @@ static void vmware_get_net_data(char *checkKey, char *user, char *passwd, char *
 
 static void vmware_get_common_data(char *checkKey, char *user, char *passwd, char *ip, int port, char *uuid, vmware_server *p_server)
 {
-    char key[256];
+    char key[256]={0}, *value = NULL;
 
 	zbx_snprintf(key, sizeof(key), "%s[https://%s/sdk,%s]", checkKey, ip, uuid);  // 填入ip地址
-    char *value = NULL;
+    // zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, uuid=%s, key=%s", __func__, p_server->uuid, key);
     vmware_recv(&value, key, user, passwd, ip, port, 2);
-	if(NULL == value || strlen(value) == 0)
-	{
+	if(NULL == value || strlen(value) == 0){
 		return;
 	}
+
 	if(zbx_strcmp_null(checkKey,"vmware.hv.hw.cpu.model") == 0){
 		p_server->cpuMode = zbx_strdup(NULL, value);
 	}else if(zbx_strcmp_null(checkKey,"vmware.hv.hw.cpu.num") == 0 || zbx_strcmp_null(checkKey,"vmware.vm.cpu.num") == 0){
 		p_server->cpuNum = zbx_atoi(value);
 	}else if(zbx_strcmp_null(checkKey,"vmware.hv.hw.memory") == 0 || zbx_strcmp_null(checkKey,"vmware.vm.memory.size") == 0){
 		p_server->totalMemory = zbx_atol(value);
-	}else if(zbx_strcmp_null(checkKey,"vmware.hv.hw.vendor") == 0){
-		
-	} 
+	}
 	 
 	zbx_free(value);
 }
@@ -191,9 +281,8 @@ static void discover_get_hv_extend_data(char *user, char *passwd, char *ip, int 
 	vmware_get_common_data("vmware.hv.hw.cpu.model", user, passwd, ip, port, p_server->uuid, p_server);
 	vmware_get_common_data("vmware.hv.hw.cpu.num", user, passwd, ip, port, p_server->uuid, p_server);
 	vmware_get_common_data("vmware.hv.hw.memory", user, passwd, ip, port, p_server->uuid, p_server);
-	vmware_get_common_data("vmware.hv.hw.vendor", user, passwd, ip, port, p_server->uuid, p_server);
-	vmware_get_common_data("vmware.hv.hw.model", user, passwd, ip, port, p_server->uuid, p_server);
-	// vmware_get_common_data("", user, passwd, ip, port, p_server->uuid, p_server);
+	// vmware_get_common_data("vmware.hv.hw.vendor", user, passwd, ip, port, p_server->uuid, p_server);
+	// vmware_get_common_data("vmware.hv.hw.model", user, passwd, ip, port, p_server->uuid, p_server);
 }
 static void make_inventory_json_data(vmware_server *p_server)
 {
@@ -237,7 +326,7 @@ static void __parse_vmware_hv_data(char *user, char *passwd, char *ip, int port,
 	int		ret = SUCCEED;
  
 	const char		*p=NULL;
-	char  tstr[128];
+	char  tstr[128], name_ip[128];
 	
 	if (SUCCEED != zbx_json_open(hv_value, &jp))
 	{
@@ -265,8 +354,8 @@ static void __parse_vmware_hv_data(char *user, char *passwd, char *ip, int port,
 				p_server->id = zbx_strdup(NULL, tstr);
 			}
 
-			memset(tstr, 0, sizeof(tstr));
-			if (SUCCEED == zbx_json_value_by_name(&jp_params, "{#HV.NAME}", tstr, sizeof(tstr), NULL))
+			memset(name_ip, 0, sizeof(name_ip));
+			if (SUCCEED == zbx_json_value_by_name(&jp_params, "{#HV.NAME}", name_ip, sizeof(name_ip), NULL))
 			{
 				p_server->name = zbx_strdup(NULL, tstr);
 			}
@@ -287,10 +376,14 @@ static void __parse_vmware_hv_data(char *user, char *passwd, char *ip, int port,
 			memset(tstr, 0, sizeof(tstr));
 			if (SUCCEED == zbx_json_value_by_name(&jp_params, "{#HV.IP}", tstr, sizeof(tstr), NULL))
 			{
-				if(strlen(tstr) > 0)
+				if(strlen(tstr) > 0){
 					p_server->ip = zbx_strdup(NULL, tstr);
-				else // 如果没有IP地址，给个"0.0.0.0""的IP
+				}else if(SUCCEED == zbx_is_supported_ip(name_ip)){
+					// 当前服务器没有IP地址，则看看Name是否是IP，如果是则用name的ip
+					p_server->ip = zbx_strdup(NULL, name_ip);
+				}else{ // 如果没有IP地址，给个"0.0.0.0""的IP
 					p_server->ip = zbx_strdup(NULL, ZERO_IP_ADDRESS);
+				}
 			}
 
 			memset(tstr, 0, sizeof(tstr));
@@ -331,6 +424,7 @@ static void discover_get_vm_extend_data(char *user, char *passwd, char *ip, int 
 	vmware_get_common_data("vmware.vm.memory.size", user, passwd, ip, port, p_server->uuid, p_server);
 		
 }
+
 
 static void __parse_vmware_vm_data(char *user, char *passwd, char *ip, int port, char *hv_value, zbx_vector_ptr_t *v_vmware_servers)
 {
@@ -406,10 +500,14 @@ static void __parse_vmware_vm_data(char *user, char *passwd, char *ip, int port,
 }
 
 // 返回vc_groupid
-static int discover_vmware_dc_or_cluster(int type, char *key, char *user, char *passwd, char *ip, int port, int top_groupid)
+static int discover_vmware_dc_or_cluster(int type, int proxy_hostid, char *key, char *user, char *passwd, char *ip, int port, int *top_groupid, char *bvalue)
 {
+	int ret = DISCOVERY_RESULT_FAIL;
 	DB_RESULT	sql_result;
 	DB_ROW		row;
+	struct zbx_json_parse jp_params;
+	struct zbx_json_parse	jp;
+	char *value = NULL;
 
 	zbx_vector_ptr_t v_uuids;
 	zbx_vector_ptr_create(&v_uuids);
@@ -421,29 +519,27 @@ static int discover_vmware_dc_or_cluster(int type, char *key, char *user, char *
 	while (NULL != (row = zbx_db_fetch(sql_result)))
 	{
 		zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s append uuid=%s",  __func__, row[0]);
-		zbx_vector_str_append(&v_uuids,zbx_strdup(NULL, row[0]));
+		zbx_vector_str_append(&v_uuids,(char *)zbx_strdup(NULL, row[0]));
 	}
 	zbx_db_free_result(sql_result);
 
-	struct zbx_json_parse jp_params;
-	struct zbx_json_parse	jp;
-	int		ret = SUCCEED;
- 
-	char *value = NULL;
-	vmware_recv(&value, key, user, passwd, ip, port, 3);
-	if(NULL == value || strlen(value) == 0)
-	{
-		return;
+	
+	if(NULL != key){
+		vmware_recv(&value, key, user, passwd, ip, port, 3);
+	}else{
+		value = bvalue;
+	}
+
+	if(NULL == value || strlen(value) == 0){
+		return DISCOVERY_RESULT_FAIL;
 	}
 	
 	int fgroupid = -1;
 	const char	*p=NULL;
-	char  uuid[128];
-	char  name[256];
+	char  uuid[128] , name[256];
 	if (SUCCEED != zbx_json_open(value, &jp))
 	{
-		zabbix_log(LOG_LEVEL_DEBUG,"zbx_json_open fail");
-		return;
+		return DISCOVERY_RESULT_FAIL;
 	}
 	//遍历list的json
 	while (NULL != (p = zbx_json_next(&jp, p)))
@@ -471,11 +567,12 @@ static int discover_vmware_dc_or_cluster(int type, char *key, char *user, char *
 			if(strlen(uuid) > 0 && strlen(name) > 0)
 			{
 				//最顶层的groupid 默认为"3"-服务器, 如果key包括 dc 或 cluster 扫描，说明是vCenter扫描，要增加vc层。
-				if(HSTGRP_GROUPID_SERVER == top_groupid) top_groupid = get_discover_vc_groupid(HSTGRP_TYPE_VC, ip, DEFAULT_NOPROXY_HOSTID);
+				if(HSTGRP_GROUPID_SERVER == *top_groupid) *top_groupid = get_discover_vc_groupid(HSTGRP_TYPE_VC, ip, proxy_hostid);
 				// 数据中心上层是VC
-				if(HSTGRP_TYPE_DATACENTER == type) fgroupid = top_groupid;  
+				if(HSTGRP_TYPE_DATACENTER == type) fgroupid = *top_groupid;  
+				ret = DISCOVERY_RESULT_SUCCESS;
 
-				if(FAIL != zbx_vector_str_search(&v_uuids, uuid, ZBX_DEFAULT_STR_COMPARE_FUNC))
+				if(FAIL != zbx_vector_str_search(&v_uuids, &uuid, ZBX_DEFAULT_STR_COMPARE_FUNC))
 				{
 					zbx_db_execute("update hstgrp set name='%s' where uuid = '%s' and type = %d", name, uuid, type);
 				}
@@ -488,11 +585,11 @@ static int discover_vmware_dc_or_cluster(int type, char *key, char *user, char *
 			}
 		} 
 	}
-	zbx_free(value); 
+	if(NULL != key)  zbx_free(value);
 	zbx_vector_ptr_clear_ext(&v_uuids, zbx_ptr_free);
 	zbx_vector_ptr_destroy(&v_uuids);
-	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s end", __func__);
-	return top_groupid;
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s end, ret=%d", __func__, ret);
+	return ret;
 }
 
  
@@ -547,7 +644,7 @@ void vmware_register_hostmacro(int type, int hostid, char *url, char *user, char
 }
 
 static void discovery_register_vmware(int vmware_stype, vmware_server *p_server, const zbx_db_drule *drule, const DB_DCHECK *dcheck, 
-	zbx_vector_ptr_t *v_hstgrps, char *user, char *passwd, char *ip, char * port)
+	zbx_vector_ptr_t *v_hstgrps, char *user, char *passwd, char *ip, int port, zbx_vector_ptr_t *dhosts)
 {
 	// zbx_db_dhost		dhost;
 	// int			host_status, now;
@@ -556,7 +653,7 @@ static void discovery_register_vmware(int vmware_stype, vmware_server *p_server,
 
 	// memset(&dhost, 0, sizeof(dhost));
 	// host_status = -1;
-		
+	
 	char vmware_url[256];
 	DB_HOST host;
 	DB_INTERFACE interface;
@@ -570,6 +667,7 @@ static void discovery_register_vmware(int vmware_stype, vmware_server *p_server,
 	make_inventory_json_data(p_server); 
   
 	// host.hostid = drule->main_hostid;
+	host.proxy_hostid =  drule->proxy_hostid;
 	//入库host对应的接口
 	int  ret = discovery_register_host(&host, &inventory, p_server, p_server->ip, dns, port, DOBJECT_STATUS_UP, dcheck);
 	if(SUCCEED == ret)
@@ -589,20 +687,41 @@ static void discovery_register_vmware(int vmware_stype, vmware_server *p_server,
 		}else{
 			vmware_register_hostmacro(vmware_stype, host.hostid, vmware_url, user, passwd, p_server->hvUuid, p_server->uuid);
 		}
-		// status 0已监控，1已关闭，2未纳管, 未纳管的设备返回给前端实时显示
-		if(host.status == HOST_STATUS_UNREACHABLE || interface.status  == HOST_STATUS_UNREACHABLE)
+
+		// 绑定模板要用hstgrpid值
+		if(DEVICE_TYPE_VM == vmware_stype){
+			host.hstgrpid = HSTGRP_GROUPID_VM;
+		}else{
+			host.hstgrpid = HSTGRP_GROUPID_SERVER;
+		}
+
+		if(NULL != dhosts)
 		{
-			if(DEVICE_TYPE_VM == vmware_stype){
-				host.hstgrpid = HSTGRP_GROUPID_VM;
-			}else{
-				host.hstgrpid = HSTGRP_GROUPID_SERVER;
-			}
+			// dhosts不为NULL，表示这个是服务端处理代理请求，因为zbx_db_begin原因，要在zbx_db_commit后执行绑定模板等操作
+			zbx_db_dhost *p_dhost = (zbx_db_dhost *)zbx_malloc(NULL,sizeof(zbx_db_dhost));
+			p_dhost->hostid = host.hostid;
+			p_dhost->templateid = host.templateid;
+			p_dhost->hstgrpid = host.hstgrpid;
+			p_dhost->hstatus = host.status;
+			p_dhost->istatus = interface.status;
+			p_dhost->druleid = drule->druleid;
+			p_dhost->proxy_hostid = host.proxy_hostid;
+			
+			zbx_vector_ptr_append(dhosts, p_dhost);
+		}
+		// status 0已监控，1已关闭，2未纳管, 未纳管的设备返回给前端实时显示
+		else if(host.status == HOST_STATUS_UNREACHABLE || interface.status  == HOST_STATUS_UNREACHABLE)
+		{
 			discoverer_bind_templateid(&host);
 			user_discover_add_hostid(dcheck->druleid, host.hostid);
 		}
 	}
-
-	discovered_next_ip(drule->druleid, vmware_stype, 1);
+	if(NULL == dhosts){
+		discovered_next_ip(drule->druleid, vmware_stype, 1);
+	}else{
+		server_discovered_proxy_next_ip(drule->druleid, vmware_stype, 1);
+	}
+	
 	db_hosts_free(&host);
 
 }
@@ -652,8 +771,9 @@ static void flush_dc_ct_fgroupid(zbx_vector_ptr_t *v_hstgrps, vmware_server *p_s
 	*out_ct_groupid = ct_groupid;
 
 }
+
 static void discover_vmware_hv(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *key, char *user, char *passwd, 
-	char *ip, char * port, int top_groupid)
+	char *ip, int port, int top_groupid, char *bvalue, zbx_vector_ptr_t *dhosts)
 {
 	zbx_vector_ptr_t v_hstgrps;
 	zbx_vector_ptr_create(&v_hstgrps);
@@ -662,18 +782,33 @@ static void discover_vmware_hv(const zbx_db_drule *drule, const DB_DCHECK *dchec
 	struct zbx_json_parse	jp;
 	int		ret = SUCCEED;
 
-	char *value = NULL;
-	vmware_recv(&value, key, user, passwd, ip, port, 3);
-	if(NULL == value || strlen(value) == 0)
+	char *value = NULL, *extend_value=NULL;
+	if(NULL != key){
+		ret = vmware_recv(&value, key, user, passwd, ip, port, 3);
+		user_discover_add_result(drule->druleid, ret);
+	}else{
+		parse_tsf_data(bvalue, &value, &extend_value);
+	}
+
+	if(NULL == value || strlen(value) == 0){
 		return;
+	}
 	
 	int index;
 	zbx_vector_ptr_t v_vmware_hv;
 	zbx_vector_ptr_create(&v_vmware_hv);
-	
 	__parse_vmware_hv_data(user, passwd, ip, port, value, &v_vmware_hv);
+
+	zbx_vector_ptr_t v_extend;
+	zbx_vector_ptr_create(&v_extend);
+	__parse_proxy_wmware_extend_data(extend_value, &v_extend);
 	
-	discovery_add_total_ip_num(drule->druleid, DEVICE_TYPE_HV, v_vmware_hv.values_num);
+	if(NULL == dhosts){
+		discovery_add_total_ip_num(drule->druleid, DEVICE_TYPE_HV, v_vmware_hv.values_num);
+	}else{
+		server_discovery_proxy_add_total_ip_num(drule->druleid, DEVICE_TYPE_HV, v_vmware_hv.values_num);
+	}
+	
 	if(v_vmware_hv.values_num > 0)
 	{
 		// 获得hstgrps表上所有的数据中心、集群和物理机的信息
@@ -687,7 +822,11 @@ static void discover_vmware_hv(const zbx_db_drule *drule, const DB_DCHECK *dchec
 		vmware_server *p_server = (vmware_server *)v_vmware_hv.values[i];
 
 		//获取vmware扩展数据
-		discover_get_hv_extend_data(user, passwd, ip, port, p_server);
+		if(NULL != key){ 
+			discover_get_hv_extend_data(user, passwd, ip, port, p_server);
+		}else{
+			discover_get_proxy_vmware_extend_data(&v_extend, p_server);
+		}
 
 		flush_dc_ct_fgroupid(&v_hstgrps, p_server, top_groupid, &dc_groupid, &ct_groupid);
 		p_server->hstgrpid = top_groupid;
@@ -708,14 +847,18 @@ static void discover_vmware_hv(const zbx_db_drule *drule, const DB_DCHECK *dchec
 				p_server->parentName, p_server->hstgrpid, p_server->macs);
 		
 
-		discovery_register_vmware(DEVICE_TYPE_HV, p_server, drule, dcheck, &v_hstgrps, user, passwd, ip, port);
+		discovery_register_vmware(DEVICE_TYPE_HV, p_server, drule, dcheck, &v_hstgrps, user, passwd, ip, port, dhosts);
  
 	}
-	
-	discovered_next_ip(drule->druleid, DEVICE_TYPE_HV, v_vmware_hv.values_num);
-	
+	if(NULL == dhosts){
+		discovered_next_ip(drule->druleid, DEVICE_TYPE_HV, v_vmware_hv.values_num);
+	}else{
+		server_discovered_proxy_next_ip(drule->druleid, DEVICE_TYPE_HV, v_vmware_hv.values_num);
+	}
 	zbx_free(value);
-	free_discover_hstgrp(&v_hstgrps);
+	zbx_free(extend_value);
+	free_discover_hstgrp(&v_hstgrps); 
+	free_bigvalues(&v_extend);
 
 	zbx_vector_ptr_clear_ext(&v_vmware_hv, (zbx_mem_free_func_t)wmware_free_vmware_server_ptr);
 	zbx_vector_ptr_destroy(&v_vmware_hv);
@@ -723,7 +866,7 @@ static void discover_vmware_hv(const zbx_db_drule *drule, const DB_DCHECK *dchec
 
 
 static void discover_vmware_vm(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *key, char *user, char *passwd, 
-	char *ip, int port, int top_groupid)
+	char *ip, int port, int top_groupid, char *bvalue, zbx_vector_ptr_t *dhosts)
 {
 	zbx_vector_ptr_t v_hstgrps;
 	zbx_vector_ptr_create(&v_hstgrps);
@@ -735,17 +878,35 @@ static void discover_vmware_vm(const zbx_db_drule *drule, const DB_DCHECK *dchec
 	struct zbx_json_parse	jp;
 	int		ret = SUCCEED;
 
-	// 接收所有虚拟机的数据
-	char *value = NULL;
-	vmware_recv(&value, key, user, passwd, ip, port, 3);
-	if(NULL == value || strlen(value) == 0)
+	char *value = NULL, *extend_value = NULL;
+	
+	if(NULL != key){
+		// 接收所有虚拟机的数据
+		ret = vmware_recv(&value, key, user, passwd, ip, port, 3);
+		user_discover_add_result(drule->druleid, ret);
+	}else{
+		parse_tsf_data(bvalue, &value, &extend_value);
+	}
+
+	if(NULL == value || strlen(value) == 0){
 		return;
+	}
 
 	int index;
 	zbx_vector_ptr_t v_vmware_vm;
 	zbx_vector_ptr_create(&v_vmware_vm);
 	__parse_vmware_vm_data(user, passwd, ip, port, value, &v_vmware_vm);
-	discovery_add_total_ip_num(drule->druleid, DEVICE_TYPE_VM, v_vmware_vm.values_num);
+
+	zbx_vector_ptr_t v_extend;
+	zbx_vector_ptr_create(&v_extend);
+	__parse_proxy_wmware_extend_data(extend_value, &v_extend);
+
+
+	if(NULL == dhosts){
+		discovery_add_total_ip_num(drule->druleid, DEVICE_TYPE_VM, v_vmware_vm.values_num);
+	}else{ 
+		server_discovery_proxy_add_total_ip_num(drule->druleid, DEVICE_TYPE_VM, v_vmware_vm.values_num);
+	}
 
 	if(v_vmware_vm.values_num > 0){
 
@@ -764,7 +925,11 @@ static void discover_vmware_vm(const zbx_db_drule *drule, const DB_DCHECK *dchec
 		vmware_server *p_server = (vmware_server *)v_vmware_vm.values[i];
 		
 		//获取vmware扩展数据
-		discover_get_vm_extend_data(user, passwd, ip, port, p_server);
+		if(NULL != key){
+			discover_get_vm_extend_data(user, passwd, ip, port, p_server);
+		}else{
+			discover_get_proxy_vmware_extend_data(&v_extend, p_server);
+		}
 		
 		flush_dc_ct_fgroupid(&v_hstgrps, p_server, top_groupid, &dc_groupid, &ct_groupid);
 
@@ -818,15 +983,20 @@ static void discover_vmware_vm(const zbx_db_drule *drule, const DB_DCHECK *dchec
 				__func__, p_server->id, p_server->name,p_server->ip, p_server->dataCenterName, p_server->clusterName, 
 				p_server->hvUuid, p_server->hstgrpid, p_server->macs); 
 		
-		discovery_register_vmware(DEVICE_TYPE_VM, p_server, drule, dcheck, &v_hstgrps, user, passwd, ip, port);
+		discovery_register_vmware(DEVICE_TYPE_VM, p_server, drule, dcheck, &v_hstgrps, user, passwd, ip, port, dhosts);
 		 
 	}
-	discovered_next_ip(drule->druleid, DEVICE_TYPE_VM, v_vmware_vm.values_num);
-	zbx_free(value);
+	if(NULL == dhosts){
+		discovered_next_ip(drule->druleid, DEVICE_TYPE_VM, v_vmware_vm.values_num);
+	}else{
+		server_discovered_proxy_next_ip(drule->druleid, DEVICE_TYPE_VM, v_vmware_vm.values_num);
+	}
 
-	
+	zbx_free(value);
+	zbx_free(extend_value);
 	free_discover_hstgrp(&v_hstgrps); 
 	free_discover_hosts(&v_hosts);
+	free_bigvalues(&v_extend);
 
 	zbx_vector_ptr_clear_ext(&v_vmware_vm, (zbx_mem_free_func_t)wmware_free_vmware_server_ptr);
 	zbx_vector_ptr_destroy(&v_vmware_vm);
@@ -836,7 +1006,7 @@ void do_discover_vmware(const zbx_db_drule *drule, const DB_DCHECK *dcheck,
 	char *keys, char *user, char *passwd, char *ip, int port)
 {
 	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, druleid=%d, ip=%s, user=%s, key=%s", __func__, drule->druleid, ip, user, keys);
-	int top_groupid = HSTGRP_GROUPID_SERVER; // 扫描的最顶层群组id，默认是Esxi扫描最顶层为服务器
+	int ret = SUCCEED, top_groupid = HSTGRP_GROUPID_SERVER; // 扫描的最顶层群组id，默认是Esxi扫描最顶层为服务器
 	zbx_vector_str_t v_keys;
 	zbx_vector_str_create(&v_keys);
 	str_to_vector(&v_keys, keys, ",");
@@ -847,22 +1017,26 @@ void do_discover_vmware(const zbx_db_drule *drule, const DB_DCHECK *dcheck,
 		zbx_snprintf(key, sizeof(key), v_keys.values[i], ip);  // 填入ip地址
 		if(0 == zbx_strncasecmp(key,"vmware.dc.discovery", 19))
 		{
-			top_groupid = discover_vmware_dc_or_cluster(HSTGRP_TYPE_DATACENTER, key, dcheck->user, dcheck->password, ip, port, top_groupid);
+			ret = discover_vmware_dc_or_cluster(HSTGRP_TYPE_DATACENTER,dcheck->proxy_hostid, key, dcheck->user, dcheck->password, 
+				ip, port, &top_groupid, NULL);
 			discovered_next_ip(drule->druleid, -1, 5);
 		}
 		else if(0 == zbx_strncasecmp(key,"vmware.cluster.discovery", 24))
 		{
-			top_groupid = discover_vmware_dc_or_cluster(HSTGRP_TYPE_CLUSTER, key, dcheck->user, dcheck->password, ip, port, top_groupid);
+			ret = discover_vmware_dc_or_cluster(HSTGRP_TYPE_CLUSTER,dcheck->proxy_hostid, key, dcheck->user, dcheck->password, 
+				ip, port, &top_groupid, NULL);
 			discovered_next_ip(drule->druleid, -1, 5);
 		}
 		else if(0 == zbx_strncasecmp(key,"vmware.hv.discovery", 19))
 		{
-			discover_vmware_hv(drule, dcheck, key, dcheck->user, dcheck->password, ip, port, top_groupid);
+			discover_vmware_hv(drule, dcheck, key, dcheck->user, dcheck->password, ip, port, top_groupid, NULL, NULL);
 		}
 		else if(0 == zbx_strncasecmp(key,"vmware.vm.discovery", 19))
 		{
-			discover_vmware_vm(drule, dcheck, key, dcheck->user, dcheck->password, ip, port, top_groupid);
+			discover_vmware_vm(drule, dcheck, key, dcheck->user, dcheck->password, ip, port, top_groupid, NULL, NULL);
 		}
+
+		if(SUCCEED != ret) break;
 	}
 	zbx_vector_ptr_clear(&v_keys);
 	zbx_vector_ptr_destroy(&v_keys);
@@ -874,6 +1048,7 @@ void* discover_vmware_thread_handler(void* arg)
 	do_discover_vmware(p_vmarg->drule, p_vmarg->dcheck, p_vmarg->key, p_vmarg->user, p_vmarg->passwd, 
 		p_vmarg->ip, p_vmarg->port);
 } 
+
 void discover_vmware_thread(const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *key, char *user, char *passwd, char *ip, int port)
 {
 	pthread_t ds_thread;
@@ -890,12 +1065,149 @@ void discover_vmware_thread(const zbx_db_drule *drule, const DB_DCHECK *dcheck, 
 	if (pthread_create(&ds_thread, NULL, discover_vmware_thread_handler, &vmware_arg))
 	{
 		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s create thread fail.",__func__);
-		return FAIL;
+		return;
 	}
 	if (pthread_join(ds_thread, NULL))
 	{
 		zabbix_log(LOG_LEVEL_ERR, "#TOGNIX#%s join thread fail", __func__);
 	}
+}
+
+static void proxy_discover_vmware_hv_vm(int scan_type, const zbx_db_drule *drule, const DB_DCHECK *dcheck, char *key, char *user, char *passwd, 
+	char *ip, int port, char **bigvalue)
+{ 
+	struct zbx_json j;
+	struct zbx_json_parse jp_params;
+	struct zbx_json_parse	jp;
+	int		ret = SUCCEED, value_len = 0, extend_data_len = 0;
+	char *value = NULL,*extend_data = NULL;
+	size_t	bigvalue_alloc = 0, bigvalue_offset = 0;
+
+	vmware_recv(&value, key, user, passwd, ip, port, 3);
+	value_len = (value == NULL?0:strlen(value));
+	if(value_len == 0){
+		return;
+	}
+	
+	zbx_vector_ptr_t v_vmware;
+	zbx_vector_ptr_create(&v_vmware);
+	
+	if(PROXY_TSF_TYPE_VMWARE_HV == scan_type){
+		__parse_vmware_hv_data(user, passwd, ip, port, value, &v_vmware);
+	}else{
+		__parse_vmware_vm_data(user, passwd, ip, port, value, &v_vmware);
+	}
+	
+	// 开始"data"数组
+	zbx_json_init(&j, ZBX_JSON_PROXY_DATA_BUF_LEN);
+	zbx_json_addarray(&j, "extend_data");
+	for(int i = 0; i < v_vmware.values_num; i ++)
+	{
+		vmware_server *p_server = (vmware_server *)v_vmware.values[i];
+		//获取vmware扩展数据
+		if(PROXY_TSF_TYPE_VMWARE_HV == scan_type){
+			discover_get_hv_extend_data(user, passwd, ip, port, p_server);
+		}else{
+			discover_get_vm_extend_data(user, passwd, ip, port, p_server);
+		}
+		zbx_json_addobject(&j, NULL);
+		zbx_json_addstring(&j, "uuid", p_server->uuid, ZBX_JSON_TYPE_STRING);
+		zbx_json_addstring(&j, "macs", p_server->macs, ZBX_JSON_TYPE_STRING);
+		zbx_json_addstring(&j, "cpu_mode", p_server->cpuMode, ZBX_JSON_TYPE_STRING);
+		zbx_json_addint64(&j, "cpu_num", p_server->cpuNum);  
+		zbx_json_addint64(&j, "total_memory", p_server->totalMemory); 
+		zbx_json_close(&j); 
+	}
+	zbx_json_close(&j);
+	extend_data = j.buffer;
+	extend_data_len = strlen(extend_data);
+	zbx_snprintf_alloc(bigvalue, &bigvalue_alloc, &bigvalue_offset, "%08d%04d%s%08d%04d%s",
+					value_len, PROXY_TSF_TYPE_DATA, value, 
+					extend_data_len,PROXY_TSF_TYPE_EXTEND_DATA,extend_data);
+	zbx_json_free(&j);
+	zbx_vector_ptr_clear_ext(&v_vmware, (zbx_mem_free_func_t)wmware_free_vmware_server_ptr);
+	zbx_vector_ptr_destroy(&v_vmware);
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s end", __func__);
+}
+
+void do_proxy_discover_vmware(const zbx_db_drule *drule, const DB_DCHECK *dcheck,
+	char *keys, char *user, char *passwd, char *ip, int port)
+{
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, druleid=%d, ip=%s, user=%s, key=%s", __func__, drule->druleid, ip, user, keys);
+	 
+	zbx_vector_str_t v_keys;
+	zbx_vector_str_create(&v_keys);
+	str_to_vector(&v_keys, keys, ",");
+	char key[256] = {0}, *bigvalue = NULL, *value = NULL, *sessions = NULL;
+	size_t	bigvalue_alloc = 0, bigvalue_offset = 0;
+	int value_len = 0, now = 0, scan_type;
+
+	int ret = proxy_get_sessions(drule->druleid, &sessions);
+	value_len = (sessions==NULL ? 0:strlen(sessions));
+	if(SUCCEED == ret){
+		zbx_snprintf_alloc(&bigvalue, &bigvalue_alloc, &bigvalue_offset, "%08d%04d%s",
+					value_len, PROXY_TSF_TYPE_SESSION, sessions);
+	}else{
+		zbx_snprintf_alloc(&bigvalue, &bigvalue_alloc, &bigvalue_offset, "%08d%04d",
+					value_len, PROXY_TSF_TYPE_SESSION);
+	}
+	
+
+	for(int i = 0; i < v_keys.values_num; i++)
+	{
+		zbx_snprintf(key, sizeof(key), v_keys.values[i], ip);  // 填入ip地址
+		if(0 == zbx_strncasecmp(key,"vmware.dc.discovery", 19)){
+			scan_type = PROXY_TSF_TYPE_VMWARE_DC;
+		}
+		else if(0 == zbx_strncasecmp(key,"vmware.cluster.discovery", 24)){
+			scan_type = PROXY_TSF_TYPE_VMWARE_CLUSTER;
+		}
+		else if(0 == zbx_strncasecmp(key,"vmware.hv.discovery", 19)){
+			scan_type = PROXY_TSF_TYPE_VMWARE_HV;
+		}
+		else if(0 == zbx_strncasecmp(key,"vmware.vm.discovery", 19)){
+			scan_type = PROXY_TSF_TYPE_VMWARE_WM;
+		}
+
+		switch (scan_type)
+		{
+		case PROXY_TSF_TYPE_VMWARE_DC:
+		case PROXY_TSF_TYPE_VMWARE_CLUSTER:
+			vmware_recv(&value, key, user, passwd, ip, port, 3);
+			value_len = (value==NULL ? 0:strlen(value));
+			if(value == NULL) value = zbx_strdup(NULL, "");
+			zbx_snprintf_alloc(&bigvalue, &bigvalue_alloc, &bigvalue_offset, "%08d%04d%s",
+					value_len, scan_type, value);
+			if(PROXY_TSF_TYPE_VMWARE_DC == scan_type || PROXY_TSF_TYPE_VMWARE_CLUSTER == scan_type){
+				discovered_next_ip(drule->druleid, -1, 5);
+			}
+			break;
+		case PROXY_TSF_TYPE_VMWARE_HV:
+		case PROXY_TSF_TYPE_VMWARE_WM:
+			proxy_discover_vmware_hv_vm(scan_type, drule, dcheck, key, user, passwd, ip, port,  &value);
+			value_len = (value==NULL ? 0:strlen(value));
+			if(value == NULL) value = zbx_strdup(NULL, "");
+			zbx_snprintf_alloc(&bigvalue, &bigvalue_alloc, &bigvalue_offset, "%08d%04d%s",
+					value_len, scan_type, value);
+			break;
+		default:
+			break;
+		}
+		zbx_free(value);
+		value=NULL;
+	}
+	
+	if(bigvalue != NULL){
+		now = time(NULL);
+		dc_proxy_update_hosts(drule->druleid, dcheck->dcheckid, ip,
+			"", port, 0, "", now, PROXY_SCAN_TYPE_VMWARE, bigvalue);
+	}
+	proxy_discover_finished(drule->druleid);
+	
+	zbx_vector_ptr_clear(&v_keys);
+	zbx_vector_ptr_destroy(&v_keys);
+	zbx_free(bigvalue);
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s end", __func__);
 }
 
 void discover_vmware(zbx_db_drule *drule, const DB_DCHECK *dcheck,
@@ -905,13 +1217,81 @@ void discover_vmware(zbx_db_drule *drule, const DB_DCHECK *dcheck,
 		zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, drule or dcheck is null.", __func__);
 		return;
 	}
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, druleid=%d, proxy_hostid=%d, ip=%s, user=%s, key=%s", 
+		__func__, drule->druleid, ip, user, dcheck->proxy_hostid, keys);
 
-	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s, druleid=%d, ip=%s, user=%s, key=%s", __func__, drule->druleid, ip, user, keys);
-	int is_used_thread = 1;
-	if(is_used_thread){
-		discover_vmware_thread(drule, dcheck, keys, dcheck->user, dcheck->password, ip, port);
-	}else{
-		do_discover_vmware(drule, dcheck, keys, user, passwd, ip, port);
+
+	if(ZBX_PROGRAM_TYPE_PROXY == g_running_program_type) 
+	{	// 代理服务端执行
+		do_proxy_discover_vmware(drule, dcheck, keys, user, passwd, ip, port);
 	}
+	else
+	{
+		int is_used_thread = 1;
+		if(is_used_thread){
+			discover_vmware_thread(drule, dcheck, keys, dcheck->user, dcheck->password, ip, port);
+		}else{
+			do_discover_vmware(drule, dcheck, keys, user, passwd, ip, port);
+		}
+	
+	}
+	
 	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s end", __func__);
 }
+
+
+void server_discover_vmware_from_proxy(int scan_type, zbx_db_drule *drule, const DB_DCHECK *dcheck,
+	 zbx_vector_ptr_t *dhosts, char *bigvalue, char *ip, int port)
+{
+	int ret=SUCCEED, top_groupid = HSTGRP_GROUPID_SERVER; // 扫描的最顶层群组id，默认是Esxi扫描最顶层为服务器
+	zbx_vector_ptr_t bvalues;
+	zbx_vector_ptr_create(&bvalues);
+ 
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s druleid=%d, ip=%s, bigvalue=%s", 
+		__func__, drule->druleid, ip,  print_content(bigvalue));
+	
+	if(NULL == bigvalue) return;
+
+	parse_bigvalue(&bvalues, bigvalue);
+
+	for(int i = 0; i < bvalues.values_num; i ++)
+	{
+		zbx_bigvalue_t *pvalue = (zbx_bigvalue_t *)bvalues.values[i];
+		char *value = pvalue->value;
+		switch (pvalue->scan_type)
+		{
+		case PROXY_TSF_TYPE_SESSION:
+			drule->sessions = zbx_strdup(NULL,value);
+			// 这个host是为了让上层能调用server_discover_proxy_finished，执行结束命令
+			zbx_db_dhost *p_dhost = (zbx_db_dhost *)zbx_malloc(NULL,sizeof(zbx_db_dhost));
+			p_dhost->hostid = 0;
+			p_dhost->druleid = drule->druleid; 
+			p_dhost->session = zbx_strdup(NULL, drule->sessions);
+			zbx_vector_ptr_append(dhosts, p_dhost);
+			break;
+		case PROXY_TSF_TYPE_VMWARE_DC:
+			ret = discover_vmware_dc_or_cluster(HSTGRP_TYPE_DATACENTER,dcheck->proxy_hostid, NULL, dcheck->user, dcheck->password, 
+				ip, port, &top_groupid, value);
+			break;
+		case PROXY_TSF_TYPE_VMWARE_CLUSTER:
+			ret = discover_vmware_dc_or_cluster(HSTGRP_TYPE_CLUSTER, dcheck->proxy_hostid, NULL, dcheck->user, dcheck->password, 
+				ip, port, &top_groupid, value);
+			break;
+		case PROXY_TSF_TYPE_VMWARE_HV:
+			discover_vmware_hv(drule, dcheck, NULL, dcheck->user, dcheck->password, ip, port, top_groupid, value, dhosts);
+			break;
+		case PROXY_TSF_TYPE_VMWARE_WM:
+			discover_vmware_vm(drule, dcheck, NULL, dcheck->user, dcheck->password, ip, port, top_groupid, value, dhosts);
+			break;
+		default:
+			break;
+		}
+		
+		if(SUCCEED != ret) break;
+	}
+
+	free_bigvalues(&bvalues);
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s end,ret=%d", __func__, ret);
+}
+
+ 

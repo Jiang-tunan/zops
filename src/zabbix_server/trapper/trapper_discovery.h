@@ -34,13 +34,13 @@ typedef struct {
 	const char *request;
 	zbx_socket_t *sock;
 	int config_timeout;
-	const zbx_config_vault_t *config_vault;
+	zbx_ipc_async_socket_t *rtc;
 }proxy_thread_arg;
 
 /*zhu content * 端口扫描 */
 void discovery_rules_trapper_thread_init(int server_num);
 void discovery_rules_trapper_thread_cleanup();
-int discovery_rules_state(zbx_socket_t *sock, char *input_json, int config_timeout);
+int discovery_rules_state(int from_proxy, zbx_socket_t *sock, char *input_json, int config_timeout, zbx_ipc_async_socket_t *rtc);
 void* discovery_rules_trapper_thread_function(void* arg);
 int extract_session_from_json(const char *json_str, char *session);
 
@@ -48,6 +48,7 @@ int extract_session_from_json(const char *json_str, char *session);
 int send_productkey(zbx_socket_t *sock, const struct zbx_json_parse *jp, int config_timeout);
 int send_license_verify(zbx_socket_t *sock, const struct zbx_json_parse *jp, int config_timeout);
 int send_license_query(zbx_socket_t *sock, const struct zbx_json_parse *jp, int config_timeout);
+int license_hander(char *cmd, zbx_socket_t *sock, const struct zbx_json_parse *jp, int config_timeout);
 
 char* create_productkey_json(const int result,const char* resqust, const char* session, const char* productkey);
 char* create_license_verify_json(const char* resqust, const char* session, struct service *monitor_services, struct service *function_services,

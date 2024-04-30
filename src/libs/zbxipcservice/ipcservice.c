@@ -1688,6 +1688,8 @@ int	zbx_ipc_client_send(zbx_ipc_client_t *client, zbx_uint32_t code, const unsig
 
 	ret = SUCCEED;
 out:
+	// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ret=%d, clientid=%d, code=%d, data=%s", __func__, ret, client->id,code, data);
+
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __func__, zbx_result_string(ret));
 
 	return ret;

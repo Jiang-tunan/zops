@@ -40,7 +40,7 @@ extern char		*CONFIG_SOURCE_IP;
 
 static void	process_configuration_sync(size_t *data_size, zbx_synced_new_config_t *synced,
 		const zbx_config_tls_t *config_tls, const zbx_config_vault_t *config_vault,
-		const zbx_thread_info_t *thread_info, int config_timeout)
+		const zbx_thread_info_t *thread_info, int config_timeout, int isfullsync)
 {
 	zbx_socket_t		sock;
 	struct	zbx_json_parse	jp, jp_kvs_paths = {0};
@@ -53,14 +53,16 @@ static void	process_configuration_sync(size_t *data_size, zbx_synced_new_config_
 
 	/* reset the performance metric */
 	*data_size = 0;
-
 	zbx_json_init(&j, 128);
 	zbx_json_addstring(&j, "request", ZBX_PROTO_VALUE_PROXY_CONFIG, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&j, "host", CONFIG_HOSTNAME, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&j, ZBX_PROTO_TAG_VERSION, ZABBIX_VERSION, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&j, ZBX_PROTO_TAG_SESSION, zbx_dc_get_session_token(), ZBX_JSON_TYPE_STRING);
-	zbx_json_adduint64(&j, ZBX_PROTO_TAG_CONFIG_REVISION, zbx_dc_get_received_revision());
-
+	if(isfullsync){
+		zbx_json_adduint64(&j, ZBX_PROTO_TAG_CONFIG_REVISION, 0);
+	}else{
+		zbx_json_adduint64(&j, ZBX_PROTO_TAG_CONFIG_REVISION, zbx_dc_get_received_revision());
+	}
 	if (SUCCEED != zbx_compress(j.buffer, j.buffer_size, &buffer, &buffer_size))
 	{
 		zabbix_log(LOG_LEVEL_ERR,"cannot compress data: %s", zbx_compress_strerror());
@@ -123,7 +125,17 @@ static void	process_configuration_sync(size_t *data_size, zbx_synced_new_config_
 
 	if (SUCCEED == (ret = zbx_proxyconfig_process(sock.peer, &jp, &error)))
 	{
-		DCsync_configuration(ZBX_DBSYNC_UPDATE, *synced, NULL, config_vault);
+		int full_sync = 0;
+		memset(value, 0, sizeof(value));
+		if (SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_FULL_SYNC, value, sizeof(value), NULL))
+			full_sync = atoi(value);
+		if(full_sync){
+			// ZBX_DBSYNC_UPDATE 参数会导致新加的监控设备/软件 不能实时显示数据问题。ZBX_DBSYNC_INIT可以解决此类问题
+			DCsync_configuration(ZBX_DBSYNC_INIT, *synced, NULL, config_vault);
+		}else{
+			DCsync_configuration(ZBX_DBSYNC_UPDATE, *synced, NULL, config_vault);
+		}
+		
 		*synced = ZBX_SYNCED_NEW_CONFIG_YES;
 
 		if (SUCCEED == zbx_json_brackets_by_name(&jp, ZBX_PROTO_TAG_MACRO_SECRETS, &jp_kvs_paths))
@@ -247,7 +259,7 @@ ZBX_THREAD_ENTRY(proxyconfig_thread, args)
 	int				server_num = ((zbx_thread_args_t *)args)->info.server_num;
 	int				process_num = ((zbx_thread_args_t *)args)->info.process_num;
 	unsigned char			process_type = ((zbx_thread_args_t *)args)->info.process_type;
-	zbx_uint32_t			rtc_msgs[] = {ZBX_RTC_CONFIG_CACHE_RELOAD};
+	zbx_uint32_t			rtc_msgs[] = {ZBX_RTC_CONFIG_CACHE_RELOAD, ZBX_RTC_SECRETS_RELOAD};
 
 	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_program_type_string(info->program_type),
 			server_num, get_process_type_string(process_type), process_num);
@@ -272,9 +284,9 @@ ZBX_THREAD_ENTRY(proxyconfig_thread, args)
 
 	while (ZBX_IS_RUNNING())
 	{
-		zbx_uint32_t	rtc_cmd;
-		unsigned char	*rtc_data;
-		int		config_cache_reload = 0;
+		zbx_uint32_t	rtc_cmd = 0;
+		unsigned char	*rtc_data = NULL;
+		int		config_cache_reload = 0, isfullsync = 0;
 
 		while (SUCCEED == zbx_rtc_wait(&rtc, info, &rtc_cmd, &rtc_data, sleeptime) && 0 != rtc_cmd)
 		{
@@ -282,20 +294,30 @@ ZBX_THREAD_ENTRY(proxyconfig_thread, args)
 				config_cache_reload = 1;
 			else if (ZBX_RTC_SHUTDOWN == rtc_cmd)
 				goto stop;
-
+			
+			isfullsync = zbx_atoi(rtc_data);
+			if(isfullsync > 0){
+				config_cache_reload = 1;
+				zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#proxyconfig process_type=%d, isfullsync=%d, rtc_cmd=%d,rtc_data=%s", 
+					process_type, isfullsync, rtc_cmd,rtc_data);
+			}
+			
 			sleeptime = 0;
 		}
-
+		
 		sec = zbx_time();
 		zbx_update_env(get_process_type_string(process_type), sec);
-
+		
 		if (ZBX_PROGRAM_TYPE_PROXY_PASSIVE == info->program_type)
 		{
 			if (0 != config_cache_reload)
 			{
 				zbx_setproctitle("%s [loading configuration]", get_process_type_string(process_type));
-
-				DCsync_configuration(ZBX_DBSYNC_UPDATE, synced, NULL, proxyconfig_args_in->config_vault);
+				if(isfullsync > 0){
+					DCsync_configuration(ZBX_DBSYNC_INIT, synced, NULL, proxyconfig_args_in->config_vault);
+				}else{
+					DCsync_configuration(ZBX_DBSYNC_UPDATE, synced, NULL, proxyconfig_args_in->config_vault);
+				}
 				synced = ZBX_SYNCED_NEW_CONFIG_YES;
 				DCupdate_interfaces_availability();
 				zbx_rtc_notify_config_sync(proxyconfig_args_in->config_timeout, &rtc);
@@ -320,7 +342,7 @@ ZBX_THREAD_ENTRY(proxyconfig_thread, args)
 		zbx_setproctitle("%s [loading configuration]", get_process_type_string(process_type));
 
 		process_configuration_sync(&data_size, &synced, proxyconfig_args_in->config_tls,
-				proxyconfig_args_in->config_vault, info, proxyconfig_args_in->config_timeout);
+				proxyconfig_args_in->config_vault, info, proxyconfig_args_in->config_timeout, isfullsync);
 
 		interval = zbx_time() - sec;
 

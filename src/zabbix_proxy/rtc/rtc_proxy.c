@@ -24,13 +24,17 @@
 
 int	rtc_process_request_ex_passive(zbx_rtc_t *rtc, zbx_uint32_t code, const unsigned char *data, char **result)
 {
-	ZBX_UNUSED(data);
-	ZBX_UNUSED(result);
-
+	// ZBX_UNUSED(data);
+	// ZBX_UNUSED(result);
+	zbx_uint32_t data_size = (data == NULL)?0:strlen(data);
+	// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s code=%d, data_size=%d, data=%s", __func__, code, data_size, data);
 	switch (code)
 	{
 		case ZBX_RTC_CONFIG_CACHE_RELOAD:
 			zbx_rtc_notify(rtc, ZBX_PROCESS_TYPE_TASKMANAGER, 0, ZBX_RTC_CONFIG_CACHE_RELOAD, NULL, 0);
+			return SUCCEED;
+		case ZBX_RTC_SECRETS_RELOAD:
+			zbx_rtc_notify(rtc, ZBX_PROCESS_TYPE_CONFSYNCER, 0, ZBX_RTC_SECRETS_RELOAD, (const char *)data, data_size);
 			return SUCCEED;
 	}
 

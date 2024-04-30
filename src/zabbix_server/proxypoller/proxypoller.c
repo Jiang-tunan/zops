@@ -36,8 +36,10 @@
 #include "zbxversion.h"
 #include "zbx_rtc_constants.h"
 #include "zbx_host_constants.h"
+#include "../../libs/zbxcacheconfig/dbconfig.h"
 
 static zbx_get_program_type_f		zbx_get_program_type_cb = NULL;
+extern void	DCget_proxy(DC_PROXY *dst_proxy, const ZBX_DC_PROXY *src_proxy);
 
 static int	connect_to_proxy(const DC_PROXY *proxy, zbx_socket_t *sock, int timeout)
 {
@@ -369,7 +371,7 @@ out:
 	zbx_free(buffer);
 	zbx_free(error);
 	zbx_json_free(&j);
-	//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#Proxy#%s end. host=%s, ret=%d",__func__, proxy->host,ret);
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ret=%d, isfullsync=%d, host=%s",__func__, ret, proxy->isfullsync, proxy->host);
 	return ret;
 }
 
@@ -534,6 +536,44 @@ out:
 	return ret;
 }
 
+int	proxy_configuration_fullsync(int proxyhostid, const zbx_config_vault_t *config_vault)
+{ 
+	int ret = FAIL;
+	// ZBX_DC_PROXY *dcproxy = NULL;
+	DC_PROXY proxy; 
+	DB_RESULT		result = NULL;
+	DB_ROW			row = NULL;
+
+	memset(&proxy, 0, sizeof(DC_PROXY));
+	result = zbx_db_select("select host,proxy_address,tls_connect,auto_compress,tls_accept " \
+		"from hosts where hostid=%d", proxyhostid);
+	if(NULL != (row = zbx_db_fetch(result)))
+	{
+		proxy.hostid = proxyhostid;
+		zbx_strlcpy(proxy.host, row[0], strlen(row[0]));
+		proxy.addr = zbx_strdup(NULL, row[1]);
+		zbx_strlcpy(proxy.addr_orig, row[1], strlen(row[1])); 
+		zbx_strlcpy(proxy.proxy_address, row[1], strlen(row[1]));
+		proxy.tls_connect = zbx_atoi(row[2]);
+		proxy.auto_compress = zbx_atoi(row[3]);
+		proxy.tls_accept = zbx_atoi(row[4]);
+		proxy.port = ZBX_DEFAULT_SERVER_PORT;
+		zbx_snprintf(proxy.port_orig,sizeof(proxy.port_orig),"%d",proxy.port);
+		// 是否全量sync，1：全量，0：增量
+		proxy.isfullsync = 1;
+	}
+	zbx_db_free_result(result); 
+	
+    //if(NULL != (dcproxy = (ZBX_DC_PROXY *)zbx_hashset_search(&config->proxies, &proxyhostid)))
+	if(proxy.hostid > 0)
+	{
+		// DCget_proxy(&proxy, dcproxy);
+		ret = proxy_send_configuration(&proxy, config_vault);
+	}
+	zbx_free(proxy.addr);
+	zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s ret=%d, proxyhostid=%d",  __func__, ret, proxyhostid);
+	return 1;
+}
 /******************************************************************************
  *                                                                            *
  * Purpose: retrieve values of metrics from monitored hosts                   *
@@ -652,7 +692,7 @@ ZBX_THREAD_ENTRY(proxypoller_thread, args)
 {
 	zbx_thread_proxy_poller_args	*proxy_poller_args_in = (zbx_thread_proxy_poller_args *)
 							(((zbx_thread_args_t *)args)->args);
-	int				nextcheck, sleeptime = -1, processed = 0, old_processed = 0;
+	int				nextcheck, sleeptime = -1, processed = 0, old_processed = 0, proxyhostid = 0;
 	double				sec, total_sec = 0.0, old_total_sec = 0.0;
 	time_t				last_stat_time;
 	zbx_ipc_async_socket_t		rtc;
@@ -688,8 +728,8 @@ ZBX_THREAD_ENTRY(proxypoller_thread, args)
 
 	while (ZBX_IS_RUNNING() && LIC_IS_SUCCESS())
 	{
-		zbx_uint32_t	rtc_cmd;
-		unsigned char	*rtc_data;
+		zbx_uint32_t	rtc_cmd = 0;
+		unsigned char	*rtc_data = NULL;
 
 		sec = zbx_time();
 		zbx_update_env(get_process_type_string(process_type), sec);
@@ -700,8 +740,11 @@ ZBX_THREAD_ENTRY(proxypoller_thread, args)
 					" exchanging data]", get_process_type_string(process_type), process_num,
 					old_processed, old_total_sec);
 		}
-
-		processed += process_proxy(proxy_poller_args_in->config_vault, proxy_poller_args_in->config_timeout);
+		if(proxyhostid > 0){
+			proxy_configuration_fullsync(proxyhostid, proxy_poller_args_in->config_vault);
+		}else{
+			processed += process_proxy(proxy_poller_args_in->config_vault, proxy_poller_args_in->config_timeout);
+		}
 
 		total_sec += zbx_time() - sec;
 
@@ -728,13 +771,18 @@ ZBX_THREAD_ENTRY(proxypoller_thread, args)
 			total_sec = 0.0;
 			last_stat_time = time(NULL);
 		}
-		// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#proxypoller before sleeptime=%d", __func__, rtc_cmd, sleeptime);
+		
 		if (SUCCEED == zbx_rtc_wait(&rtc, info, &rtc_cmd, &rtc_data, sleeptime) && 0 != rtc_cmd)
 		{
 			if (ZBX_RTC_SHUTDOWN == rtc_cmd)
 				break;
 		}
-		// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#proxypoller after %s  rtc_cmd=%d, sleeptime=%d", __func__, rtc_cmd, sleeptime);
+		proxyhostid = zbx_atoi(rtc_data);
+		if(proxyhostid > 0){
+			zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#proxypoller process_type=%d,proxyhostid=%d, rtc_cmd=%d,rtc_data=%s", 
+		 			process_type,proxyhostid, rtc_cmd,rtc_data);
+		}
+		
 	}
 
 	zbx_setproctitle("%s #%d [terminated]", get_process_type_string(process_type), process_num);

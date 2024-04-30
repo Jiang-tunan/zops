@@ -97,6 +97,9 @@ typedef struct
 	const char		*hostname;
 	const int		proxymode;
 	const int		config_timeout;
+
+	// add by 1.5
+	zbx_ipc_async_socket_t	*rtc;
 }
 zbx_config_comms_args_t;
 
@@ -147,8 +150,6 @@ typedef struct
 	/* TLS connection may be shut down at any time and it will not be possible to get peer IP address anymore. */
 	char				peer[ZBX_MAX_DNSNAME_LEN + 1];
 	int				protocol;
-
-	zbx_ipc_async_socket_t	*rtc;
 }
 zbx_socket_t;
 
@@ -334,6 +335,7 @@ int		zbx_check_server_issuer_subject(const zbx_socket_t *sock, const char *allow
 				const char *allowed_subject, char **error);
 unsigned int	zbx_tls_get_psk_usage(void);
 
+void copy_zbx_socket(zbx_socket_t *src, zbx_socket_t *dest);
 /* TLS BLOCK END */
 
 #endif /* ZABBIX_ZBXCOMMS_H */

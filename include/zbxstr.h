@@ -177,4 +177,10 @@ char *zbx_strstr(char *str1, const char *str2);
  * 如:"1.3.2" 转为 10302
 */
 int get_version(char *version);
+
+/**
+ * 转成16进制显示的字符串
+*/
+char *to_hexstr(const char *src,  int src_size);
+
 #endif /* ZABBIX_STR_H */

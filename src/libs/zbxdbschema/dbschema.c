@@ -1228,6 +1228,8 @@ ZBX_TABLE	tables[] = {
 		{"status",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
 		{"dcheckid",	NULL,	"dchecks",	"dcheckid",	0,	ZBX_TYPE_ID,	0,	ZBX_FK_CASCADE_DELETE},
 		{"dns",	"",	NULL,	NULL,	255,	ZBX_TYPE_CHAR,	ZBX_NOTNULL,	0},
+		{"scan_type",	"0",	NULL,	NULL,	0,	ZBX_TYPE_INT,	ZBX_NOTNULL,	0},
+		{"bigvalue",	"",	NULL,	NULL,	ZBX_TYPE_LONGTEXT_LEN,	ZBX_TYPE_LONGTEXT,	ZBX_NOTNULL,	0},
 		{0}
 		},
 		NULL
@@ -3703,10 +3705,12 @@ clock integer DEFAULT '0' NOT NULL,\n\
 druleid bigint  NOT NULL,\n\
 ip varchar(39) DEFAULT '' NOT NULL,\n\
 port integer DEFAULT '0' NOT NULL,\n\
-value varchar(255) DEFAULT '' NOT NULL,\n\
+value text DEFAULT '' NOT NULL,\n\
 status integer DEFAULT '0' NOT NULL,\n\
 dcheckid bigint  NULL,\n\
-dns varchar(255) DEFAULT '' NOT NULL\n\
+dns varchar(255) DEFAULT '' NOT NULL,\n\
+scan_type integer DEFAULT '0' NOT NULL,\n\
+bigvalue text DEFAULT '' NOT NULL\n\
 );\n\
 CREATE INDEX proxy_dhistory_1 ON proxy_dhistory (clock);\n\
 CREATE INDEX proxy_dhistory_2 ON proxy_dhistory (druleid);\n\

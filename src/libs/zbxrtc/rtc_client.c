@@ -482,3 +482,35 @@ int	zbx_rtc_async_exchange(char **data, zbx_uint32_t code, int config_timeout, c
 
 	return ret;
 }
+
+int	zbx_rtc_reload_proxy_config_fullsync(char **error, int timeout)
+{
+	unsigned char	*result = NULL;
+	char data[128] = {"001"};
+	if (SUCCEED != zbx_ipc_async_exchange(ZBX_IPC_SERVICE_RTC, ZBX_RTC_SECRETS_RELOAD,
+			timeout, data, strlen(data), &result, error))
+	{
+		return FAIL;
+	}
+
+	zbx_free(result);
+
+	return SUCCEED;
+}
+
+//代理进程通知去同步配置数据 add by 1.5
+void zbx_rtc_notify_proxy_config_fullsync(int config_timeout, zbx_ipc_async_socket_t *rtc)
+{
+	char data[128] = {"001"};
+	zabbix_log(LOG_LEVEL_CRIT, "#TOGNIX#%s proxy configuration syncer notification", __func__);
+	 
+	if (FAIL == zbx_ipc_async_socket_send(rtc, ZBX_RTC_SECRETS_RELOAD, data, strlen(data)))
+	{
+		zabbix_log(LOG_LEVEL_CRIT, "#TOGNIX#cannot send proxypoller process notification");
+	}
+
+	if (FAIL == zbx_ipc_async_socket_flush(rtc, config_timeout))
+	{
+		zabbix_log(LOG_LEVEL_CRIT, "cannot flush configuration syncer notification");
+	}
+}

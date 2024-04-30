@@ -1,7 +1,13 @@
 #include "discoverer_comm.h"
 #include "log.h"
 
- 
+#include "discoverer_vmware.h"
+#include "discoverer_nutanix.h"
+#include "zbxdiscovery.h"
+
+
+extern int g_running_program_type;
+
 void free_discover_hstgrp_ptr(discover_hstgrp *p_hstgrp)
 {
 	if(NULL == p_hstgrp) return;
@@ -72,6 +78,9 @@ int update_discover_hv_groupid(zbx_vector_ptr_t *v_hstgrps, int type, int hostid
 	{
 		discover_hstgrp *hstgrp = v_hstgrps->values[index];
 		groupid = hstgrp->groupid;
+		if(fgroupid <= 0){
+			fgroupid = hstgrp->fgroupid;
+		}
 		is_find = 1;
 		// zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s,fgroupid %d=%d,hostid %d=%d",
 		// 	 __func__, hstgrp->fgroupid,fgroupid,hstgrp->hostid , hostid );
@@ -485,4 +494,147 @@ char *print_content(char *json)
 		return json;
 	else
 		return zbx_itoa(len);
+}
+
+
+void dc_proxy_update_hosts(zbx_uint64_t druleid, zbx_uint64_t dcheckid, const char *ip,const char *dns, int port, 
+	int status, const char *value, int now, int scan_type, char *bigvalue)
+{
+	char	*ip_esc, *dns_esc, *value_esc, *bigvalue_esc;
+
+	ip_esc = zbx_db_dyn_escape_field("proxy_dhistory", "ip", ip);
+	dns_esc = zbx_db_dyn_escape_field("proxy_dhistory", "dns", dns);
+	value_esc = zbx_db_dyn_escape_field("proxy_dhistory", "value", value);
+	bigvalue_esc = zbx_db_dyn_escape_field("proxy_dhistory", "bigvalue", bigvalue);
+
+	zbx_db_execute("insert into proxy_dhistory (clock,druleid,dcheckid,ip,dns,port,value,status,scan_type,bigvalue)"
+			" values (%d," ZBX_FS_UI64 "," ZBX_FS_UI64 ",'%s','%s',%d,'%s',%d,%d,'%s')",
+			now, druleid, dcheckid, ip_esc, dns_esc, port, value_esc, status,scan_type,bigvalue_esc);
+
+	zbx_free(value_esc);
+	zbx_free(dns_esc);
+	zbx_free(ip_esc);
+	zbx_free(bigvalue_esc);
+}
+
+
+
+void parse_tsf_data(char *bigdata, char **data, char **extend_data)
+{
+	if(NULL == bigdata)  return;
+
+	zbx_vector_ptr_t v_extend_datas;
+	zbx_vector_ptr_create(&v_extend_datas);
+	
+	parse_bigvalue(&v_extend_datas, bigdata);
+	for(int i = 0; i < v_extend_datas.values_num; i ++)
+	{
+		zbx_bigvalue_t *pvalue = v_extend_datas.values[i];
+		switch (pvalue->scan_type)
+		{
+		case PROXY_TSF_TYPE_DATA:
+			*data = zbx_strdup(NULL, pvalue->value);
+			break;
+		case PROXY_TSF_TYPE_EXTEND_DATA:
+			*extend_data = zbx_strdup(NULL, pvalue->value);
+			break;
+		default:
+			break;
+		}
+	}
+	//zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s data=%s, extend_data=%s", 
+	//		__func__, print_content(*data), print_content(*extend_data));
+	free_bigvalues(&v_extend_datas);
+}
+
+void parse_bigvalue(zbx_vector_ptr_t *values, char *bigvalue)
+{
+	if(NULL == values || NULL == bigvalue) 
+		return;
+
+	int total_len=0, len = 0, scan_type, offset=0;
+	char tstr[128]={0}, *value = NULL;
+	
+	total_len = strlen(bigvalue);
+	while(offset < total_len)
+	{
+		zbx_bigvalue_t *pvalue = (zbx_bigvalue_t *)zbx_malloc(NULL, sizeof(zbx_bigvalue_t));
+
+		memset(tstr, 0, sizeof(tstr));
+		memcpy(tstr, bigvalue+offset, 8);
+		len = zbx_atoi(tstr);
+		offset += 8;
+
+		memset(tstr, 0, sizeof(tstr));
+		memcpy(tstr, bigvalue+offset, 4);
+		scan_type = zbx_atoi(tstr);
+		offset += 4;
+
+		value = (char *)zbx_malloc(NULL, len + 1);
+		memcpy(value, bigvalue+offset, len);
+		offset += len;
+		value[len]=0;
+
+		pvalue->scan_type = scan_type;
+		pvalue->value = value;
+		zbx_vector_ptr_append(values, pvalue);
+
+		zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s total_len=%d, len=%d, scan_type=%d, value=%s", 
+			__func__, total_len, len, scan_type, print_content(value));
+	}
+}
+
+static void free_bvalue(zbx_bigvalue_t *pvalue)
+{
+	zbx_free(pvalue->value);
+}
+
+void free_bigvalues(zbx_vector_ptr_t *ptr)
+{
+	zbx_vector_ptr_clear_ext(ptr,free_bvalue);
+	zbx_vector_ptr_destroy(ptr);
+}
+
+void tgx_discovery_update_service(int scan_type, zbx_db_drule *drule, DB_DCHECK *dcheck, zbx_vector_ptr_t *dhosts,
+		const char *ip, int port, const char *bigvalue)
+{
+	switch (scan_type)
+	{
+	case PROXY_SCAN_TYPE_VMWARE:
+		server_discover_vmware_from_proxy(scan_type, drule, dcheck, dhosts, bigvalue,  ip, port);
+		break;
+	case PROXY_SCAN_TYPE_NUTANIX:
+		server_discover_nutanix_from_proxy(scan_type, drule, dcheck, dhosts, bigvalue,  ip, port);
+		break;
+	default:
+		break;
+	}
+}
+
+int get_db_select_result(char *sql, zbx_db_info_t *db)
+{ 
+	DB_RESULT result;
+	DB_ROW row;
+	int ret = FAIL, try_count = 0, max_try_count = 0;
+	// 代理程序这边要重试，为了应对服务端数据没有同步过来情况，这部分可以优化，服务端直接传数据过来。
+	if(ZBX_PROGRAM_TYPE_PROXY == g_running_program_type)
+		max_try_count = MAX_DB_SELECT_TIMES;
+    
+	do{
+		result = zbx_db_select(sql);
+		row = zbx_db_fetch(result); 
+		if(NULL != row)
+		{
+			db->result = result;
+			db->row = row;
+			ret = SUCCEED;
+			break;
+		}
+		zbx_db_free_result(result);
+		if(try_count < max_try_count){
+			zbx_sleep(MAX_DB_SELECT_SLEEP_TIME);
+		}
+		try_count++;
+	}while (try_count < max_try_count);
+	return ret;
 }

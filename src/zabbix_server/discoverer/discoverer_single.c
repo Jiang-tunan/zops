@@ -20,6 +20,7 @@ static int get_result_by_values(DB_DCHECK *dcheck, char *value)
 	int result = DISCOVERY_RESULT_SCAN_FAIL;
 	regex_t regex;
 	regmatch_t match;
+		
 	switch (dcheck->devicetype)
 	{
 	case DEVICE_TYPE_APACHE:
@@ -57,7 +58,7 @@ static int get_result_by_values(DB_DCHECK *dcheck, char *value)
 		regfree(&regex);
 		break;
 	case DEVICE_TYPE_PROCESS:
-		if (strstr(value, dcheck->path) != NULL)
+		if (strstr(value, dcheck->process_name) != NULL)
 			result = DISCOVERY_RESULT_SUCCESS;
 		// [{"name":"nginx","processes":13,"vsize":1991778304,"pmem":1.189498,"rss":99254272,"data":36151296,"exe":13950976,"lck":0,"lib":266747904,"pin":0,"pte":3457024,"size":51859456,"stk":1757184,"swap":8318976,"cputime_user":4.860000,"cputime_system":8.040000,"ctx_switches":75525,"threads":13,"page_faults":1}]
 		break;
@@ -95,11 +96,13 @@ static int parse_json_get_credentials(zbx_vector_ptr_t *dchecks, char *credentia
 	char *ip, char *port, char *name, char *path, char *database, int houseid, int managerid)
 {		
 	int ret = DISCOVERY_RESULT_CREDENTIAL_FAIL;
-	DB_RESULT	result;
+	DB_RESULT	result = NULL;
 	DB_ROW		row;
+	zbx_db_info_t db;
 	char		sql[MAX_STRING_LEN];
 	size_t		offset = 0;
 	DB_DCHECK *dcheck = NULL;
+	zbx_vector_str_t	v_strs;
 
 	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset,
 					"SELECT id,type,PORT, USER, PASSWORD, snmpv3_securitylevel, " \
@@ -107,11 +110,13 @@ static int parse_json_get_credentials(zbx_vector_ptr_t *dchecks, char *credentia
 					"ssh_privprotocol,ssh_privatekey FROM  credentials " \
 					" WHERE id in(%s", credentialid); 
 	zbx_snprintf(sql + offset, sizeof(sql) - offset, ")"); 
-	result = zbx_db_select("%s", sql);
-
-	while (NULL != (row = zbx_db_fetch(result)))
+	
+	if(SUCCEED == get_db_select_result(sql, &db)){
+		row = db.row;
+		result =  db.result;
+	}
+	while (NULL != row)
 	{
-		
 		int k = 0;
 		const int user_id = 3;
 		const int passwd_id = 4;
@@ -144,8 +149,19 @@ static int parse_json_get_credentials(zbx_vector_ptr_t *dchecks, char *credentia
 				dcheck->key_ = zbx_strdup(NULL, "perf_counter_en[\"\\Web Service(_Total)\\Service Uptime\"]");
 				break;
 			case DEVICE_TYPE_PROCESS:
-				zbx_snprintf(keyvalue, sizeof(keyvalue), "proc.get[%s,,,summary]",path);
+				zbx_vector_str_create(&v_strs);
+				str_to_vector(&v_strs, path, ",");
+				if(v_strs.values_num > 0) 
+					dcheck->process_name = zbx_strdup(NULL, v_strs.values[0]);
+				if(v_strs.values_num > 1) 
+					dcheck->listen_port = zbx_atoi(v_strs.values[1]);
+				
+				zbx_snprintf(keyvalue, sizeof(keyvalue), "proc.get[%s,,,summary]",dcheck->process_name);
 				dcheck->key_ = zbx_strdup(NULL, keyvalue);
+
+				zbx_vector_str_clear_ext(&v_strs, zbx_str_free);
+				zbx_vector_str_destroy(&v_strs);
+				
 				break;
 			case DEVICE_TYPE_DOCKER:
 				dcheck->key_ = zbx_strdup(NULL, "docker.info");
@@ -170,6 +186,7 @@ static int parse_json_get_credentials(zbx_vector_ptr_t *dchecks, char *credentia
 		} 
 		else if(zbx_strcasecmp(type, "Http") == 0 || zbx_strcasecmp(type, "Https") == 0)
 		{
+			char connectstr[MAX_STRING_LEN];
 			if(zbx_strcasecmp(type, "Http") == 0)
 				dcheck->type = SVC_HTTP;
 			else
@@ -187,6 +204,11 @@ static int parse_json_get_credentials(zbx_vector_ptr_t *dchecks, char *credentia
 				break;
 			case DEVICE_TYPE_KUBERNETES:  //k8s 集群扫描
 				dcheck->key_ = zbx_strdup(dcheck->key_, "kube.livez");
+				break;
+			case DEVICE_TYPE_STORAGE:
+				zbx_snprintf(connectstr, sizeof(connectstr), "%s:%s",ip,port);
+				dcheck->driver = zbx_strdup(NULL, connectstr);
+				dcheck->key_ = zbx_strdup(dcheck->key_, "discover.storage.lun");
 				break;
 			default:
 				break;
@@ -330,6 +352,7 @@ static int parse_json_get_credentials(zbx_vector_ptr_t *dchecks, char *credentia
 			zbx_free(dcheck);
 			break;
 		}
+		row = zbx_db_fetch(result);
 	}
 	zbx_db_free_result(result);
 	return ret;
@@ -595,6 +618,10 @@ void single_register_hostmacro(DB_HOST *host, const DB_DCHECK *dcheck)
 		case DEVICE_TYPE_PROCESS:
 			if (zbx_strcmp_null(macro, "{$PROC.NAME.MATCHES}") == 0)
 				name_id = zbx_atoi(row[0]);
+			else if (zbx_strcmp_null(macro, "{$PROC.IP}") == 0)
+				ip_id = zbx_atoi(row[0]);
+			else if (zbx_strcmp_null(macro, "{$PROC.PORT}") == 0)
+				port_id = zbx_atoi(row[0]);
 			break;
 		case DEVICE_TYPE_DOCKER:
 			if (zbx_strcmp_null(macro, "{$DOCKER.LLD.FILTER.CONTAINER.MATCHES}") == 0)
@@ -677,7 +704,9 @@ void single_register_hostmacro(DB_HOST *host, const DB_DCHECK *dcheck)
 		update_hostmacro_data(port_id, host->hostid, "{$MSSQL.PORT}",  dcheck->ports, "");
 		break;
 	case DEVICE_TYPE_PROCESS:
-		update_hostmacro_data(name_id, host->hostid, "{$PROC.NAME.MATCHES}", dcheck->path, "");
+		update_hostmacro_data(ip_id, host->hostid, "{$PROC.IP}", dcheck->ip, "");
+		update_hostmacro_data(name_id, host->hostid, "{$PROC.NAME.MATCHES}", dcheck->process_name, "");
+		update_hostmacro_int_data(port_id, host->hostid, "{$PROC.PORT}", dcheck->listen_port, "");
 		break;
 	case DEVICE_TYPE_DOCKER:
 		update_hostmacro_data(name_id, host->hostid, "{$DOCKER.LLD.FILTER.CONTAINER.MATCHES}", dcheck->path, "");
@@ -709,6 +738,11 @@ void single_register_hostmacro(DB_HOST *host, const DB_DCHECK *dcheck)
 		update_hostmacro_data(user_id, host->hostid, "{$MONGODB.USER}",  dcheck->user, "");
 		update_hostmacro_data(passwd_id, host->hostid, "{$MONGODB.PASSWORD}",  dcheck->password, "");
 		update_hostmacro_data(driver_id, host->hostid, "{$MONGODB.CONNSTRING}",  dcheck->driver, "");
+		break;
+	case DEVICE_TYPE_STORAGE:
+		update_hostmacro_data(user_id, host->hostid, "{$CONNECTSTRING}",  dcheck->driver, "");
+		update_hostmacro_data(passwd_id, host->hostid, "{$USERNAME}",  dcheck->user, "");
+		update_hostmacro_data(driver_id, host->hostid, "{$PASSWORD}",  dcheck->password, "");
 		break;
 	default:
 		break;
@@ -772,7 +806,7 @@ static int discover_service_http(char **out_value, DB_DCHECK *dcheck, int maxTry
 {
 	AGENT_RESULT	result; 
 	DC_ITEM		item;
-	char url[256]={0}, authorization[2048]={0};
+	char url[256]={0}, authorization[2048]={0}, query_fields[MAX_STRING_LEN] = {0};;
 	int authtype = HTTPTEST_AUTH_NONE, port = 0;
 
 	port = zbx_atoi(dcheck->ports);
@@ -780,26 +814,32 @@ static int discover_service_http(char **out_value, DB_DCHECK *dcheck, int maxTry
 
 	memset(&item, 0, sizeof(DC_ITEM));
 
-	if(DEVICE_TYPE_RABBITMQ_NODE == dcheck->devicetype){
-		zbx_snprintf(url, sizeof(url), "http://%s:%d/api/nodes/%s?memory=true", dcheck->ip, port, dcheck->path);
-	}else if(DEVICE_TYPE_KUBERNETES == dcheck->devicetype){
-		zbx_snprintf(url, sizeof(url), "https://%s:%d/livez?verbose", dcheck->ip, port);
-	}else if(SVC_HTTPS == dcheck->type){
-		zbx_snprintf(url, sizeof(url), "https://%s:%d/%s", dcheck->ip, port, dcheck->path);
-	}else {
-		zbx_snprintf(url, sizeof(url), "http://%s:%d/%s", dcheck->ip, port, dcheck->path);
+	switch (dcheck->devicetype)
+	{
+		case DEVICE_TYPE_RABBITMQ_NODE:
+			authtype = HTTPTEST_AUTH_BASIC;
+			zbx_snprintf(url, sizeof(url), "http://%s:%d/api/nodes/%s?memory=true", dcheck->ip, port, dcheck->path);
+			break;
+		case DEVICE_TYPE_KUBERNETES:
+			zbx_snprintf(url, sizeof(url), "https://%s:%d/livez?verbose", dcheck->ip, port);
+			zbx_snprintf(authorization,sizeof(authorization),"Authorization: Bearer %s", dcheck->ssh_privatekey);
+			break;
+		case DEVICE_TYPE_RABBITMQ_CLUSTER:
+			authtype = HTTPTEST_AUTH_BASIC;
+			zbx_snprintf(url, sizeof(url), "http://%s:%d/%s", dcheck->ip, port, dcheck->path);
+			break;
+		case DEVICE_TYPE_STORAGE:
+			authtype = HTTPTEST_AUTH_BASIC;
+			zbx_snprintf(url, sizeof(url), "https://%s:%d//api/types/system/instances",dcheck->ip, port);
+			zbx_snprintf(authorization,sizeof(authorization),"Accept: application/json\nContent-Type: application/json\nX-EMC-REST-CLIENT: true");
+			zbx_snprintf(query_fields, sizeof(query_fields),"?compact=true&fields=macAddress");
+			break;
+		default:
+			zbx_snprintf(url, sizeof(url), "http://%s:%d/%s", dcheck->ip, port, dcheck->path);
+			authtype = HTTPTEST_AUTH_NONE;
+			break;
 	}
 
-	switch (dcheck->devicetype)
-	{ 
-	case DEVICE_TYPE_RABBITMQ_CLUSTER:
-	case DEVICE_TYPE_RABBITMQ_NODE:
-		authtype = HTTPTEST_AUTH_BASIC;
-		break;
-	default:
-		break;
-	}
-	
 	zbx_strscpy(item.key_orig, dcheck->key_); 
 	item.key = item.key_orig;
 
@@ -814,19 +854,8 @@ static int discover_service_http(char **out_value, DB_DCHECK *dcheck, int maxTry
 	item.retrieve_mode = ZBX_RETRIEVE_MODE_CONTENT;
 	item.timeout = zbx_strdup(NULL, "2s"); 
 	item.status_codes = zbx_strdup(NULL, "200"); 
-
-	switch (dcheck->devicetype)
-	{ 
-	case DEVICE_TYPE_KUBERNETES:
-		zbx_snprintf(authorization,sizeof(authorization),"Authorization: Bearer %s", dcheck->ssh_privatekey);
-		item.headers = zbx_strdup(NULL, authorization);
-		break;
-	default:
-		item.headers = zbx_strdup(NULL, "");
-		break;
-	}
-	
-	item.query_fields = zbx_strdup(NULL, "");
+	item.headers = zbx_strdup(NULL, authorization);
+	item.query_fields = zbx_strdup(NULL, query_fields);
 	item.posts = zbx_strdup(NULL, "");
 	item.params = zbx_strdup(NULL, "");
 	item.ssl_cert_file = zbx_strdup(NULL, "");
@@ -905,6 +934,8 @@ void* discover_single_handle(void* arg)
 		}
 		 
 		if(SUCCEED == ret) ret = get_result_by_values(dcheck, value);
+		else ret = DISCOVERY_RESULT_SCAN_FAIL;
+		
 		zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s success, ret=%d, value=%s", __func__, ret, value);
 		if(DISCOVERY_RESULT_SUCCESS == ret)
 		{
@@ -1046,10 +1077,12 @@ void* proxy_discover_single_handle(void* arg)
 		if(SVC_HTTP == dcheck->type || SVC_HTTPS == dcheck->type){
 			ret = discover_service_http(&value, dcheck, 2);
 		}else{
-			ret = discover_service(NULL, dcheck, dcheck->ip, atoi(dcheck->ports), config_timeout, &value, &value_alloc);
+			ret = discover_service(NULL, dcheck, dcheck->ip, zbx_atoi(dcheck->ports), config_timeout, &value, &value_alloc);
 		}
 
 		if(SUCCEED == ret) ret = get_result_by_values(dcheck, value);
+		else ret = DISCOVERY_RESULT_SCAN_FAIL;
+
 		dcheck->result = ret; 
 		dcheck->resp_value = zbx_strdup(NULL, value); 
 		

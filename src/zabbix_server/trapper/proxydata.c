@@ -287,7 +287,7 @@ void	zbx_send_proxy_data(zbx_socket_t *sock, zbx_timespec_t *ts, const zbx_confi
 	}
 
 	LOCK_PROXY_HISTORY;
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	zbx_json_init(&j,  ZBX_JSON_PROXY_DATA_BUF_LEN);
 
 	zbx_json_addstring(&j, ZBX_PROTO_TAG_SESSION, zbx_dc_get_session_token(), ZBX_JSON_TYPE_STRING);
 	zbx_get_interface_availability_data(&j, &availability_ts);

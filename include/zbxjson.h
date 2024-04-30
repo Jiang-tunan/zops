@@ -291,6 +291,8 @@ typedef enum
 zbx_json_status_t;
 
 #define ZBX_JSON_STAT_BUF_LEN 4096
+#define ZBX_JSON_PROXY_DATA_BUF_LEN 163840
+
 
 struct zbx_json
 {

@@ -45,6 +45,7 @@
 #include "../ipmi/ipmi_discovery.h"
 #include "../poller/checks_db.h"
 #include "zbx_host_constants.h"
+#include "../../libs/zbxrtc/rtc.h"
 
 #ifdef HAVE_LIBEVENT
 #	include <event.h>
@@ -667,7 +668,7 @@ static void	process_rule(zbx_db_drule *drule, int config_timeout)
 	zbx_db_dhost		dhost;
 	int			host_status, now;
 	char			ip[ZBX_INTERFACE_IP_LEN_MAX], *start, *comma, dns[ZBX_INTERFACE_DNS_LEN_MAX];
-	int			ipaddress[8];
+	int			ipaddress[8], proxy_discover_ntanix_finish = 0;
 	zbx_iprange_t		iprange;
 	zbx_vector_ptr_t	services;
 	zbx_vector_ptr_t	dchecks;
@@ -773,6 +774,15 @@ static void	process_rule(zbx_db_drule *drule, int config_timeout)
 				goto out;
 			}
 
+			// 代理进程中 判断nutanix扫描是否完成
+			proxy_discover_ntanix_finish = 0;
+			if(ZBX_PROGRAM_TYPE_PROXY == g_running_program_type && 2 == dchecks.values_num){
+				DB_DCHECK *dcheck = (DB_DCHECK *)dchecks.values[1];
+				if(SVC_NUTANIX == dcheck->main_type && SVC_SNMPv3 == dcheck->type){
+					proxy_discover_ntanix_finish = 1;
+				}
+			}
+
 			zbx_vector_uint64_clear(&dcheckids);
 			zbx_vector_ptr_clear_ext(&services, zbx_ptr_free);
 			zbx_vector_ptr_clear_ext(&dchecks, (zbx_clean_func_t)DB_dcheck_free);
@@ -782,16 +792,26 @@ static void	process_rule(zbx_db_drule *drule, int config_timeout)
 				zbx_process_events(NULL, NULL);
 				zbx_clean_events();
 			}
-			else if (0 != (program_type & ZBX_PROGRAM_TYPE_PROXY))
-				proxy_update_host(drule->druleid, ip, dns, host_status, now);
+			// 这段代理代码会导致服务端解析出错(7.0版本没有)，不知道干啥用，先注释
+			// else if (0 != (program_type & ZBX_PROGRAM_TYPE_PROXY))
+			// 	proxy_update_host(drule->druleid, ip, dns, host_status, now);
 
 			zbx_db_commit();
 
 			// 绑定模板，必须在zbx_db_commit()后执行，否则对导致绑定模板失败(因为hosts表还没有保存数据)
-			discovery_update_other(&dhost);
+			if (0 != (program_type & ZBX_PROGRAM_TYPE_SERVER)){
+				discovery_update_other(&dhost);
+			}
 
 			int next_ip = zbx_iprange_next(&iprange, ipaddress);
 			int duser_next_ip = user_discover_next_ip(drule->druleid);
+
+			if(proxy_discover_ntanix_finish){
+				// nutanix 除了有Nutanix扫描，还包括了主机 snmp 扫描，所以代理的Nutanix结束标志为主机 snmp 扫描结束才算结束
+				proxy_discover_finished(drule->druleid);
+			}
+			
+
 			//没有下一个ip了 || 开始用户的扫描 或者 停止用户的扫描
 			if (!(SUCCEED == next_ip || SUCCEED == duser_next_ip))
 				break;
@@ -1002,6 +1022,7 @@ static int	process_discovery(time_t *nextcheck, int config_timeout)
 							" and c.uniq=1"
 				" where r.druleid=" ZBX_FS_UI64, druleid);
 
+		// 如果是服务端，则只扫描 不是代理的规则
 		if(ZBX_PROGRAM_TYPE_SERVER == g_running_program_type){
 			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset," and (ISNULL(proxy_hostid) or proxy_hostid = 0)");
 		}
@@ -1203,10 +1224,17 @@ ZBX_THREAD_ENTRY(discoverer_thread, args)
 	     
 		if ((int)sec >= nextcheck || g_user_discover.need_scan_druleid_num > 0)
 		{	//发现主机入口
-			rule_count += process_discovery(&nextcheck, discoverer_args_in->config_timeout);
+			int rcount= process_discovery(&nextcheck, discoverer_args_in->config_timeout);
+			rule_count += rcount;
 			total_sec += zbx_time() - sec;
 			if (0 == nextcheck)
 				nextcheck = time(NULL) + DISCOVERER_DELAY;
+				
+			// 在代理程序中，如果已经发现完毕，通知代理proxyconfig 进程主动全量拉取配置信息，解决扫描出来的主机不能立即拉取到数据问题
+			if(ZBX_PROGRAM_TYPE_PROXY == g_running_program_type && rcount > 0){
+				zbx_rtc_notify_proxy_config_fullsync(discoverer_args_in->config_timeout, &rtc);
+			}
+			
 		}
 
 		sleeptime = zbx_calculate_sleeptime(nextcheck, DISCOVERER_DELAY);

@@ -541,7 +541,7 @@ int	dc_find_hosts_by_ip(int dcheck_type, char *ip)
 	DB_RESULT	result;
 	DB_ROW		row;
 	DB_HOST f_host;
-	int  index = -1;
+	int  findex = -1,index = -1;
 	
 	char itypes[128];
 	memset(itypes, 0, 128);
@@ -554,12 +554,16 @@ int	dc_find_hosts_by_ip(int dcheck_type, char *ip)
 	{
 		f_host.hostid = zbx_atoi(row[0]);
 		index = zbx_vector_ptr_search(&g_DC_HOSTS, &f_host, dc_compare_hosts_hostid);
-		break; 
+		// 被查找的host 也必须是服务器/虚拟机/网络设备
+		if(index >= 0 && ((DB_HOST *)g_DC_HOSTS.values[index])->device_type < DEVICE_TYPE_HW_MAX){
+			findex = index;
+			break; 
+		}
 	}  
 	zbx_db_free_result(result);  
  
-	zabbix_log(LOG_LEVEL_DEBUG,"%s find_index=%d, ip=%s",  __func__, index, ip);
-	return index;
+	zabbix_log(LOG_LEVEL_DEBUG,"%s find_index=%d, dcheck_type=%d, ip=%s",  __func__, findex, dcheck_type, ip);
+	return findex;
 }
 
 
@@ -927,8 +931,8 @@ int discoverer_bind_templateid(DB_HOST *host)
 	} while (count < maxTry); 
 	
 	
-	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s  ret=%d,hostid=%llu, templateid=%d, response=%s",
-			__func__, ret, host->hostid, host->templateid, response);
+	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s  ret=%d,hostid=%llu, templateid=%d, hstgrpid=%d, response=%s",
+			__func__, ret, host->hostid, host->templateid, host->hstgrpid, response);
 
 	if (item.timeout) {
 		zbx_free(item.timeout);

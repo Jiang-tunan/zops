@@ -100,8 +100,7 @@ static int	proxy_data_sender(int *more, int now, int *hist_upload_state, const z
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __func__);
 
 	*more = ZBX_PROXY_DATA_DONE;
-	zbx_json_init(&j, 16 * ZBX_KIBIBYTE);
-
+	zbx_json_init(&j, 160 * ZBX_KIBIBYTE);
 	zbx_json_addstring(&j, ZBX_PROTO_TAG_REQUEST, ZBX_PROTO_VALUE_PROXY_DATA, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&j, ZBX_PROTO_TAG_HOST, CONFIG_HOSTNAME, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&j, ZBX_PROTO_TAG_SESSION, zbx_dc_get_session_token(), ZBX_JSON_TYPE_STRING);

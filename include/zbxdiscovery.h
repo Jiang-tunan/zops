@@ -47,14 +47,14 @@
 #define TEMPLATEID_SERVER_WINDOWS_BY_SNMP	6	// windows服务器SNMP模板
 // 1.5版本把这4个多余的模板去掉
 // #define TEMPLATEID_VM_LINUX_BY_AGENT		7	// linux虚拟机Agent模板
-// #define TEMPLATEID_VM_LINUX_BY_SNMP			8	// linux虚拟机SNMP模板
-// #define TEMPLATEID_VM_WINDOWS_BY_AGENT		9	// windows虚拟机Agent模板
-// #define TEMPLATEID_VM_WINDOWS_BY_SNMP		10	// windows虚拟机SNMP模板
-#define TEMPLATEID_NETWORK_DEVICE_SNMP		11 	// 网络设备SNMP,Agent的模板ID
+// #define TEMPLATEID_VM_LINUX_BY_SNMP		8	// linux虚拟机SNMP模板
+// #define TEMPLATEID_VM_WINDOWS_BY_AGENT	9	// windows虚拟机Agent模板
+// #define TEMPLATEID_VM_WINDOWS_BY_SNMP	10	// windows虚拟机SNMP模板
+#define TEMPLATEID_NETWORK_DEVICE_SNMP		11 	// 网络设备SNMP的模板ID
 #define TEMPLATEID_VMWARE_HV_SERVER			12 	// 物理机VMware模板id
 #define TEMPLATEID_VMWARE_VM_SERVER			13 	// 虚拟机VMware模板id
 #define TEMPLATEID_SERVER_IPMI				14 	// 物理机IPMI模板id
-#define TEMPLATEID_NETWORK_PING				15 	// 网络模板id
+#define TEMPLATEID_NETWORK_PING				15 	// Ping监控模板id
 
 #define TEMPLATEID_NUTANIX_CLUSTER			16 	// Nutanix Cluster模板id 
 #define TEMPLATEID_NUTANIX_HV				17 	// Nutanix HV模板id 
@@ -87,9 +87,9 @@
 #define TEMPLATEID_SOFT_KUBERNETES_CONTROLLER	39 	// k8s CONTROLLER 监控模板id
 #define TEMPLATEID_SOFT_KUBERNETES_SCHEDULER	40 	// k8s SCHEDULER 监控模板id
 #define TEMPLATEID_SOFT_KUBERNETES_KUBELET		41 	// k8s KUBELET 监控模板id
+#define TEMPLATEID_STORAGE_DELL_UNITY			42  // 存储 dell-UnityVSA
 
 
-#define TEMPLATEID_BIND_HTTP_REQ_ID			1
 #define TEMPLATEID_BIND_HTTP_REQ_AUTH		"8ed72cf4a7f28a05b6cf5b257b4acdfc"
 
 
@@ -105,20 +105,19 @@
 #define HSTGRP_TYPE_KUBERNETES		101 //K8S中心
 #define HSTGRP_TYPE_KUBERNETES_SET	102 //K8S包涵的套件
 
-
+#define HSTGRP_ID_PRESET_MAX		1000 // hstgrp表groupid预设值的最大值,超过此值表示有层级关系
  
 
 // 设备类型定义 device_type
-// 硬件设备(1-99):   1:物理机,       2:虚拟机,     3:nutanix集群服务器
-// 数据库(100-199):  100:MySQL,      101: MS SQL, 102:Oracle
-// web服务(200-299): 200:Apache Web, 201:Tomcat,  202:IIS
-// 中间件(300-299):  300:RabbitMO,   301:Kafka,   302:Nginx
-// 邮件服务(400-499):
-// 工具服务(500-599): 500:ping监控
+// 详细见 http://192.168.31.22:3000/project/16/interface/api/671
+
 //硬件设备
 #define DEVICE_TYPE_HV      	1 //物理机
 #define DEVICE_TYPE_VM			2 //虚拟机
-#define DEVICE_TYPE_CLUSTER		3 //集群机
+#define DEVICE_TYPE_CLUSTER		3 //集群
+
+#define DEVICE_TYPE_NETWORK		10 //网络设备
+#define DEVICE_TYPE_STORAGE		20 //存储设备
 
 // 硬件限定最大值,包括服务器，虚拟机，网络设备
 #define DEVICE_TYPE_HW_MAX					99
@@ -146,6 +145,7 @@
 #define DEVICE_TYPE_KAFKA					302
 #define DEVICE_TYPE_NGINX					303
 
+//容器
 #define DEVICE_TYPE_DOCKER					400
 #define DEVICE_TYPE_KUBERNETES				401
 #define DEVICE_TYPE_KUBERNETES_API			402
@@ -157,10 +157,30 @@
 //工具服务
 #define DEVICE_TYPE_PING					500
 
+//自定义软件监控
 #define DEVICE_TYPE_PROCESS					600
 
 
 #define DEFAULT_NOPROXY_HOSTID				0
+
+// 以下为代理扫描类型，对应proxy_dhistory表中的scan_type字段
+#define PROXY_SCAN_TYPE_VMWARE			100		//VMWare 
+#define PROXY_SCAN_TYPE_NUTANIX			110		//Nutanix
+
+// 以下为代理传输类型，对应proxy_dhistory表中的bigvalue中使用
+#define PROXY_TSF_TYPE_SESSION			1 		//SESSION,代理使用此session扫描出来的数据
+
+#define PROXY_TSF_TYPE_DATA				2 		//扫描出来的数据
+#define PROXY_TSF_TYPE_EXTEND_DATA		3 		//扫描出来的扩展数据
+
+#define PROXY_TSF_TYPE_VMWARE_DC		101 	//VMWare中心
+#define PROXY_TSF_TYPE_VMWARE_CLUSTER	102 	//VMWare集群
+#define PROXY_TSF_TYPE_VMWARE_HV		103 	//VMWare物理机
+#define PROXY_TSF_TYPE_VMWARE_WM		104 	//VMWare虚拟机
+  
+#define PROXY_TSF_TYPE_NUTANIX_CLUSTER	111 	// Nutanix集群
+#define PROXY_TSF_TYPE_NUTANIX_HV		112 	// Nutanix物理机
+#define PROXY_TSF_TYPE_NUTANIX_WM		113 	// Nutanix虚拟机
 
 // 消息队列结构体
 
@@ -207,6 +227,10 @@ typedef struct
 	char		value[ZBX_MAX_DISCOVERED_VALUE_SIZE];
 	int		status;
 	time_t		itemtime;
+
+	// add by 1.5,为了代理扫描WMWare，Nutanix哪些使用
+	int		scan_type;
+	char	*bigvalue;
 }
 zbx_dservice_t;
 
@@ -287,10 +311,14 @@ typedef struct
 	int         credentialid;   // 扫描和监控凭证，正常情况这个必须有值
 	int         devicetype;
 	
+	char		*manufacturer;	// 存储设备型号
 	char		*params;
 	char		*dsn_name;		// odbc 数据源名称
 	char		*driver;	// odbc 驱动路径
 	char		*database;	// odbc 数据库名称
+
+	char		*process_name;  //进程名称
+	int			listen_port; 	//进程监听端口
 
 	int         main_type;  //主扫描类型,当一个规则有多个扫描类型时用
 	
@@ -360,10 +388,11 @@ void vector_to_str_max(zbx_vector_str_t *v, char **out, const char *split, int m
 void str_to_vector(zbx_vector_str_t *out, const char *str, const char *split);
 char * format_mac_address(char *mac_address);
 
-void discovery_parsing_macs(const char *data, zbx_vector_str_t *out);
+void discovery_parsing_macs(const char *data, const char *field_name, zbx_vector_str_t *out);
 void discovery_parsing_value(const char *data, const char *field, char **out);
 void discovery_parsing_value_model(const char *entphysicalmodelname, const char *sysdesc, const int dcheck_type, int *groupid, char **manufacturer, int *templateid);
 void discovery_parsing_value_os(const char *sysdesc, char **out);
+void storage_template(const char *manufacturer_name, const char *model, int *hst_groupid, int *templateid);
 
 
 void host_rename(zbx_vector_ptr_t *v_hosts, int self_index, int device_type, char **host_name);

@@ -48,7 +48,7 @@ void free_kubernetes_server(kubernetes_server *p_server)
 	zbx_free(p_server);
 }
 
-static int kubernetes_recv(int scan_type, char **out_value, DB_DCHECK *dcheck, int maxTry)
+static int kubernetes_recv(int scan_type, zbx_vector_str_t *v_ports, char **out_value, DB_DCHECK *dcheck, int maxTry)
 {
 	AGENT_RESULT	result; 
 	DC_ITEM		item;
@@ -61,7 +61,26 @@ static int kubernetes_recv(int scan_type, char **out_value, DB_DCHECK *dcheck, i
 	memset(&item, 0, sizeof(DC_ITEM));
 
 	// zbx_snprintf(url, sizeof(url), "https://%s:%d/api/v1/nodes?labelSelector=node-role.kubernetes.io/control-plane", dcheck->ip, port);
-	zbx_snprintf(url, sizeof(url), "https://%s:%d/api/v1/nodes", dcheck->ip, port);
+	switch (scan_type)
+	{
+	case DEVICE_TYPE_KUBERNETES_CONTROLLER:
+		if(NULL != v_ports && v_ports->values_num > 0){
+			port = zbx_atoi(v_ports->values[0]);
+		} 
+		if(0 == port) port = 10250;  //10257
+		zbx_snprintf(url, sizeof(url), "https://%s:%d/metrics", dcheck->ip, port);  
+		break;
+	case DEVICE_TYPE_KUBERNETES_SCHEDULER:
+		if(NULL != v_ports && v_ports->values_num > 1){
+			port = zbx_atoi(v_ports->values[1]);
+		} 
+		if(0 == port) port = 10250;  //10259
+		zbx_snprintf(url, sizeof(url), "https://%s:%d/metrics", dcheck->ip, port);  
+		break;
+	default:
+		zbx_snprintf(url, sizeof(url), "https://%s:%d/api/v1/nodes", dcheck->ip, port);
+		break;
+	}
 	
 	// zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s,  type=%d,ip=%s,ports=%s, url=%s, authorization=%s",
 	// 	__func__,  dcheck->type, dcheck->ip,dcheck->ports, url, dcheck->ssh_privatekey);	
@@ -83,7 +102,6 @@ static int kubernetes_recv(int scan_type, char **out_value, DB_DCHECK *dcheck, i
 
  	zbx_snprintf(authorization,sizeof(authorization),"Authorization: Bearer %s", dcheck->ssh_privatekey);
 	item.headers = zbx_strdup(NULL, authorization);
-	
 	
 	item.query_fields = zbx_strdup(NULL, "");
 	item.posts = zbx_strdup(NULL, "");
@@ -342,20 +360,19 @@ static int discovery_register_kubernetes(int device_type, void *value, DB_DCHECK
 		if(v_ports->values_num > 0){
 			port = zbx_atoi(v_ports->values[0]);
 		} 
-		if(0 == port) port = 10250;  //10257
+		if(0 == port) port = 10257;
 		zbx_snprintf(k8s_url, sizeof(k8s_url), "https://%s:%d/metrics", ip, port);  
 		break;
 	case DEVICE_TYPE_KUBERNETES_SCHEDULER:
 		if(v_ports->values_num > 1){
 			port = zbx_atoi(v_ports->values[1]);
 		} 
-		if(0 == port) port = 10250;  //10259
+		if(0 == port) port = 10259;
 		zbx_snprintf(k8s_url, sizeof(k8s_url), "https://%s:%d/metrics", ip, port);  
 		break;
 	case DEVICE_TYPE_KUBERNETES_KUBELET:
 		zbx_snprintf(k8s_url, sizeof(k8s_url), "https://%s:%d", ip, port); 
 		
-
 		break;
 	default:
 		break;
@@ -435,6 +452,7 @@ static char* build_k8s_resp_json(int result, char *session, char *hostid, char* 
 		zbx_json_addstring(&json, "hostid", hostid, ZBX_JSON_TYPE_STRING);
 		if(NULL != templateids)
 			zbx_json_addstring(&json, "templateid", templateids, ZBX_JSON_TYPE_STRING);
+		zbx_json_close(&json);
 	}  
  	zbx_json_close(&json);
 	char *sjson = strdup(json.buffer);
@@ -448,7 +466,7 @@ static void do_discover_kubernetes(int recv_type, char * session, const DB_DCHEC
 	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s", __func__);
 	int ret = DISCOVERY_RESULT_SCAN_FAIL;
 	int top_groupid = HSTGRP_GROUPID_VIRTUALIZATION; // 扫描的最顶层群组id，默认是容器/虚拟化的groupid
-	char *value = NULL, *p_hosts = NULL;
+	char *value = NULL,*controller_value = NULL, *scheduler_value = NULL, *p_hosts = NULL;
 	kubernetes_server *p_server = NULL;
 
 	zbx_vector_ptr_t v_hstgrps;
@@ -459,18 +477,27 @@ static void do_discover_kubernetes(int recv_type, char * session, const DB_DCHEC
 
 	zbx_vector_str_t v_ports;
 	zbx_vector_str_create(&v_ports);
+	str_to_vector(&v_ports, dcheck->path, ","); 
 
 	if(from_proxy)
 	{
 		value = dcheck->resp_value;
-		if(SUCCEED !=  dcheck->result)
+		ret = dcheck->result;
+		if(SUCCEED !=  ret)
 			goto out; 
 	}else{
-		kubernetes_recv(0, &value, dcheck, 3);
+		// 必须3个请求都要成功，才能算成功
+		ret = kubernetes_recv(DEVICE_TYPE_KUBERNETES, &v_ports, &value, dcheck, 3);
+		if(SUCCEED == ret)
+			ret = kubernetes_recv(DEVICE_TYPE_KUBERNETES_CONTROLLER, &v_ports, &controller_value, dcheck, 3);
+		if(SUCCEED == ret)
+			ret = kubernetes_recv(DEVICE_TYPE_KUBERNETES_SCHEDULER, &v_ports, &scheduler_value, dcheck, 3);
 	}
 	
-	if(NULL == value || strlen(value) == 0) 
+	if(SUCCEED != ret || NULL == value || strlen(value) == 0){
+		ret = DISCOVERY_RESULT_SCAN_FAIL;
 		goto out; 
+	} 
   
 	if(NULL != (p_server = __parse_k8s_data(value)) && p_server->nodes.values_num > 0)
 	{
@@ -480,7 +507,7 @@ static void do_discover_kubernetes(int recv_type, char * session, const DB_DCHEC
 		if(HSTGRP_GROUPID_VIRTUALIZATION == top_groupid){
 			top_groupid = get_discover_vc_groupid(HSTGRP_TYPE_KUBERNETES, p_server->ip, dcheck->proxy_hostid);
 		} 
-		str_to_vector(&v_ports, dcheck->path, ","); 
+		
 		p_server->hstgrpid = top_groupid; 
 		zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s success. ip=%s, top_groupid=%d, hstgrpid=%d, ports=%s,node size=%d", 
 			__func__, p_server->ip, top_groupid, p_server->hstgrpid, dcheck->path, p_server->nodes.values_num);
@@ -511,8 +538,11 @@ out:
 	discover_response_replay(recv_type, response);
 
 	zbx_free(value); 
+	zbx_free(controller_value);
+	zbx_free(scheduler_value);
 	zbx_free(p_hosts);
 	zbx_free(response); 
+
 	zbx_vector_str_clear_ext(&v_hosts, zbx_str_free);
 	zbx_vector_str_destroy(&v_hosts);
 
@@ -546,15 +576,27 @@ void proxy_discover_kubernetes(int recv_type, char * session, char *request, DB_
 {
 	zabbix_log(LOG_LEVEL_DEBUG,"#TOGNIX#%s", __func__);
 	int ret = DISCOVERY_RESULT_SCAN_FAIL;
-	char *value = NULL, *response = NULL;
+	char *value = NULL,*controller_value = NULL, *scheduler_value = NULL, *response = NULL;
 	kubernetes_server *p_server = NULL;
 	
 	zbx_vector_ptr_t dchecks;
 	zbx_vector_ptr_create(&dchecks);
 
-	kubernetes_recv(0, &value, dcheck, 3);
-	if(NULL == value || strlen(value) == 0) 
+	zbx_vector_str_t v_ports;
+	zbx_vector_str_create(&v_ports);
+	str_to_vector(&v_ports, dcheck->path, ","); 
+
+	// 必须3个请求都要成功，才能算成功
+	ret = kubernetes_recv(DEVICE_TYPE_KUBERNETES, &v_ports, &value, dcheck, 3);
+	if(SUCCEED == ret)
+		ret = kubernetes_recv(DEVICE_TYPE_KUBERNETES_CONTROLLER, &v_ports, &controller_value, dcheck, 3);
+	if(SUCCEED == ret)
+		ret = kubernetes_recv(DEVICE_TYPE_KUBERNETES_SCHEDULER, &v_ports, &scheduler_value, dcheck, 3);
+
+	if(SUCCEED != ret || NULL == value || strlen(value) == 0){
+		ret = DISCOVERY_RESULT_FAIL;
 		goto out; 
+	} 
   
 	if(NULL != (p_server = __parse_k8s_data(value)) && p_server->nodes.values_num > 0)
 	{
@@ -563,7 +605,7 @@ void proxy_discover_kubernetes(int recv_type, char * session, char *request, DB_
 
 out:
 	dcheck->result = ret; 
-	if(NULL != value){
+	if(SUCCEED == ret && NULL != value){
 		dcheck->resp_value = value; 
 	}
 	zbx_vector_ptr_append(&dchecks, dcheck);
@@ -576,10 +618,12 @@ out:
 	
 	discover_response_replay(recv_type, response);
 	
-	zbx_free(value);
+	
 	dcheck->resp_value = NULL;
-
+	zbx_free(value);
 	zbx_free(response);
+	zbx_free(controller_value);
+	zbx_free(scheduler_value);
 	free_kubernetes_server(p_server);
 
 	zbx_vector_ptr_destroy(&dchecks);

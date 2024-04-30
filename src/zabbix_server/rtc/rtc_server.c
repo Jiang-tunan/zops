@@ -450,6 +450,9 @@ static void	rtc_ha_failover_delay(const char *data, char **out)
  ******************************************************************************/
 int	rtc_process_request_ex_server(zbx_rtc_t *rtc, zbx_uint32_t code, const unsigned char *data, char **result)
 {
+	zbx_uint32_t data_size = (data == NULL)?0:strlen(data);
+	// zabbix_log(LOG_LEVEL_DEBUG, "#TOGNIX#%s code=%d, data_size=%d, data=%s", __func__, code, data_size, data);
+	
 	switch (code)
 	{
 #if defined(HAVE_SIGQUEUE)
@@ -465,7 +468,7 @@ int	rtc_process_request_ex_server(zbx_rtc_t *rtc, zbx_uint32_t code, const unsig
 			zbx_service_reload_cache();
 			return SUCCEED;
 		case ZBX_RTC_SECRETS_RELOAD:
-			zbx_rtc_notify(rtc, ZBX_PROCESS_TYPE_CONFSYNCER, 0, ZBX_RTC_SECRETS_RELOAD, NULL, 0);
+			zbx_rtc_notify(rtc, ZBX_PROCESS_TYPE_CONFSYNCER, 0, ZBX_RTC_SECRETS_RELOAD, (const char *)data, data_size);
 			return SUCCEED;
 		case ZBX_RTC_TRIGGER_HOUSEKEEPER_EXECUTE:
 			zbx_rtc_notify(rtc, ZBX_PROCESS_TYPE_TRIGGERHOUSEKEEPER, 0, ZBX_RTC_TRIGGER_HOUSEKEEPER_EXECUTE,
@@ -487,7 +490,7 @@ int	rtc_process_request_ex_server(zbx_rtc_t *rtc, zbx_uint32_t code, const unsig
 					(const char *)data, (zbx_uint32_t)strlen((const char *)data) + 1);
 			return SUCCEED;
 		case ZBX_RTC_PROXYPOLLER_PROCESS:
-			zbx_rtc_notify(rtc, ZBX_PROCESS_TYPE_PROXYPOLLER, 0, ZBX_RTC_PROXYPOLLER_PROCESS, NULL, 0);
+			zbx_rtc_notify(rtc, ZBX_PROCESS_TYPE_PROXYPOLLER, 0, ZBX_RTC_PROXYPOLLER_PROCESS, (const char *)data, data_size);
 			return SUCCEED;
 	}
 
